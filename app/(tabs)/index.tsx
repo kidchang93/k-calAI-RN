@@ -13,12 +13,21 @@ import {
   View,
 } from 'react-native';
 
-import { CALORIE_API_URL, Prediction, uploadFoodPhoto } from '@/services/calorie-api';
+import {
+  CALORIE_API_URL,
+  CALORIE_DETAIL_API_URL,
+  Prediction,
+  requestCalorieDetail,
+  uploadFoodPhoto,
+} from '@/services/calorie-api';
 
 export default function HomeScreen() {
   const [photo, setPhoto] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedPrediction, setSelectedPrediction] = useState<Prediction | null>(null);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [calorieResult, setCalorieResult] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const topPrediction = predictions[0];
@@ -47,6 +56,8 @@ export default function HomeScreen() {
     if (!result.canceled) {
       setPhoto(result.assets[0]);
       setPredictions([]);
+      setSelectedPrediction(null);
+      setCalorieResult(null);
       setErrorMessage(null);
     }
   };
@@ -69,6 +80,8 @@ export default function HomeScreen() {
     if (!result.canceled) {
       setPhoto(result.assets[0]);
       setPredictions([]);
+      setSelectedPrediction(null);
+      setCalorieResult(null);
       setErrorMessage(null);
     }
   };
@@ -90,6 +103,8 @@ export default function HomeScreen() {
       });
 
       setPredictions(result.sort((a, b) => b.score - a.score));
+      setSelectedPrediction(null);
+      setCalorieResult(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
       setErrorMessage(message);
@@ -101,7 +116,26 @@ export default function HomeScreen() {
   const reset = () => {
     setPhoto(null);
     setPredictions([]);
+    setSelectedPrediction(null);
+    setCalorieResult(null);
     setErrorMessage(null);
+  };
+
+  const calculateCalories = async (prediction: Prediction) => {
+    setSelectedPrediction(prediction);
+    setCalorieResult(null);
+    setIsCalculating(true);
+    setErrorMessage(null);
+
+    try {
+      const result = await requestCalorieDetail(prediction.label);
+      setCalorieResult(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+      setErrorMessage(message);
+    } finally {
+      setIsCalculating(false);
+    }
   };
 
   return (
@@ -181,8 +215,14 @@ export default function HomeScreen() {
                 <Text style={styles.resetText}>다시 선택</Text>
               </Pressable>
             </View>
+            <Text style={styles.resultGuide}>음식을 선택하면 예상 칼로리를 계산합니다.</Text>
             {predictions.map((prediction) => (
-              <PredictionRow key={`${prediction.label}-${prediction.score}`} prediction={prediction} />
+              <PredictionRow
+                key={`${prediction.label}-${prediction.score}`}
+                isSelected={selectedPrediction?.label === prediction.label}
+                prediction={prediction}
+                onPress={() => calculateCalories(prediction)}
+              />
             ))}
           </View>
         ) : (
@@ -191,6 +231,26 @@ export default function HomeScreen() {
             <Text style={styles.endpointUrl}>{CALORIE_API_URL}</Text>
           </View>
         )}
+
+        {selectedPrediction || isCalculating || calorieResult ? (
+          <View style={styles.calorieCard}>
+            <View style={styles.calorieHeader}>
+              <View>
+                <Text style={styles.calorieLabel}>칼로리 계산</Text>
+                <Text style={styles.calorieTitle}>{selectedPrediction?.label ?? '음식을 선택해주세요'}</Text>
+              </View>
+              {isCalculating ? <ActivityIndicator color="#3182f6" /> : null}
+            </View>
+            {calorieResult ? (
+              <Text style={styles.calorieResult}>{calorieResult}</Text>
+            ) : (
+              <Text style={styles.caloriePlaceholder}>
+                {isCalculating ? '선택한 음식의 칼로리를 계산하고 있어요.' : '분석 결과 중 하나를 선택해주세요.'}
+              </Text>
+            )}
+            <Text style={styles.endpointCaption}>{CALORIE_DETAIL_API_URL}</Text>
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -215,19 +275,36 @@ function ActionButton({
   );
 }
 
-function PredictionRow({ prediction }: { prediction: Prediction }) {
+function PredictionRow({
+  isSelected,
+  prediction,
+  onPress,
+}: {
+  isSelected: boolean;
+  prediction: Prediction;
+  onPress: () => void;
+}) {
   const percent = Math.max(0, Math.min(100, prediction.score * 100));
 
   return (
-    <View style={styles.predictionRow}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.predictionRow,
+        isSelected && styles.predictionRowSelected,
+        pressed && styles.pressed,
+      ]}>
       <View style={styles.predictionTopLine}>
         <Text style={styles.predictionLabel}>{prediction.label}</Text>
-        <Text style={styles.predictionScore}>{percent.toFixed(1)}%</Text>
+        <View style={styles.predictionMeta}>
+          <Text style={styles.predictionScore}>{percent.toFixed(1)}%</Text>
+          <MaterialIcons name="chevron-right" size={20} color="#8b95a1" />
+        </View>
       </View>
       <View style={styles.progressTrack}>
         <View style={[styles.progressFill, { width: `${percent}%` }]} />
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -423,13 +500,26 @@ const styles = StyleSheet.create({
     fontSize: 19,
     fontWeight: '900',
   },
+  resultGuide: {
+    color: '#8b95a1',
+    fontSize: 13,
+    lineHeight: 18,
+  },
   resetText: {
     color: '#3182f6',
     fontSize: 14,
     fontWeight: '800',
   },
   predictionRow: {
+    borderColor: '#ffffff',
+    borderRadius: 8,
+    borderWidth: 1,
     gap: 9,
+    padding: 12,
+  },
+  predictionRowSelected: {
+    backgroundColor: '#f5f9ff',
+    borderColor: '#3182f6',
   },
   predictionTopLine: {
     alignItems: 'center',
@@ -446,6 +536,11 @@ const styles = StyleSheet.create({
     color: '#4e5968',
     fontSize: 15,
     fontWeight: '800',
+  },
+  predictionMeta: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 2,
   },
   progressTrack: {
     backgroundColor: '#e5e8eb',
@@ -473,5 +568,42 @@ const styles = StyleSheet.create({
     color: '#4e5968',
     fontSize: 13,
     lineHeight: 18,
+  },
+  calorieCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    gap: 14,
+    padding: 18,
+  },
+  calorieHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  calorieLabel: {
+    color: '#6b7684',
+    fontSize: 13,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  calorieTitle: {
+    color: '#191f28',
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  calorieResult: {
+    color: '#333d4b',
+    fontSize: 15,
+    lineHeight: 23,
+  },
+  caloriePlaceholder: {
+    color: '#8b95a1',
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  endpointCaption: {
+    color: '#b0b8c1',
+    fontSize: 12,
+    lineHeight: 17,
   },
 });

@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { CALORIE_API_URL } from '@/services/calorie-api';
+import { CALORIE_API_URL, CALORIE_DETAIL_API_URL } from '@/services/calorie-api';
 
 export default function TabTwoScreen() {
   return (
@@ -29,12 +29,20 @@ export default function TabTwoScreen() {
           title="예측 결과"
           description="서버의 predictions 배열을 신뢰도 순으로 보여줍니다."
         />
+        <StatusItem
+          icon="calculate"
+          title="칼로리 계산"
+          description="선택한 음식명을 gpt-predict API로 보내 예상 칼로리 설명을 받습니다."
+        />
 
         <View style={styles.serverCard}>
           <Text style={styles.serverLabel}>API endpoint</Text>
           <Text style={styles.serverUrl}>{CALORIE_API_URL}</Text>
+          <Text style={styles.serverLabel}>Calorie endpoint</Text>
+          <Text style={styles.serverUrl}>{CALORIE_DETAIL_API_URL}</Text>
           <Text style={styles.serverHelp}>
-            다른 서버를 사용할 때는 EXPO_PUBLIC_CALORIE_API_URL 환경변수로 교체하세요.
+            다른 서버를 사용할 때는 EXPO_PUBLIC_CALORIE_API_URL,
+            EXPO_PUBLIC_CALORIE_DETAIL_API_URL 환경변수로 교체하세요.
           </Text>
         </View>
       </ScrollView>
