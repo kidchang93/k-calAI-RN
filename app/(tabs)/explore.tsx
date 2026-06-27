@@ -1,112 +1,146 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
+import { CALORIE_API_URL } from '@/services/calorie-api';
 
 export default function TabTwoScreen() {
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Text style={styles.title}>분석 상태</Text>
+          <Text style={styles.description}>
+            Flutter 원본의 촬영, 업로드, 예측 결과 표시 흐름을 React Native로 옮긴 화면입니다.
+          </Text>
+        </View>
+
+        <StatusItem
+          icon="camera-alt"
+          title="사진 입력"
+          description="카메라 촬영과 앨범 선택을 모두 지원합니다."
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText
-          type="title"
-          style={{
-            fontFamily: Fonts.rounded,
-          }}>
-          Explore
-        </ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image
-          source={require('@/assets/images/react-logo.png')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
+        <StatusItem
+          icon="cloud-upload"
+          title="서버 전송"
+          description="multipart/form-data의 file 필드로 이미지를 업로드합니다."
         />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+        <StatusItem
+          icon="analytics"
+          title="예측 결과"
+          description="서버의 predictions 배열을 신뢰도 순으로 보여줍니다."
+        />
+
+        <View style={styles.serverCard}>
+          <Text style={styles.serverLabel}>API endpoint</Text>
+          <Text style={styles.serverUrl}>{CALORIE_API_URL}</Text>
+          <Text style={styles.serverHelp}>
+            다른 서버를 사용할 때는 EXPO_PUBLIC_CALORIE_API_URL 환경변수로 교체하세요.
+          </Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function StatusItem({
+  icon,
+  title,
+  description,
+}: {
+  icon: keyof typeof MaterialIcons.glyphMap;
+  title: string;
+  description: string;
+}) {
+  return (
+    <View style={styles.statusItem}>
+      <View style={styles.statusIcon}>
+        <MaterialIcons name={icon} size={24} color="#3182f6" />
+      </View>
+      <View style={styles.statusTextBox}>
+        <Text style={styles.statusTitle}>{title}</Text>
+        <Text style={styles.statusDescription}>{description}</Text>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f7f8fa',
   },
-  titleContainer: {
+  container: {
+    gap: 12,
+    padding: 20,
+    paddingBottom: 36,
+  },
+  header: {
+    gap: 10,
+    paddingBottom: 8,
+    paddingTop: 18,
+  },
+  title: {
+    color: '#191f28',
+    fontSize: 30,
+    fontWeight: '900',
+    lineHeight: 38,
+  },
+  description: {
+    color: '#6b7684',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  statusItem: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
     flexDirection: 'row',
+    gap: 14,
+    padding: 18,
+  },
+  statusIcon: {
+    alignItems: 'center',
+    backgroundColor: '#edf6ff',
+    borderRadius: 8,
+    height: 48,
+    justifyContent: 'center',
+    width: 48,
+  },
+  statusTextBox: {
+    flex: 1,
+  },
+  statusTitle: {
+    color: '#333d4b',
+    fontSize: 17,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  statusDescription: {
+    color: '#8b95a1',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  serverCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
     gap: 8,
+    marginTop: 6,
+    padding: 18,
+  },
+  serverLabel: {
+    color: '#6b7684',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  serverUrl: {
+    color: '#191f28',
+    fontSize: 16,
+    fontWeight: '800',
+    lineHeight: 22,
+  },
+  serverHelp: {
+    color: '#8b95a1',
+    fontSize: 13,
+    lineHeight: 19,
   },
 });

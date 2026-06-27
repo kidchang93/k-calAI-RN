@@ -1,98 +1,477 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { CALORIE_API_URL, Prediction, uploadFoodPhoto } from '@/services/calorie-api';
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const [photo, setPhoto] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  const topPrediction = predictions[0];
+  const confidence = useMemo(() => {
+    if (!topPrediction) {
+      return null;
+    }
+
+    return `${Math.round(topPrediction.score * 100)}%`;
+  }, [topPrediction]);
+
+  const pickFromCamera = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert('카메라 권한 필요', '음식 사진을 촬영하려면 카메라 권한을 허용해주세요.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.86,
+    });
+
+    if (!result.canceled) {
+      setPhoto(result.assets[0]);
+      setPredictions([]);
+      setErrorMessage(null);
+    }
+  };
+
+  const pickFromLibrary = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert('사진 권한 필요', '앨범에서 음식 사진을 선택하려면 사진 접근 권한을 허용해주세요.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.86,
+    });
+
+    if (!result.canceled) {
+      setPhoto(result.assets[0]);
+      setPredictions([]);
+      setErrorMessage(null);
+    }
+  };
+
+  const analyzePhoto = async () => {
+    if (!photo) {
+      Alert.alert('사진이 필요해요', '분석할 음식 사진을 먼저 촬영하거나 선택해주세요.');
+      return;
+    }
+
+    setIsUploading(true);
+    setErrorMessage(null);
+
+    try {
+      const result = await uploadFoodPhoto({
+        uri: photo.uri,
+        fileName: photo.fileName,
+        mimeType: photo.mimeType,
+      });
+
+      setPredictions(result.sort((a, b) => b.score - a.score));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+      setErrorMessage(message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const reset = () => {
+    setPhoto(null);
+    setPredictions([]);
+    setErrorMessage(null);
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.kicker}>K-Cal AI</Text>
+            <Text style={styles.title}>사진 한 장으로{"\n"}식단을 확인해요</Text>
+          </View>
+          <View style={styles.logoMark}>
+            <MaterialIcons name="restaurant" size={28} color="#ffffff" />
+          </View>
+        </View>
+
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>예상 음식</Text>
+          <Text style={styles.summaryValue}>{topPrediction?.label ?? '아직 분석 전이에요'}</Text>
+          <View style={styles.summaryFooter}>
+            <Text style={styles.summaryCaption}>
+              {confidence ? `신뢰도 ${confidence}` : '음식 사진을 서버로 보내 예측 결과를 받아옵니다'}
+            </Text>
+            <View style={styles.statusPill}>
+              <View style={[styles.statusDot, predictions.length > 0 && styles.statusDotActive]} />
+              <Text style={styles.statusText}>{predictions.length > 0 ? '완료' : '대기'}</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.photoCard}>
+          {photo ? (
+            <Image source={{ uri: photo.uri }} contentFit="cover" style={styles.photo} />
+          ) : (
+            <View style={styles.emptyPhoto}>
+              <MaterialIcons name="add-a-photo" size={36} color="#8b95a1" />
+              <Text style={styles.emptyTitle}>음식 사진을 추가해주세요</Text>
+              <Text style={styles.emptyDescription}>촬영하거나 앨범에서 선택할 수 있어요.</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.actionGrid}>
+          <ActionButton icon="photo-camera" label="촬영" onPress={pickFromCamera} />
+          <ActionButton icon="photo-library" label="앨범" onPress={pickFromLibrary} />
+        </View>
+
+        <Pressable
+          disabled={isUploading || !photo}
+          onPress={analyzePhoto}
+          style={({ pressed }) => [
+            styles.primaryButton,
+            (!photo || isUploading) && styles.primaryButtonDisabled,
+            pressed && photo && !isUploading && styles.pressed,
+          ]}>
+          {isUploading ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <>
+              <MaterialIcons name="auto-awesome" size={20} color="#ffffff" />
+              <Text style={styles.primaryButtonText}>칼로리 분석하기</Text>
+            </>
+          )}
+        </Pressable>
+
+        {errorMessage ? (
+          <View style={styles.errorBox}>
+            <MaterialIcons name="error-outline" size={20} color="#e5484d" />
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        ) : null}
+
+        {predictions.length > 0 ? (
+          <View style={styles.resultSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>분석 결과</Text>
+              <Pressable onPress={reset} hitSlop={10}>
+                <Text style={styles.resetText}>다시 선택</Text>
+              </Pressable>
+            </View>
+            {predictions.map((prediction) => (
+              <PredictionRow key={`${prediction.label}-${prediction.score}`} prediction={prediction} />
+            ))}
+          </View>
+        ) : (
+          <View style={styles.endpointCard}>
+            <Text style={styles.endpointTitle}>연결 서버</Text>
+            <Text style={styles.endpointUrl}>{CALORIE_API_URL}</Text>
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function ActionButton({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: keyof typeof MaterialIcons.glyphMap;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}>
+      <View style={styles.actionIcon}>
+        <MaterialIcons name={icon} size={24} color="#3182f6" />
+      </View>
+      <Text style={styles.actionLabel}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function PredictionRow({ prediction }: { prediction: Prediction }) {
+  const percent = Math.max(0, Math.min(100, prediction.score * 100));
+
+  return (
+    <View style={styles.predictionRow}>
+      <View style={styles.predictionTopLine}>
+        <Text style={styles.predictionLabel}>{prediction.label}</Text>
+        <Text style={styles.predictionScore}>{percent.toFixed(1)}%</Text>
+      </View>
+      <View style={styles.progressTrack}>
+        <View style={[styles.progressFill, { width: `${percent}%` }]} />
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f7f8fa',
+  },
+  container: {
+    gap: 18,
+    padding: 20,
+    paddingBottom: 36,
+  },
+  header: {
+    alignItems: 'flex-start',
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 18,
+  },
+  kicker: {
+    color: '#3182f6',
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 10,
+  },
+  title: {
+    color: '#191f28',
+    fontSize: 30,
+    fontWeight: '900',
+    lineHeight: 39,
+  },
+  logoMark: {
     alignItems: 'center',
+    backgroundColor: '#3182f6',
+    borderRadius: 20,
+    height: 56,
+    justifyContent: 'center',
+    width: 56,
+  },
+  summaryCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    gap: 10,
+    padding: 22,
+  },
+  summaryLabel: {
+    color: '#6b7684',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  summaryValue: {
+    color: '#191f28',
+    fontSize: 28,
+    fontWeight: '900',
+    lineHeight: 35,
+  },
+  summaryFooter: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  summaryCaption: {
+    color: '#8b95a1',
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  statusPill: {
+    alignItems: 'center',
+    backgroundColor: '#f2f4f6',
+    borderRadius: 999,
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  statusDot: {
+    backgroundColor: '#d1d6db',
+    borderRadius: 4,
+    height: 8,
+    width: 8,
+  },
+  statusDotActive: {
+    backgroundColor: '#20c997',
+  },
+  statusText: {
+    color: '#4e5968',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  photoCard: {
+    aspectRatio: 4 / 3,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  photo: {
+    height: '100%',
+    width: '100%',
+  },
+  emptyPhoto: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+  },
+  emptyTitle: {
+    color: '#333d4b',
+    fontSize: 18,
+    fontWeight: '800',
+    marginTop: 14,
+  },
+  emptyDescription: {
+    color: '#8b95a1',
+    fontSize: 14,
+    marginTop: 6,
+  },
+  actionGrid: {
+    flexDirection: 'row',
     gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  actionButton: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    flex: 1,
+    flexDirection: 'row',
+    gap: 10,
+    padding: 16,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  actionIcon: {
+    alignItems: 'center',
+    backgroundColor: '#edf6ff',
+    borderRadius: 8,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  actionLabel: {
+    color: '#333d4b',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  primaryButton: {
+    alignItems: 'center',
+    backgroundColor: '#3182f6',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 8,
+    height: 58,
+    justifyContent: 'center',
+  },
+  primaryButtonDisabled: {
+    backgroundColor: '#b4c7e7',
+  },
+  primaryButtonText: {
+    color: '#ffffff',
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  pressed: {
+    opacity: 0.74,
+  },
+  errorBox: {
+    alignItems: 'flex-start',
+    backgroundColor: '#fff5f5',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 8,
+    padding: 14,
+  },
+  errorText: {
+    color: '#e5484d',
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  resultSection: {
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    gap: 14,
+    padding: 18,
+  },
+  sectionHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  sectionTitle: {
+    color: '#191f28',
+    fontSize: 19,
+    fontWeight: '900',
+  },
+  resetText: {
+    color: '#3182f6',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  predictionRow: {
+    gap: 9,
+  },
+  predictionTopLine: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  predictionLabel: {
+    color: '#333d4b',
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  predictionScore: {
+    color: '#4e5968',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  progressTrack: {
+    backgroundColor: '#e5e8eb',
+    borderRadius: 999,
+    height: 8,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    backgroundColor: '#3182f6',
+    borderRadius: 999,
+    height: '100%',
+  },
+  endpointCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    gap: 6,
+    padding: 16,
+  },
+  endpointTitle: {
+    color: '#6b7684',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  endpointUrl: {
+    color: '#4e5968',
+    fontSize: 13,
+    lineHeight: 18,
   },
 });
