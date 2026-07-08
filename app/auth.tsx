@@ -1,5 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { router } from 'expo-router';
+import { Redirect } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,9 +14,11 @@ import {
 } from 'react-native';
 
 import { AuthMode, AUTH_API_URL, requestPhoneCode, verifyPhoneCode } from '@/services/auth-api';
+import { setAuthSession, useAuthSession } from '@/services/auth-session';
 
 export default function AuthScreen() {
-  const [mode, setMode] = useState<AuthMode>('signup');
+  const session = useAuthSession();
+  const [mode, setMode] = useState<AuthMode>('login');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [code, setCode] = useState('');
   const [devCode, setDevCode] = useState<string | null>(null);
@@ -25,6 +27,12 @@ export default function AuthScreen() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // 인증이 끝나면 세션 스토어가 리렌더를 유발하고, 여기서 탭으로 넘어갑니다.
+  // router.replace() 를 쓰지 않는 이유는 app/_layout.tsx 주석 참고.
+  if (session) {
+    return <Redirect href="/(tabs)" />;
+  }
 
   const isSignup = mode === 'signup';
 
@@ -59,8 +67,8 @@ export default function AuthScreen() {
     setErrorMessage(null);
 
     try {
-      await verifyPhoneCode(mode, phoneNumber, code);
-      router.replace('/(tabs)');
+      const verified = await verifyPhoneCode(mode, phoneNumber, code);
+      setAuthSession(verified);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '휴대폰 인증 중 오류가 발생했습니다.');
     } finally {
@@ -87,14 +95,14 @@ export default function AuthScreen() {
 
           <View style={styles.segment}>
             <Pressable
-              onPress={() => changeMode('signup')}
-              style={[styles.segmentButton, isSignup && styles.segmentButtonActive]}>
-              <Text style={[styles.segmentText, isSignup && styles.segmentTextActive]}>회원가입</Text>
-            </Pressable>
-            <Pressable
               onPress={() => changeMode('login')}
               style={[styles.segmentButton, !isSignup && styles.segmentButtonActive]}>
               <Text style={[styles.segmentText, !isSignup && styles.segmentTextActive]}>로그인</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => changeMode('signup')}
+              style={[styles.segmentButton, isSignup && styles.segmentButtonActive]}>
+              <Text style={[styles.segmentText, isSignup && styles.segmentTextActive]}>회원가입</Text>
             </Pressable>
           </View>
 
