@@ -183,4 +183,4 @@ readErrorMessage(response)
 
 `dev_code`는 서버의 `AUTH_INCLUDE_DEV_CODE=true`일 때만 내려옵니다. 로컬 개발 편의 기능이며 **프로덕션 UI에 노출하면 안 됩니다.**
 
-`/api/predict`의 실패 응답은 `{"detail": ...}`가 아니라 **500 평문**입니다 (서버 버그). `readErrorMessage`가 JSON 파싱에 실패해 원문 `Internal Server Error`를 그대로 반환합니다.
+두 엔드포인트 모두 실패 시 `{"detail": "<사용자용 한국어 메시지>"}`를 반환합니다. `readErrorMessage`가 `detail`을 뽑아 화면 배너에 그대로 표시합니다. 서버는 내부 예외를 `task-logs/error_log.txt`에만 남깁니다.

@@ -88,7 +88,7 @@ npm start              # 그 다음 앱
 
 | 실수 | 왜 문제인가 |
 |------|-------------|
-| `/api/predict` 실패 시 `{"detail": ...}`가 온다고 가정 | 서버가 **500 평문 `Internal Server Error`**를 반환합니다 (`kcalAI-model/api/predict_api.py:27`). 사용자에게 그 문자열이 그대로 보입니다. |
+| 서버 오류 메시지를 그대로 신뢰 | `/api/predict`, `/api/gpt-predict`는 사용자용 한국어 `detail`을 주지만, `/api/s3/*`는 boto3 내부 예외를 담아 보냅니다. |
 | 로그인 상태가 앱 재시작 후에도 유지된다고 가정 | `auth-session.ts`는 모듈 전역 변수입니다. 영속화가 없습니다. |
 | `access_token`이 요청에 붙는다고 가정 | 어떤 `fetch`에도 `Authorization` 헤더가 없습니다. |
 | `ThemedText`/`Colors`가 실제 화면에 적용된다고 가정 | 실화면은 하드코딩 색상을 씁니다. 다크모드가 동작하지 않습니다. |
