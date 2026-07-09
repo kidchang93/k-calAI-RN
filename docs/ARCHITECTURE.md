@@ -147,14 +147,19 @@ analyzePhoto()
             (Array.isArray 검증 후 label/score 강제 캐스팅)
   └─ setPredictions(result.sort((a,b) => b.score - a.score))
 
-calculateCalories(prediction)
-  └─ requestCalorieDetail(prediction.label)
-       └─ POST CALORIE_DETAIL_API_URL  { text: <한국어 프롬프트>, max_tokens: 512 }
-            ← { response_text }
-  └─ setCalorieResult(...)
+selectPrediction(prediction)             # 라벨 확정 → 기록 확정 카드
+  └─ estimateNutrition(prediction.label)
+       └─ POST {HEALTH_API_URL}/nutrition/estimate  { food_label }
+            ← { food_label, kcal_per_serving, serving_desc, carbs_g, protein_g, fat_g, source }
+  └─ setNutrition(...)                   # 실패 시 kcal 수동 입력(TextInput)으로 저장 가능
+
+saveMeal()                               # 끼니(meal_type) + 섭취량(serving_ratio) 선택 후
+  └─ createMeal({ meal_type, items: [{ food_label, serving_ratio, kcal, source: 'ai', confidence }] })
+       └─ POST {HEALTH_API_URL}/meals
+  └─ reset() → router.navigate('/home')  # 홈은 useFocusEffect로 summary를 재조회
 ```
 
-> **프롬프트가 앱에 하드코딩되어 있습니다** (`services/calorie-api.ts:71`). 서버 템플릿화가 예정된 항목입니다 (`kcalAI-model/docs/PROJECT_PLANNING.md`).
+> `requestCalorieDetail`(`/api/gpt-predict`, 프롬프트 하드코딩 `services/calorie-api.ts:71`)은 기록 탭에서 더 이상 쓰지 않지만 `services/calorie-api.ts`에 남아 있습니다.
 
 ## 오류 처리 흐름
 
