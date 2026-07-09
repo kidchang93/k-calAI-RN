@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
 
+import { readErrorMessage } from '@/services/http';
+
 export type AuthMode = 'signup' | 'login';
 
 export type PhoneCodeResponse = {
@@ -27,6 +29,8 @@ const DEFAULT_AUTH_API_URL =
 
 export const AUTH_API_URL = process.env.EXPO_PUBLIC_AUTH_API_URL ?? DEFAULT_AUTH_API_URL;
 
+// 인증 API에는 Authorization 헤더를 붙이지 않는다 (세션 발급 전 단계).
+// 따라서 apiFetch가 아니라 순수 fetch를 쓴다.
 export async function requestPhoneCode(mode: AuthMode, phoneNumber: string): Promise<PhoneCodeResponse> {
   const response = await fetch(`${AUTH_API_URL}/${mode}/request-code`, {
     method: 'POST',
@@ -41,7 +45,13 @@ export async function requestPhoneCode(mode: AuthMode, phoneNumber: string): Pro
     throw new Error(message || `인증번호 요청 실패: ${response.status}`);
   }
 
-  return (await response.json()) as PhoneCodeResponse;
+  const data = (await response.json()) as unknown;
+
+  if (!isPhoneCodeResponse(data)) {
+    throw new Error('서버 응답 형식이 올바르지 않습니다.');
+  }
+
+  return data;
 }
 
 export async function verifyPhoneCode(
@@ -65,25 +75,48 @@ export async function verifyPhoneCode(
     throw new Error(message || `인증 실패: ${response.status}`);
   }
 
-  return (await response.json()) as AuthTokenResponse;
+  const data = (await response.json()) as unknown;
+
+  if (!isAuthTokenResponse(data)) {
+    throw new Error('서버 응답 형식이 올바르지 않습니다.');
+  }
+
+  return data;
 }
 
-async function readErrorMessage(response: Response) {
-  const text = await response.text().catch(() => '');
-
-  if (!text) {
-    return '';
+function isPhoneCodeResponse(value: unknown): value is PhoneCodeResponse {
+  if (typeof value !== 'object' || value === null) {
+    return false;
   }
 
-  try {
-    const data = JSON.parse(text) as { detail?: unknown };
+  const candidate = value as Record<string, unknown>;
 
-    if (data.detail) {
-      return String(data.detail);
-    }
-  } catch {
-    return text;
+  return typeof candidate.message === 'string' && typeof candidate.expires_at === 'string';
+}
+
+function isAuthTokenResponse(value: unknown): value is AuthTokenResponse {
+  if (typeof value !== 'object' || value === null) {
+    return false;
   }
 
-  return text;
+  const candidate = value as Record<string, unknown>;
+
+  if (
+    typeof candidate.access_token !== 'string' ||
+    typeof candidate.token_type !== 'string' ||
+    typeof candidate.expires_at !== 'string' ||
+    typeof candidate.user !== 'object' ||
+    candidate.user === null
+  ) {
+    return false;
+  }
+
+  const user = candidate.user as Record<string, unknown>;
+
+  return (
+    typeof user.id === 'number' &&
+    typeof user.phone_number === 'string' &&
+    typeof user.is_phone_verified === 'boolean' &&
+    typeof user.created_at === 'string'
+  );
 }

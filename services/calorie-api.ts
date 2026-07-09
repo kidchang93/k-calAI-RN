@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
 
+import { apiFetch, readErrorMessage } from '@/services/http';
+
 export type Prediction = {
   label: string;
   score: number;
@@ -39,7 +41,7 @@ export async function uploadFoodPhoto(asset: PhotoAsset): Promise<Prediction[]> 
     } as unknown as Blob);
   }
 
-  const response = await fetch(CALORIE_API_URL, {
+  const response = await apiFetch(CALORIE_API_URL, {
     method: 'POST',
     body: formData,
   });
@@ -62,7 +64,7 @@ export async function uploadFoodPhoto(asset: PhotoAsset): Promise<Prediction[]> 
 }
 
 export async function requestCalorieDetail(foodName: string): Promise<string> {
-  const response = await fetch(CALORIE_DETAIL_API_URL, {
+  const response = await apiFetch(CALORIE_DETAIL_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -85,36 +87,4 @@ export async function requestCalorieDetail(foodName: string): Promise<string> {
   }
 
   return data.response_text.trim();
-}
-
-async function readErrorMessage(response: Response) {
-  const text = await response.text().catch(() => '');
-
-  if (!text) {
-    return '';
-  }
-
-  try {
-    const data = JSON.parse(text) as { detail?: unknown };
-
-    if (Array.isArray(data.detail)) {
-      return data.detail
-        .map((item) => {
-          if (typeof item === 'object' && item !== null && 'msg' in item) {
-            return String(item.msg);
-          }
-
-          return String(item);
-        })
-        .join('\n');
-    }
-
-    if (data.detail) {
-      return String(data.detail);
-    }
-  } catch {
-    return text;
-  }
-
-  return text;
 }

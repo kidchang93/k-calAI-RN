@@ -1,9 +1,11 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { restoreAuthSession } from '@/services/auth-session';
 
 export const unstable_settings = {
   initialRouteName: 'auth',
@@ -17,6 +19,12 @@ export const unstable_settings = {
 //   - 인증 상태로 auth 진입      → app/auth.tsx
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+
+  // 저장된 세션을 복원한다. 여기서는 네비게이션을 하지 않는다.
+  // 복원이 끝나면 각 라우트의 <Redirect> 가드가 스스로 이동을 판단한다.
+  useEffect(() => {
+    void restoreAuthSession();
+  }, []);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>

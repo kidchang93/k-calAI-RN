@@ -13,11 +13,12 @@ import {
   View,
 } from 'react-native';
 
+import { SessionLoading } from '@/components/session-loading';
 import { AuthMode, AUTH_API_URL, requestPhoneCode, verifyPhoneCode } from '@/services/auth-api';
 import { setAuthSession, useAuthSession } from '@/services/auth-session';
 
 export default function AuthScreen() {
-  const session = useAuthSession();
+  const authState = useAuthSession();
   const [mode, setMode] = useState<AuthMode>('login');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [code, setCode] = useState('');
@@ -28,9 +29,15 @@ export default function AuthScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // 세션 복원 중에는 폼을 그리지 않는다. 복원 후 세션이 있으면 아래에서 탭으로 넘어가는데,
+  // 로딩 동안 폼을 보였다가 리다이렉트하면 깜빡임이 생긴다.
+  if (authState.status === 'loading') {
+    return <SessionLoading />;
+  }
+
   // 인증이 끝나면 세션 스토어가 리렌더를 유발하고, 여기서 탭으로 넘어갑니다.
   // router.replace() 를 쓰지 않는 이유는 app/_layout.tsx 주석 참고.
-  if (session) {
+  if (authState.status === 'authenticated') {
     return <Redirect href="/(tabs)" />;
   }
 
@@ -301,7 +308,7 @@ const styles = StyleSheet.create({
     minHeight: 54,
   },
   primaryButtonDisabled: {
-    backgroundColor: '#b4d6ff',
+    backgroundColor: '#b4c7e7',
   },
   buttonDisabled: {
     opacity: 0.55,
@@ -312,7 +319,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   pressed: {
-    opacity: 0.82,
+    opacity: 0.74,
   },
   messageText: {
     color: '#3182f6',
