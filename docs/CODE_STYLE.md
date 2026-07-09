@@ -198,9 +198,14 @@ async function readErrorMessage(response: Response) { ... }
 | 새 색상 하드코딩 | `docs/DESIGN.md` 팔레트 사용 |
 | 영어 사용자 문구 | 한국어 |
 
-## 중복 코드 주의
+## 공통 HTTP 모듈
 
-`readErrorMessage`가 `services/auth-api.ts:71`과 `services/calorie-api.ts:90`에 **중복 정의**되어 있고 동작이 다릅니다 (`calorie-api` 버전만 배열 `detail`을 처리). 세 번째 서비스 모듈을 추가한다면 공통 모듈로 추출하세요.
+네트워크 공통 코드는 `services/http.ts`에 있습니다.
+
+- `readErrorMessage(response)` — 서버 오류 메시지 추출. 배열 `detail`(Pydantic 422)을 `\n`으로 join 합니다. `auth-api.ts`·`calorie-api.ts`가 공유합니다. **재정의하지 마세요.**
+- `apiFetch(input, init)` — 세션이 있으면 `Authorization: Bearer <access_token>`을 붙이고, `401`이면 `clearAuthSession()`으로 세션을 비웁니다. 인증이 필요한 요청은 `fetch` 대신 `apiFetch`를 씁니다.
+
+인증 API(`request-code`, `verify`)는 세션 발급 전 단계라 **순수 `fetch`**를 씁니다 (헤더 미첨부).
 
 ## 테스트 스타일
 

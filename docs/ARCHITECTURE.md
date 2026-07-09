@@ -13,10 +13,12 @@ k-calAI-RN/
 │       ├── index.tsx           # 분석 탭 - 사진 입력 → 예측 → 칼로리
 │       └── explore.tsx         # 상태 탭 - 엔드포인트 진단용
 ├── services/                   # 외부 통신 + 앱 전역 상태
-│   ├── auth-api.ts             # 인증 API 클라이언트
-│   ├── auth-session.ts         # 세션 싱글톤 + useAuthSession 훅 (미커밋)
-│   └── calorie-api.ts          # 추론/칼로리 API 클라이언트
+│   ├── auth-api.ts             # 인증 API 클라이언트 (Authorization 미첨부)
+│   ├── auth-session.ts         # 세션 싱글톤 + 영속화(SecureStore) + useAuthSession 훅
+│   ├── calorie-api.ts          # 추론/칼로리 API 클라이언트
+│   └── http.ts                 # 공통 fetch 래퍼(apiFetch) + readErrorMessage
 ├── components/                 # 재사용 UI
+│   ├── session-loading.tsx     # 세션 복원 대기 화면 (인증 가드 깜빡임 방지)
 │   ├── themed-text.tsx, themed-view.tsx
 │   ├── external-link.tsx, haptic-tab.tsx
 │   ├── hello-wave.tsx, parallax-scroll-view.tsx   # 템플릿 잔재
@@ -66,10 +68,20 @@ expo-router의 파일 기반 라우팅입니다. `app/` 하위 파일이 곧 경
 
 각 라우트가 `<Redirect>`로 **선언형** 가드를 겁니다. 루트 레이아웃은 네비게이션에 관여하지 않습니다.
 
+`useAuthSession()`은 3-상태 판별 유니온(`AuthSessionState`)을 반환합니다.
+
 ```
-app/(tabs)/_layout.tsx   세션 없음  →  <Redirect href="/auth" />
-app/auth.tsx             세션 있음  →  <Redirect href="/(tabs)" />
+{ status: 'loading' }                          복원 중 (아직 판단 불가)
+{ status: 'authenticated', session }           세션 있음
+{ status: 'unauthenticated' }                  세션 없음
+
+app/(tabs)/_layout.tsx   loading → <SessionLoading/>,  unauthenticated → <Redirect href="/auth" />
+app/auth.tsx             loading → <SessionLoading/>,  authenticated   → <Redirect href="/(tabs)" />
 ```
+
+**복원 중(`loading`)에는 리다이렉트하지 않습니다.** 앱 시작 시 `restoreAuthSession()`이 SecureStore에서 세션을 읽는 동안 `status`가 `loading`이고, 이때 `null`(미인증)로 간주해 로그인으로 튕기면 이미 로그인된 사용자가 깜빡입니다. 두 가드 모두 `loading`이면 `components/session-loading.tsx`를 그리고 판단을 미룹니다.
+
+루트 레이아웃(`app/_layout.tsx`)은 `useEffect`에서 `restoreAuthSession()`만 호출합니다. **네비게이션은 하지 않습니다** — 복원이 끝나 `hydrated`가 켜지면 스토어 리스너가 각 가드를 리렌더하고, 가드가 `<Redirect>`로 스스로 이동합니다.
 
 로그인 성공 시 `setAuthSession()`이 세션 스토어 리스너를 깨우고, `auth.tsx`가 리렌더되면서 `<Redirect>`가 탭으로 넘깁니다. 명령형 `router.replace()`는 쓰지 않습니다.
 
@@ -88,15 +100,18 @@ Ensure the Root Layout component is rendering a Slot, or other navigator on the 
 
 ```
 currentSession: AuthTokenResponse | null   (모듈 스코프)
+hydrated: boolean                          (복원 완료 여부)
 listeners: Set<() => void>
 
-setAuthSession(s)  → currentSession = s  → notify() → 모든 useAuthSession 리렌더
-clearAuthSession() → currentSession = null → notify()
-useAuthSession()   → useState(getAuthSession) + useEffect로 listener 등록
+setAuthSession(s)     → currentSession = s → notify() → SecureStore 저장(비웹)
+clearAuthSession()    → currentSession = null → notify() → SecureStore 삭제(비웹)
+restoreAuthSession()  → SecureStore 읽기 → currentSession 복원 → hydrated = true → notify()
+useAuthSession()      → useState(스냅샷) + useEffect로 listener 등록 → AuthSessionState 반환
 ```
 
-**영속화가 없습니다.** 앱을 재시작하면 세션이 사라집니다. `expo-secure-store` 등의 도입이 필요합니다.
-**토큰이 사용되지 않습니다.** `access_token`을 보관만 하고 어떤 요청 헤더에도 넣지 않습니다.
+**영속화: `expo-secure-store`.** `setAuthSession`/`clearAuthSession`이 저장·삭제하고, 앱 시작 시 `restoreAuthSession()`이 복원합니다. 저장 전 `isAuthTokenResponse`로 파싱값을 런타임 검증합니다.
+**웹 폴백:** `expo-secure-store`는 web 미지원이라 `Platform.OS === 'web'`이면 저장을 건너뛰고 메모리만 씁니다(재시작 시 로그아웃). 웹은 정식 지원 대상이 아닙니다.
+**토큰 첨부:** `access_token`은 `services/http.ts`의 `apiFetch`가 세션이 있을 때 `Authorization: Bearer`로 붙입니다. 인증 API(`auth-api.ts`)는 순수 `fetch`를 써 헤더를 붙이지 않습니다.
 
 ## 데이터 흐름
 
@@ -111,8 +126,8 @@ useAuthSession()   → useState(getAuthSession) + useEffect로 listener 등록
   └─ verifyPhoneCode(mode, phoneNumber, code)
        └─ POST {AUTH_API_URL}/{mode}/verify
             ← { access_token, token_type, expires_at, user }
-       └─ setAuthSession(result)
-            └─ _layout.tsx의 useEffect가 router.replace('/(tabs)')
+       └─ setAuthSession(result)   → SecureStore 저장 + 스토어 notify
+            └─ auth.tsx 리렌더 → <Redirect href="/(tabs)" /> (router.replace 아님)
 ```
 
 ### 식단 분석 (`app/(tabs)/index.tsx`)
@@ -156,7 +171,7 @@ readErrorMessage(response)
 
 화면은 `catch`에서 `error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.'`로 받아 `errorMessage` 상태에 넣고 배너로 표시합니다.
 
-`readErrorMessage`는 `auth-api.ts`와 `calorie-api.ts`에 **중복 정의**되어 있으며, `calorie-api.ts` 버전만 배열 `detail`을 처리합니다.
+`readErrorMessage`는 `services/http.ts`의 **공통 함수**입니다 (배열 `detail` = Pydantic 422 처리 포함). `auth-api.ts`·`calorie-api.ts`가 이를 import 합니다. 과거의 중복 정의는 제거되었습니다.
 
 ## 플랫폼 분기
 
