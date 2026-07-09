@@ -1,7 +1,8 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
-import { useMemo, useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -10,25 +11,71 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
+import { ChipGroup } from '@/components/chip-group';
+import { CALORIE_API_URL, Prediction, uploadFoodPhoto } from '@/services/calorie-api';
 import {
-  CALORIE_API_URL,
-  CALORIE_DETAIL_API_URL,
-  Prediction,
-  requestCalorieDetail,
-  uploadFoodPhoto,
-} from '@/services/calorie-api';
+  createMeal,
+  estimateNutrition,
+  MealType,
+  NutritionEstimate,
+} from '@/services/health-api';
 
-export default function HomeScreen() {
+const MEAL_TYPE_OPTIONS: { value: MealType; label: string }[] = [
+  { value: 'breakfast', label: '아침' },
+  { value: 'lunch', label: '점심' },
+  { value: 'dinner', label: '저녁' },
+  { value: 'snack', label: '간식' },
+];
+
+const SERVING_RATIO_OPTIONS: { value: string; label: string; ratio: number }[] = [
+  { value: '0.5', label: '0.5인분', ratio: 0.5 },
+  { value: '1', label: '1인분', ratio: 1 },
+  { value: '1.5', label: '1.5인분', ratio: 1.5 },
+  { value: '2', label: '2인분', ratio: 2 },
+];
+
+// 서버 계약(MealItemInput.kcal)의 상한. 이 값을 넘는 수동 입력은 저장 버튼을 비활성화한다.
+const MAX_KCAL = 100000;
+
+// 현재 시각 기준 끼니 기본값. 사용자가 칩에서 언제든 바꿀 수 있다.
+function defaultMealType(): MealType {
+  const hour = new Date().getHours();
+
+  if (hour < 11) {
+    return 'breakfast';
+  }
+
+  if (hour < 16) {
+    return 'lunch';
+  }
+
+  if (hour < 22) {
+    return 'dinner';
+  }
+
+  return 'snack';
+}
+
+export default function RecordScreen() {
+  const router = useRouter();
   const [photo, setPhoto] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedPrediction, setSelectedPrediction] = useState<Prediction | null>(null);
-  const [isCalculating, setIsCalculating] = useState(false);
-  const [calorieResult, setCalorieResult] = useState<string | null>(null);
+  const [nutrition, setNutrition] = useState<NutritionEstimate | null>(null);
+  const [isEstimating, setIsEstimating] = useState(false);
+  const [mealType, setMealType] = useState<MealType>(() => defaultMealType());
+  const [servingRatio, setServingRatio] = useState(1);
+  const [manualKcal, setManualKcal] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // 라벨을 연속으로 탭했을 때 늦게 도착한 이전 응답이 현재 선택을 덮어쓰지 않게 한다.
+  const estimateSeqRef = useRef(0);
 
   const topPrediction = predictions[0];
   const confidence = useMemo(() => {
@@ -38,6 +85,35 @@ export default function HomeScreen() {
 
     return `${Math.round(topPrediction.score * 100)}%`;
   }, [topPrediction]);
+
+  // 저장에 쓸 최종 kcal. 추정 성공이면 1인분 kcal × 섭취량, 실패면 수동 입력값.
+  const finalKcal = useMemo(() => {
+    if (nutrition) {
+      return Math.min(MAX_KCAL, Math.max(0, Math.round(nutrition.kcal_per_serving * servingRatio)));
+    }
+
+    const trimmed = manualKcal.trim();
+
+    if (trimmed === '') {
+      return null;
+    }
+
+    const parsed = Number(trimmed);
+
+    if (!Number.isFinite(parsed) || parsed < 0 || parsed > MAX_KCAL) {
+      return null;
+    }
+
+    return Math.round(parsed);
+  }, [nutrition, servingRatio, manualKcal]);
+
+  const clearConfirmState = () => {
+    setSelectedPrediction(null);
+    setNutrition(null);
+    setManualKcal('');
+    setServingRatio(1);
+    setMealType(defaultMealType());
+  };
 
   const pickFromCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -56,8 +132,7 @@ export default function HomeScreen() {
     if (!result.canceled) {
       setPhoto(result.assets[0]);
       setPredictions([]);
-      setSelectedPrediction(null);
-      setCalorieResult(null);
+      clearConfirmState();
       setErrorMessage(null);
     }
   };
@@ -80,8 +155,7 @@ export default function HomeScreen() {
     if (!result.canceled) {
       setPhoto(result.assets[0]);
       setPredictions([]);
-      setSelectedPrediction(null);
-      setCalorieResult(null);
+      clearConfirmState();
       setErrorMessage(null);
     }
   };
@@ -103,8 +177,7 @@ export default function HomeScreen() {
       });
 
       setPredictions(result.sort((a, b) => b.score - a.score));
-      setSelectedPrediction(null);
-      setCalorieResult(null);
+      clearConfirmState();
     } catch (error) {
       const message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
       setErrorMessage(message);
@@ -116,27 +189,92 @@ export default function HomeScreen() {
   const reset = () => {
     setPhoto(null);
     setPredictions([]);
-    setSelectedPrediction(null);
-    setCalorieResult(null);
+    clearConfirmState();
     setErrorMessage(null);
   };
 
-  const calculateCalories = async (prediction: Prediction) => {
-    setSelectedPrediction(prediction);
-    setCalorieResult(null);
-    setIsCalculating(true);
+  const runEstimate = async (prediction: Prediction) => {
+    const seq = ++estimateSeqRef.current;
+
+    setIsEstimating(true);
     setErrorMessage(null);
 
     try {
-      const result = await requestCalorieDetail(prediction.label);
-      setCalorieResult(result);
+      const result = await estimateNutrition(prediction.label);
+
+      if (estimateSeqRef.current === seq) {
+        setNutrition(result);
+      }
+    } catch (error) {
+      if (estimateSeqRef.current === seq) {
+        const message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+        setErrorMessage(message);
+      }
+    } finally {
+      if (estimateSeqRef.current === seq) {
+        setIsEstimating(false);
+      }
+    }
+  };
+
+  const selectPrediction = async (prediction: Prediction) => {
+    setSelectedPrediction(prediction);
+    setNutrition(null);
+    setManualKcal('');
+    await runEstimate(prediction);
+  };
+
+  const selectMealType = (value: string) => {
+    const option = MEAL_TYPE_OPTIONS.find((item) => item.value === value);
+
+    if (option) {
+      setMealType(option.value);
+    }
+  };
+
+  const selectServingRatio = (value: string) => {
+    const option = SERVING_RATIO_OPTIONS.find((item) => item.value === value);
+
+    if (option) {
+      setServingRatio(option.ratio);
+    }
+  };
+
+  const saveMeal = async () => {
+    if (!selectedPrediction || finalKcal === null) {
+      return;
+    }
+
+    setIsSaving(true);
+    setErrorMessage(null);
+
+    try {
+      await createMeal({
+        meal_type: mealType,
+        items: [
+          {
+            food_label: selectedPrediction.label,
+            serving_ratio: servingRatio,
+            kcal: finalKcal,
+            source: 'ai',
+            confidence: Math.max(0, Math.min(1, selectedPrediction.score)),
+          },
+        ],
+      });
+
+      reset();
+      router.navigate('/home');
     } catch (error) {
       const message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
       setErrorMessage(message);
     } finally {
-      setIsCalculating(false);
+      setIsSaving(false);
     }
   };
+
+  // 추정이 끝났는데 결과가 없으면 실패 상태 — 수동 입력으로 저장을 이어간다.
+  const isEstimateFailed = selectedPrediction !== null && !isEstimating && nutrition === null;
+  const canSave = selectedPrediction !== null && !isEstimating && !isSaving && finalKcal !== null;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -144,7 +282,7 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View>
             <Text style={styles.kicker}>K-Cal AI</Text>
-            <Text style={styles.title}>사진 한 장으로{"\n"}식단을 확인해요</Text>
+            <Text style={styles.title}>사진 한 장으로{"\n"}식단을 기록해요</Text>
           </View>
           <View style={styles.logoMark}>
             <MaterialIcons name="restaurant" size={28} color="#ffffff" />
@@ -215,13 +353,13 @@ export default function HomeScreen() {
                 <Text style={styles.resetText}>다시 선택</Text>
               </Pressable>
             </View>
-            <Text style={styles.resultGuide}>음식을 선택하면 예상 칼로리를 계산합니다.</Text>
+            <Text style={styles.resultGuide}>음식을 선택하면 영양 정보를 추정해 기록할 수 있어요.</Text>
             {predictions.map((prediction) => (
               <PredictionRow
                 key={`${prediction.label}-${prediction.score}`}
                 isSelected={selectedPrediction?.label === prediction.label}
                 prediction={prediction}
-                onPress={() => calculateCalories(prediction)}
+                onPress={() => void selectPrediction(prediction)}
               />
             ))}
           </View>
@@ -232,23 +370,96 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {selectedPrediction || isCalculating || calorieResult ? (
-          <View style={styles.calorieCard}>
-            <View style={styles.calorieHeader}>
+        {selectedPrediction ? (
+          <View style={styles.confirmCard}>
+            <View style={styles.confirmHeader}>
               <View>
-                <Text style={styles.calorieLabel}>칼로리 계산</Text>
-                <Text style={styles.calorieTitle}>{selectedPrediction?.label ?? '음식을 선택해주세요'}</Text>
+                <Text style={styles.confirmLabel}>기록 확정</Text>
+                <Text style={styles.confirmTitle}>{selectedPrediction.label}</Text>
               </View>
-              {isCalculating ? <ActivityIndicator color="#3182f6" /> : null}
+              {isEstimating ? <ActivityIndicator color="#3182f6" /> : null}
             </View>
-            {calorieResult ? (
-              <Text style={styles.calorieResult}>{calorieResult}</Text>
+
+            {isEstimating ? (
+              <Text style={styles.confirmPlaceholder}>선택한 음식의 영양 정보를 추정하고 있어요.</Text>
+            ) : nutrition ? (
+              <View style={styles.nutritionBox}>
+                <Text style={styles.nutritionKcal}>
+                  {`${nutrition.serving_desc} 기준 약 ${Math.round(nutrition.kcal_per_serving).toLocaleString()} kcal`}
+                </Text>
+                <View style={styles.nutrientRow}>
+                  <NutrientItem label="탄수화물" grams={nutrition.carbs_g} />
+                  <NutrientItem label="단백질" grams={nutrition.protein_g} />
+                  <NutrientItem label="지방" grams={nutrition.fat_g} />
+                </View>
+              </View>
             ) : (
-              <Text style={styles.caloriePlaceholder}>
-                {isCalculating ? '선택한 음식의 칼로리를 계산하고 있어요.' : '분석 결과 중 하나를 선택해주세요.'}
-              </Text>
+              <View style={styles.manualBox}>
+                <Text style={styles.manualGuide}>
+                  영양 정보를 불러오지 못했어요. 칼로리를 직접 입력하면 저장할 수 있어요.
+                </Text>
+                <Pressable
+                  onPress={() => void runEstimate(selectedPrediction)}
+                  style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}>
+                  <Text style={styles.retryButtonText}>다시 추정하기</Text>
+                </Pressable>
+                <TextInput
+                  keyboardType="number-pad"
+                  onChangeText={setManualKcal}
+                  placeholder="섭취 칼로리 (kcal)"
+                  placeholderTextColor="#8b95a1"
+                  style={styles.manualInput}
+                  value={manualKcal}
+                />
+              </View>
             )}
-            <Text style={styles.endpointCaption}>{CALORIE_DETAIL_API_URL}</Text>
+
+            <View style={styles.choiceSection}>
+              <Text style={styles.choiceLabel}>끼니</Text>
+              <ChipGroup
+                options={MEAL_TYPE_OPTIONS}
+                selectedValues={[mealType]}
+                onToggle={selectMealType}
+              />
+            </View>
+
+            <View style={styles.choiceSection}>
+              <Text style={styles.choiceLabel}>섭취량</Text>
+              <ChipGroup
+                options={SERVING_RATIO_OPTIONS}
+                selectedValues={[String(servingRatio)]}
+                onToggle={selectServingRatio}
+              />
+            </View>
+
+            <View style={styles.confirmFooter}>
+              <Text style={styles.finalKcalLabel}>기록될 칼로리</Text>
+              <Text style={styles.finalKcalValue}>
+                {finalKcal !== null
+                  ? `${finalKcal.toLocaleString()} kcal`
+                  : isEstimateFailed
+                    ? '칼로리를 입력해주세요'
+                    : '추정 중'}
+              </Text>
+            </View>
+
+            <Pressable
+              disabled={!canSave}
+              onPress={saveMeal}
+              style={({ pressed }) => [
+                styles.primaryButton,
+                !canSave && styles.primaryButtonDisabled,
+                pressed && canSave && styles.pressed,
+              ]}>
+              {isSaving ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <>
+                  <MaterialIcons name="check" size={20} color="#ffffff" />
+                  <Text style={styles.primaryButtonText}>기록 저장</Text>
+                </>
+              )}
+            </Pressable>
           </View>
         ) : null}
       </ScrollView>
@@ -305,6 +516,15 @@ function PredictionRow({
         <View style={[styles.progressFill, { width: `${percent}%` }]} />
       </View>
     </Pressable>
+  );
+}
+
+function NutrientItem({ label, grams }: { label: string; grams: number | null }) {
+  return (
+    <View style={styles.nutrientItem}>
+      <Text style={styles.nutrientLabel}>{label}</Text>
+      <Text style={styles.nutrientValue}>{grams !== null ? `${grams}g` : '정보 없음'}</Text>
+    </View>
   );
 }
 
@@ -569,41 +789,121 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  calorieCard: {
+  confirmCard: {
     backgroundColor: '#ffffff',
     borderRadius: 8,
-    gap: 14,
+    gap: 16,
     padding: 18,
   },
-  calorieHeader: {
+  confirmHeader: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  calorieLabel: {
+  confirmLabel: {
     color: '#6b7684',
     fontSize: 13,
     fontWeight: '900',
     marginBottom: 4,
   },
-  calorieTitle: {
+  confirmTitle: {
     color: '#191f28',
     fontSize: 22,
     fontWeight: '900',
   },
-  calorieResult: {
-    color: '#333d4b',
-    fontSize: 15,
-    lineHeight: 23,
-  },
-  caloriePlaceholder: {
+  confirmPlaceholder: {
     color: '#8b95a1',
     fontSize: 14,
     lineHeight: 21,
   },
-  endpointCaption: {
-    color: '#b0b8c1',
+  nutritionBox: {
+    backgroundColor: '#f5f9ff',
+    borderRadius: 8,
+    gap: 12,
+    padding: 14,
+  },
+  nutritionKcal: {
+    color: '#191f28',
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  nutrientRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  nutrientItem: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    flex: 1,
+    gap: 4,
+    paddingVertical: 10,
+  },
+  nutrientLabel: {
+    color: '#6b7684',
     fontSize: 12,
-    lineHeight: 17,
+    fontWeight: '700',
+  },
+  nutrientValue: {
+    color: '#333d4b',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  manualBox: {
+    gap: 10,
+  },
+  manualGuide: {
+    color: '#6b7684',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  retryButton: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#edf6ff',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  retryButtonText: {
+    color: '#3182f6',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  manualInput: {
+    backgroundColor: '#f2f4f6',
+    borderRadius: 8,
+    color: '#191f28',
+    fontSize: 16,
+    fontWeight: '700',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  choiceSection: {
+    gap: 8,
+  },
+  choiceLabel: {
+    color: '#6b7684',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  confirmFooter: {
+    alignItems: 'center',
+    backgroundColor: '#f2f4f6',
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  finalKcalLabel: {
+    color: '#6b7684',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  finalKcalValue: {
+    color: '#191f28',
+    fontSize: 18,
+    fontWeight: '900',
   },
 });
