@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -46,9 +46,13 @@ export default function HomeScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    void loadSummary();
-  }, [loadSummary]);
+  // 마운트 시 1회가 아니라 탭이 포커스될 때마다 다시 읽는다.
+  // 기록 탭에서 끼니를 저장하고 돌아왔을 때 합계를 갱신하기 위함이다.
+  useFocusEffect(
+    useCallback(() => {
+      void loadSummary();
+    }, [loadSummary])
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
