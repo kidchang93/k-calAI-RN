@@ -1,0 +1,70 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+
+export default function TrendsScreen() {
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <Text style={styles.title}>추이</Text>
+            <Text style={styles.subtitle}>주·월 섭취 칼로리와 체중 변화를 확인하세요.</Text>
+          </View>
+
+          <View style={styles.placeholderCard}>
+            <MaterialIcons color="#b0b8c1" name="show-chart" size={40} />
+            <Text style={styles.placeholderTitle}>준비 중입니다</Text>
+            <Text style={styles.placeholderText}>
+              섭취 칼로리 그래프와 체중 추이를 다음 단계에서 제공합니다.
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    alignSelf: 'center',
+    gap: 20,
+    maxWidth: 720,
+    width: '100%',
+  },
+  header: {
+    gap: 4,
+  },
+  placeholderCard: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    gap: 8,
+    padding: 32,
+  },
+  placeholderText: {
+    color: '#6b7684',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  placeholderTitle: {
+    color: '#191f28',
+    fontSize: 19,
+    fontWeight: '900',
+  },
+  safeArea: {
+    backgroundColor: '#f7f8fa',
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
+  },
+  subtitle: {
+    color: '#6b7684',
+    fontSize: 14,
+  },
+  title: {
+    color: '#191f28',
+    fontSize: 30,
+    fontWeight: '900',
+  },
+});
