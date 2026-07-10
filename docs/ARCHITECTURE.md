@@ -8,17 +8,43 @@ k-calAI-RN/
 │   ├── _layout.tsx             # 루트 Stack + ThemeProvider + 인증 가드
 │   ├── auth.tsx                # 휴대폰 인증 (initialRouteName)
 │   ├── modal.tsx               # Expo 템플릿 잔재
-│   └── (tabs)/
-│       ├── _layout.tsx         # 하단 탭 (분석 / 상태)
-│       ├── index.tsx           # 분석 탭 - 사진 입력 → 예측 → 칼로리
-│       └── explore.tsx         # 상태 탭 - 엔드포인트 진단용
+│   ├── (tabs)/
+│   │   ├── _layout.tsx         # 하단 탭 (홈 / 기록 / 추이 / 내 정보) + 온보딩 게이트
+│   │   ├── home.tsx            # 홈 탭 - 오늘 요약 (그룹 진입점)
+│   │   ├── index.tsx           # 기록 탭 - 사진 입력 → 예측 → 끼니 저장
+│   │   ├── trends.tsx          # 추이 탭 (준비 중)
+│   │   ├── account.tsx         # 내 정보 탭 (반려동물 진입점, 로그아웃)
+│   │   └── explore.tsx         # 개발자 진단 (탭 바에서 숨김)
+│   ├── onboarding/             # 온보딩 스택 (consent → body → …)
+│   ├── groups/                 # 그룹 스택 (홈에서 진입)
+│   │   ├── _layout.tsx         # 인증 가드 (온보딩 레이아웃과 같은 패턴)
+│   │   ├── index.tsx           # 내 그룹 목록
+│   │   ├── create.tsx          # 그룹 생성
+│   │   ├── join.tsx            # 초대코드로 참여
+│   │   └── [id].tsx            # 그룹 상세 (멤버·펫·초대코드 공유·내 펫 공유)
+│   └── pets/                   # 반려동물 스택 (내 정보에서 진입)
+│       ├── _layout.tsx         # 인증 가드
+│       ├── index.tsx           # 내 반려동물 목록
+│       ├── new.tsx             # 등록
+│       └── [id]/
+│           ├── index.tsx       # 상세 + 오늘 급여 기록·목록 + 삭제
+│           └── edit.tsx        # 수정 (전체 교체 PUT)
 ├── services/                   # 외부 통신 + 앱 전역 상태
 │   ├── auth-api.ts             # 인증 API 클라이언트 (Authorization 미첨부)
 │   ├── auth-session.ts         # 세션 싱글톤 + 영속화(SecureStore) + useAuthSession 훅
 │   ├── calorie-api.ts          # 추론/칼로리 API 클라이언트
+│   ├── health-api.ts           # 프로필·목표·끼니·체중 (DATA_MODEL.md 3~5장)
+│   ├── onboarding-api.ts       # 동의·건강 프로필·질병·알러지 (7장)
+│   ├── meta-api.ts             # 선택지 참조 (10장)
+│   ├── group-api.ts            # 그룹 (9장)
+│   ├── pet-api.ts              # 반려동물·급여 기록 (9장)
 │   └── http.ts                 # 공통 fetch 래퍼(apiFetch) + readErrorMessage
 ├── components/                 # 재사용 UI
 │   ├── session-loading.tsx     # 세션 복원 대기 화면 (인증 가드 깜빡임 방지)
+│   ├── error-banner.tsx        # 오류 배너 + 다시 시도
+│   ├── back-button.tsx         # 탭 밖 스택 화면(그룹·펫)의 뒤로가기
+│   ├── pet-form.tsx            # 반려동물 등록·수정 공용 폼 (services 미의존, 구조적 타입)
+│   ├── chip-group.tsx, meal-type-card.tsx, progress-ring.tsx, onboarding-progress.tsx
 │   ├── themed-text.tsx, themed-view.tsx
 │   ├── external-link.tsx, haptic-tab.tsx
 │   ├── hello-wave.tsx, parallax-scroll-view.tsx   # 템플릿 잔재
@@ -58,9 +84,27 @@ expo-router의 파일 기반 라우팅입니다. `app/` 하위 파일이 곧 경
 | 파일 | 경로 | 비고 |
 |------|------|------|
 | `app/auth.tsx` | `/auth` | `unstable_settings.initialRouteName = 'auth'` |
+| `app/(tabs)/home.tsx` | `/home` | 로그인 직후 진입 탭. 그룹 진입점 |
 | `app/(tabs)/index.tsx` | `/` | 그룹 `(tabs)`는 URL에 나타나지 않음 |
-| `app/(tabs)/explore.tsx` | `/explore` | |
+| `app/(tabs)/account.tsx` | `/account` | 반려동물 진입점 |
+| `app/(tabs)/explore.tsx` | `/explore` | 탭 바에서 숨김 (`href: null`) |
+| `app/onboarding/*.tsx` | `/onboarding/…` | 인증 가드 레이아웃 |
+| `app/groups/index.tsx` | `/groups` | 내 그룹 목록 |
+| `app/groups/create.tsx` | `/groups/create` | 그룹 생성 |
+| `app/groups/join.tsx` | `/groups/join` | 초대코드로 참여 |
+| `app/groups/[id].tsx` | `/groups/:id` | 그룹 상세. `router.push({ pathname: '/groups/[id]', params })` |
+| `app/pets/index.tsx` | `/pets` | 내 반려동물 목록 |
+| `app/pets/new.tsx` | `/pets/new` | 등록 |
+| `app/pets/[id]/index.tsx` | `/pets/:id` | 상세 + 급여 기록 |
+| `app/pets/[id]/edit.tsx` | `/pets/:id/edit` | 수정 |
 | `app/modal.tsx` | `/modal` | `presentation: 'modal'` |
+
+`groups/`·`pets/` 스택은 루트 레이아웃에 등록하지 않고 (expo-router 자동 등록) 각 `_layout.tsx`가
+온보딩 레이아웃과 같은 방식으로 자기 헤더를 숨기고 인증 가드를 겁니다. 화면 상단의 뒤로가기는
+네이티브 헤더 대신 `components/back-button.tsx`를 씁니다 (탭 밖 스택 공통).
+
+> `.expo/types/router.d.ts`(typedRoutes 생성물)는 `expo start` 시 재생성됩니다. 새 라우트를 추가하고
+> 개발 서버를 띄우지 않은 채 `npx tsc`를 돌리려면 이 파일에 라우트가 반영되어 있어야 합니다.
 
 `app.json`의 `experiments.typedRoutes: true`로 `router.replace('/auth')` 같은 호출이 타입 체크됩니다.
 
@@ -200,6 +244,14 @@ readErrorMessage(response)
 | `requestCalorieDetail` | `POST /api/gpt-predict` | `{ text, max_tokens }` | `{ response_text }` — 마크다운 표를 포함할 수 있음 |
 | `requestPhoneCode` | `POST /api/auth/{mode}/request-code` | `{ phone_number }` | `{ message, expires_at, dev_code? }` |
 | `verifyPhoneCode` | `POST /api/auth/{mode}/verify` | `{ phone_number, code }` | `{ access_token, token_type, expires_at, user }` |
+| `createGroup` / `getGroups` / `joinGroup` | `POST·GET /api/groups`, `POST /api/groups/join` | `{ name, kind }` / — / `{ invite_code }` | `GroupSummary` (생성·목록·참여 동일 형태) |
+| `getGroupDetail` | `GET /api/groups/{id}` | — | 상세 + `members[]`(전화번호는 서버가 마스킹) + `pets[]` |
+| `attachPetToGroup` | `POST /api/groups/{id}/pets` | `{ pet_id }` | `{ message }` — 그룹 멤버이면서 펫 소유자만 |
+| `createPet` / `getPets` / `updatePet` / `deletePet` | `POST·GET /api/pets`, `PUT·DELETE /api/pets/{id}` | `PetUpsertRequest` | `PetResponse`. 남의 펫은 404 (존재 은닉). 단건 조회 API 없음 — 상세 화면은 목록에서 찾는다 |
+| `createFeeding` / `getFeedings` | `POST·GET /api/pets/{id}/feedings` | `{ food_label, amount_g, kcal?, fed_at? }` | `FeedingResponse`. 권한 = 소유자 또는 펫이 참여한 그룹의 멤버 |
+
+그룹·반려동물 계약의 정본은 `kcalAI-model/docs/DATA_MODEL.md` 9장입니다.
+끼니·체중·온보딩(`health-api.ts`, `onboarding-api.ts`, `meta-api.ts`)은 3~5·7·10장을 따릅니다.
 
 `dev_code`는 서버의 `AUTH_INCLUDE_DEV_CODE=true`일 때만 내려옵니다. 로컬 개발 편의 기능이며 **프로덕션 UI에 노출하면 안 됩니다.**
 

@@ -19,6 +19,12 @@
 | 인증 가드를 `<Redirect>` 선언형으로 구현 | `app/(tabs)/_layout.tsx`, `app/auth.tsx` | 루트 레이아웃의 `useEffect` + `router.replace()`는 네비게이터 마운트 전에 실행되어 `assertIsReady()` 예외를 던짐 |
 | 기본 API URL에 `Platform.OS === 'android'` 분기 | `services/*.ts` | 에뮬레이터의 `10.0.2.2` 호스트 매핑 |
 | 사진 선택 시 하위 상태를 전부 초기화 | `app/(tabs)/index.tsx:58` | 이전 예측/칼로리 결과가 새 사진에 남지 않게 함 |
+| 그룹 진입점은 홈, 반려동물 진입점은 내 정보 | `app/(tabs)/home.tsx`, `app/(tabs)/account.tsx` | 매일 보는 곳이라야 모임이 굴러간다 (기획 목업 확정) |
+| 탭 밖 스택(그룹·펫)은 네이티브 헤더 대신 `BackButton` | `components/back-button.tsx` | 중첩 Stack 헤더의 뒤로가기 귀속 문제를 피하고 기존 화면 골격(headerShown: false) 유지 |
+| 목록 화면은 `useFocusEffect`로 포커스마다 재조회 | `app/groups/index.tsx`, `app/pets/index.tsx`, 상세 화면들 | 생성·수정 화면에서 돌아왔을 때 갱신 (홈 화면 패턴) |
+| 펫 단건 조회는 목록에서 찾는다 | `app/pets/[id]/index.tsx` | 서버에 `GET /api/pets/{id}` 단건 API가 없음 (DATA_MODEL.md 9장) |
+| `PetForm`은 서버 타입을 import 하지 않고 구조적 타입 선언 | `components/pet-form.tsx` | `components/ → services/` 의존 금지. `PetFormValue`는 `PetUpsertRequest`와 구조 호환 |
+| 초대코드 공유는 RN `Share` 시트 | `app/groups/[id].tsx` | 추가 의존성 없이 OS 공유. 취소·미지원(web)은 오류로 취급하지 않음 |
 | 예측 목록을 `score` 내림차순 정렬 후 표시 | `app/(tabs)/index.tsx:105` | 서버 정렬을 신뢰하지 않음 |
 | `quality: 0.86`, `aspect: [4,3]`로 업로드 이미지 축소 | `app/(tabs)/index.tsx:53` | 업로드 크기와 지연 절감 |
 
