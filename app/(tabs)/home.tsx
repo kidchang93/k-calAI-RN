@@ -101,6 +101,18 @@ export default function HomeScreen() {
             />
           )}
 
+          {/* 그룹은 내 정보가 아니라 홈에서 진입한다 — 매일 보는 곳이라야 모임이 굴러간다. */}
+          <Pressable
+            onPress={() => router.push('/groups')}
+            style={({ pressed }) => [styles.groupRow, pressed && styles.pressed]}>
+            <MaterialIcons color="#3182f6" name="groups" size={24} />
+            <View style={styles.groupRowBody}>
+              <Text style={styles.groupRowTitle}>내 그룹</Text>
+              <Text style={styles.groupRowText}>가족·친구와 함께 기록해요</Text>
+            </View>
+            <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+          </Pressable>
+
           <Text style={styles.disclaimer}>AI 추정값이며 실제와 다를 수 있습니다.</Text>
         </View>
       </ScrollView>
@@ -191,6 +203,27 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#e5484d',
     fontSize: 14,
+  },
+  groupRow: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 16,
+  },
+  groupRowBody: {
+    flex: 1,
+    gap: 2,
+  },
+  groupRowText: {
+    color: '#6b7684',
+    fontSize: 13,
+  },
+  groupRowTitle: {
+    color: '#191f28',
+    fontSize: 16,
+    fontWeight: '800',
   },
   header: {
     gap: 4,

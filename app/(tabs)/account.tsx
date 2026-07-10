@@ -23,6 +23,14 @@ export default function AccountScreen() {
           </View>
 
           <View style={styles.section}>
+            <Link href="/pets" asChild>
+              <Pressable style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+                <MaterialIcons color="#4e5968" name="pets" size={20} />
+                <Text style={styles.rowLabel}>내 반려동물</Text>
+                <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+              </Pressable>
+            </Link>
+
             <Link href="/explore" asChild>
               <Pressable style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
                 <MaterialIcons color="#4e5968" name="build" size={20} />
