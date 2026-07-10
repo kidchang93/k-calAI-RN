@@ -22,6 +22,7 @@ import {
   estimateNutrition,
   MealType,
   NutritionEstimate,
+  NutritionNotFoundError,
 } from '@/services/health-api';
 
 const MEAL_TYPE_OPTIONS: { value: MealType; label: string }[] = [
@@ -68,6 +69,8 @@ export default function RecordScreen() {
   const [selectedPrediction, setSelectedPrediction] = useState<Prediction | null>(null);
   const [nutrition, setNutrition] = useState<NutritionEstimate | null>(null);
   const [isEstimating, setIsEstimating] = useState(false);
+  // 404(DB 미매칭) 안내 문구. 서버 오류가 아니라 정상 분기라 에러 배너 대신 수동 입력으로 유도한다.
+  const [notFoundMessage, setNotFoundMessage] = useState<string | null>(null);
   const [mealType, setMealType] = useState<MealType>(() => defaultMealType());
   const [servingRatio, setServingRatio] = useState(1);
   const [manualKcal, setManualKcal] = useState('');
@@ -110,6 +113,7 @@ export default function RecordScreen() {
   const clearConfirmState = () => {
     setSelectedPrediction(null);
     setNutrition(null);
+    setNotFoundMessage(null);
     setManualKcal('');
     setServingRatio(1);
     setMealType(defaultMealType());
@@ -198,6 +202,7 @@ export default function RecordScreen() {
 
     setIsEstimating(true);
     setErrorMessage(null);
+    setNotFoundMessage(null);
 
     try {
       const result = await estimateNutrition(prediction.label);
@@ -207,8 +212,14 @@ export default function RecordScreen() {
       }
     } catch (error) {
       if (estimateSeqRef.current === seq) {
-        const message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
-        setErrorMessage(message);
+        // 404(미매칭)는 오류가 아니라 정상 분기 — 배너 없이 수동 입력으로 자연스럽게 넘긴다.
+        if (error instanceof NutritionNotFoundError) {
+          setNotFoundMessage(error.message);
+        } else {
+          const message =
+            error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+          setErrorMessage(message);
+        }
       }
     } finally {
       if (estimateSeqRef.current === seq) {
@@ -220,6 +231,7 @@ export default function RecordScreen() {
   const selectPrediction = async (prediction: Prediction) => {
     setSelectedPrediction(prediction);
     setNutrition(null);
+    setNotFoundMessage(null);
     setManualKcal('');
     await runEstimate(prediction);
   };
@@ -253,7 +265,8 @@ export default function RecordScreen() {
         meal_type: mealType,
         items: [
           {
-            food_label: selectedPrediction.label,
+            // 유사도 매칭 성공 시 매칭된 DB 이름으로 기록한다 — 사용자에게 보여준 이름과 일치시킨다.
+            food_label: nutrition?.food_label ?? selectedPrediction.label,
             serving_ratio: servingRatio,
             kcal: finalKcal,
             source: 'ai',
@@ -375,7 +388,9 @@ export default function RecordScreen() {
             <View style={styles.confirmHeader}>
               <View>
                 <Text style={styles.confirmLabel}>기록 확정</Text>
-                <Text style={styles.confirmTitle}>{selectedPrediction.label}</Text>
+                <Text style={styles.confirmTitle}>
+                  {nutrition?.food_label ?? selectedPrediction.label}
+                </Text>
               </View>
               {isEstimating ? <ActivityIndicator color="#3182f6" /> : null}
             </View>
@@ -384,6 +399,11 @@ export default function RecordScreen() {
               <Text style={styles.confirmPlaceholder}>선택한 음식의 영양 정보를 추정하고 있어요.</Text>
             ) : nutrition ? (
               <View style={styles.nutritionBox}>
+                {nutrition.food_label !== selectedPrediction.label ? (
+                  <Text style={styles.matchedNote}>
+                    {`'${selectedPrediction.label}' 대신 가장 비슷한 '${nutrition.food_label}'의 영양 정보를 찾았어요.`}
+                  </Text>
+                ) : null}
                 <Text style={styles.nutritionKcal}>
                   {`${nutrition.serving_desc} 기준 약 ${Math.round(nutrition.kcal_per_serving).toLocaleString()} kcal`}
                 </Text>
@@ -396,13 +416,17 @@ export default function RecordScreen() {
             ) : (
               <View style={styles.manualBox}>
                 <Text style={styles.manualGuide}>
-                  영양 정보를 불러오지 못했어요. 칼로리를 직접 입력하면 저장할 수 있어요.
+                  {notFoundMessage ??
+                    '영양 정보를 불러오지 못했어요. 칼로리를 직접 입력하면 저장할 수 있어요.'}
                 </Text>
-                <Pressable
-                  onPress={() => void runEstimate(selectedPrediction)}
-                  style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}>
-                  <Text style={styles.retryButtonText}>다시 추정하기</Text>
-                </Pressable>
+                {/* 미매칭(404)은 결정적 결과라 재시도해도 같다 — 재시도 버튼은 일반 오류에만 보인다. */}
+                {notFoundMessage === null ? (
+                  <Pressable
+                    onPress={() => void runEstimate(selectedPrediction)}
+                    style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}>
+                    <Text style={styles.retryButtonText}>다시 추정하기</Text>
+                  </Pressable>
+                ) : null}
                 <TextInput
                   keyboardType="number-pad"
                   onChangeText={setManualKcal}
@@ -851,6 +875,12 @@ const styles = StyleSheet.create({
   },
   manualBox: {
     gap: 10,
+  },
+  matchedNote: {
+    color: '#3182f6',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 19,
   },
   manualGuide: {
     color: '#6b7684',

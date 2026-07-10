@@ -108,6 +108,15 @@ export type MealLog = {
   items: MealItem[];
 };
 
+// estimate의 404(유사도 검색까지 미매칭)를 일반 오류와 구분하는 명시적 오류 타입 (DATA_MODEL.md 13장).
+// 화면은 catch에서 instanceof로 판별해 에러 배너 대신 kcal 수동 입력으로 유도한다.
+export class NutritionNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'NutritionNotFoundError';
+  }
+}
+
 export type CreateWeightRequest = {
   weight_kg: number;
   // 미지정 시 서버가 현재 시각(UTC)으로 저장한다.
@@ -182,12 +191,23 @@ export async function getSummary(date: string): Promise<DaySummary> {
   return ensure(parseDaySummary(await parseOk(response, '오늘 요약 조회 실패')));
 }
 
+// 서버는 식약처 DB 유사도 검색(pg_trgm)으로 조회한다 (DATA_MODEL.md 13장).
+// - 미매칭이면 404 → NutritionNotFoundError (detail은 수동 입력을 안내하는 한국어 문장).
+// - 매칭 성공 시 응답 food_label은 매칭된 DB 행의 이름이라 요청 라벨과 다를 수 있다
+//   (예: "오리구이" 요청 → "오리고기구이" 응답). 화면이 매칭 결과를 사용자에게 보여준다.
 export async function estimateNutrition(foodLabel: string): Promise<NutritionEstimate> {
   const response = await apiFetch(`${HEALTH_API_URL}/nutrition/estimate`, {
     method: 'POST',
     headers: JSON_HEADERS,
     body: JSON.stringify({ food_label: foodLabel }),
   });
+
+  if (response.status === 404) {
+    const message = await readErrorMessage(response);
+    throw new NutritionNotFoundError(
+      message || '일치하는 음식을 찾지 못했습니다. 칼로리를 직접 입력해주세요.'
+    );
+  }
 
   return ensure(parseNutritionEstimate(await parseOk(response, '영양 정보 추정 실패')));
 }

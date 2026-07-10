@@ -101,6 +101,18 @@ export default function HomeScreen() {
             />
           )}
 
+          {/* 식단 추천도 홈에서 진입한다 — 다음 끼니를 정하는 곳은 오늘 요약 옆이다. */}
+          <Pressable
+            onPress={() => router.push('/recommendations')}
+            style={({ pressed }) => [styles.groupRow, pressed && styles.pressed]}>
+            <MaterialIcons color="#3182f6" name="restaurant-menu" size={24} />
+            <View style={styles.groupRowBody}>
+              <Text style={styles.groupRowTitle}>식단 추천</Text>
+              <Text style={styles.groupRowText}>남은 칼로리에 맞춰 골라드려요</Text>
+            </View>
+            <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+          </Pressable>
+
           {/* 그룹은 내 정보가 아니라 홈에서 진입한다 — 매일 보는 곳이라야 모임이 굴러간다. */}
           <Pressable
             onPress={() => router.push('/groups')}
