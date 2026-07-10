@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -13,25 +13,56 @@ import {
 import { ChipGroup } from '@/components/chip-group';
 import { ErrorBanner } from '@/components/error-banner';
 import { OnboardingProgress } from '@/components/onboarding-progress';
-import { ConditionCode, ConsentRequiredError, putConditions } from '@/services/onboarding-api';
+import { FALLBACK_CONDITION_OPTIONS, getMetaOptions, MetaOption } from '@/services/meta-api';
+import { ConsentRequiredError, putConditions } from '@/services/onboarding-api';
 
 // '해당 없음'은 서버 값이 아니라 replace-all PUT의 빈 배열로 표현한다.
 const NONE_VALUE = 'none';
 
-const CONDITION_OPTIONS = [
-  { value: 'diabetes', label: '당뇨' },
-  { value: 'pregnancy', label: '임신 중' },
-  { value: 'ckd', label: '신장 질환' },
-  { value: 'cancer', label: '암 치료 중' },
-  { value: 'hypertension', label: '고혈압' },
-  { value: NONE_VALUE, label: '해당 없음' },
-];
-
 export default function ConditionsScreen() {
   const router = useRouter();
+  const [conditionOptions, setConditionOptions] = useState<MetaOption[]>(
+    FALLBACK_CONDITION_OPTIONS,
+  );
+  const [isLoadingOptions, setIsLoadingOptions] = useState(true);
   const [selectedValues, setSelectedValues] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadOptions = async () => {
+      try {
+        const options = await getMetaOptions();
+
+        if (!cancelled) {
+          setConditionOptions(options.conditions);
+        }
+      } catch {
+        // 조회 실패 시 번들 폴백으로 그린다 — 온보딩이 네트워크 오류로 막히면 안 된다
+        // (docs/DESIGN.md 선택지 데이터 규칙).
+      } finally {
+        if (!cancelled) {
+          setIsLoadingOptions(false);
+        }
+      }
+    };
+
+    void loadOptions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const chipOptions = useMemo(
+    () => [
+      ...conditionOptions.map((option) => ({ value: option.code, label: option.label })),
+      { value: NONE_VALUE, label: '해당 없음' },
+    ],
+    [conditionOptions],
+  );
 
   const toggle = (value: string) => {
     setSelectedValues((previous) => {
@@ -56,7 +87,8 @@ export default function ConditionsScreen() {
     setErrorMessage(null);
 
     try {
-      const conditions = selectedValues.filter(isConditionCode);
+      // '해당 없음'은 앱 전용 값 — 서버로는 표준 code만 보낸다.
+      const conditions = selectedValues.filter((value) => value !== NONE_VALUE);
       await putConditions(conditions);
       goNext();
     } catch (error) {
@@ -83,7 +115,11 @@ export default function ConditionsScreen() {
             <Text style={styles.subtitle}>추천에서 피해야 할 음식을 거르는 데만 씁니다.</Text>
           </View>
 
-          <ChipGroup onToggle={toggle} options={CONDITION_OPTIONS} selectedValues={selectedValues} />
+          {isLoadingOptions ? (
+            <ActivityIndicator color="#3182f6" />
+          ) : (
+            <ChipGroup onToggle={toggle} options={chipOptions} selectedValues={selectedValues} />
+          )}
 
           <View style={styles.noteBox}>
             <Text style={styles.noteText}>
@@ -122,16 +158,6 @@ export default function ConditionsScreen() {
         </View>
       </ScrollView>
     </SafeAreaView>
-  );
-}
-
-function isConditionCode(value: string): value is ConditionCode {
-  return (
-    value === 'diabetes' ||
-    value === 'pregnancy' ||
-    value === 'ckd' ||
-    value === 'cancer' ||
-    value === 'hypertension'
   );
 }
 

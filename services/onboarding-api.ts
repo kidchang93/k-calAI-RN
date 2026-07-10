@@ -13,7 +13,6 @@ import { apiFetch, readErrorMessage } from '@/services/http';
 export type ConsentKind = 'sensitive_health' | 'terms' | 'privacy';
 export type BloodType = 'A' | 'B' | 'O' | 'AB' | 'unknown';
 export type RhFactor = '+' | '-';
-export type ConditionCode = 'diabetes' | 'pregnancy' | 'ckd' | 'cancer' | 'hypertension';
 export type AllergySeverity = 'mild' | 'severe';
 
 export type ConsentRecord = {
@@ -33,6 +32,8 @@ export type HealthProfileRequest = {
   rh?: RhFactor | null;
 };
 
+// allergen은 자유 문자열이 아니라 GET /api/meta/options의 표준 code다 (DATA_MODEL.md 10장).
+// 화면 표시는 메타 옵션의 label로 매핑한다.
 export type AllergyEntry = {
   allergen: string;
   severity: AllergySeverity | null;
@@ -113,7 +114,9 @@ export async function putHealthProfile(input: HealthProfileRequest): Promise<voi
   await ensureOk(response, '건강 정보 저장 실패');
 }
 
-export async function getConditions(): Promise<ConditionCode[]> {
+// 값은 GET /api/meta/options의 표준 code다 (DATA_MODEL.md 10장). 참조 테이블이
+// 릴리즈 없이 늘 수 있으므로 앱은 Literal로 좁히지 않는다.
+export async function getConditions(): Promise<string[]> {
   const response = await apiFetch(`${ONBOARDING_API_URL}/me/conditions`);
   const data = await parseOk(response, '질병 정보 조회 실패');
   const list = extractList(data, 'conditions');
@@ -122,12 +125,14 @@ export async function getConditions(): Promise<ConditionCode[]> {
     throw new Error('서버 응답 형식이 올바르지 않습니다.');
   }
 
-  // 계약 밖의 값이 내려오면 화면을 깨뜨리는 대신 무시한다 (표시 용도라 손실이 안전하다).
-  return list.map(toConditionCode).filter((item): item is ConditionCode => item !== null);
+  // 문자열이 아닌 값이 내려오면 화면을 깨뜨리는 대신 무시한다 (표시 용도라 손실이 안전하다).
+  return list.filter((item): item is string => typeof item === 'string');
 }
 
 // replace-all: 빈 배열이면 전체 삭제.
-export async function putConditions(conditions: ConditionCode[]): Promise<void> {
+// 값은 GET /api/meta/options의 표준 code다. 서버가 condition_types 참조 테이블로 검증하므로
+// (DATA_MODEL.md 10장) 앱은 Literal로 좁히지 않는다 — 없는 코드는 서버가 400으로 거른다.
+export async function putConditions(conditions: string[]): Promise<void> {
   const response = await apiFetch(`${ONBOARDING_API_URL}/me/conditions`, {
     method: 'PUT',
     headers: JSON_HEADERS,
@@ -150,6 +155,8 @@ export async function getAllergies(): Promise<AllergyEntry[]> {
 }
 
 // replace-all: 빈 배열이면 전체 삭제.
+// allergen은 자유 문자열이 아니라 GET /api/meta/options의 표준 code다 (DATA_MODEL.md 10장).
+// 서버가 allergen_types 참조 테이블로 검증한다 — 없는 코드는 400.
 export async function putAllergies(allergies: AllergyInput[]): Promise<void> {
   const response = await apiFetch(`${ONBOARDING_API_URL}/me/allergies`, {
     method: 'PUT',
@@ -224,16 +231,6 @@ function toBloodType(value: unknown): BloodType | null {
 
 function toRhFactor(value: unknown): RhFactor | null {
   return value === '+' || value === '-' ? value : null;
-}
-
-function toConditionCode(value: unknown): ConditionCode | null {
-  return value === 'diabetes' ||
-    value === 'pregnancy' ||
-    value === 'ckd' ||
-    value === 'cancer' ||
-    value === 'hypertension'
-    ? value
-    : null;
 }
 
 function toAllergySeverity(value: unknown): AllergySeverity | null {

@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -13,28 +13,74 @@ import {
 import { ChipGroup } from '@/components/chip-group';
 import { ErrorBanner } from '@/components/error-banner';
 import { OnboardingProgress } from '@/components/onboarding-progress';
-import { ConsentRequiredError, putAllergies } from '@/services/onboarding-api';
+import { FALLBACK_ALLERGEN_OPTIONS, getMetaOptions, MetaOption } from '@/services/meta-api';
+import {
+  AllergyEntry,
+  ConsentRequiredError,
+  getAllergies,
+  putAllergies,
+} from '@/services/onboarding-api';
 
 // '없음'은 서버 값이 아니라 replace-all PUT의 빈 배열로 표현한다.
 const NONE_VALUE = 'none';
 
-// allergen은 자유 문자열(100자) 계약이라 한국어 라벨을 값으로 그대로 보낸다.
-const ALLERGY_OPTIONS = [
-  { value: '땅콩', label: '땅콩' },
-  { value: '우유', label: '우유' },
-  { value: '갑각류', label: '갑각류' },
-  { value: '계란', label: '계란' },
-  { value: '밀', label: '밀' },
-  { value: '대두', label: '대두' },
-  { value: '복숭아', label: '복숭아' },
-  { value: NONE_VALUE, label: '없음' },
-];
-
 export default function AllergiesScreen() {
   const router = useRouter();
+  const [allergenOptions, setAllergenOptions] = useState<MetaOption[]>(FALLBACK_ALLERGEN_OPTIONS);
+  const [savedEntries, setSavedEntries] = useState<AllergyEntry[]>([]);
+  const [isLoadingOptions, setIsLoadingOptions] = useState(true);
   const [selectedValues, setSelectedValues] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      // 조회 실패는 무시하고 폴백/빈 값으로 그린다 — 온보딩이 네트워크 오류로
+      // 막히면 안 된다 (docs/DESIGN.md 선택지 데이터 규칙).
+      const [optionsResult, savedResult] = await Promise.allSettled([
+        getMetaOptions(),
+        getAllergies(),
+      ]);
+
+      if (cancelled) {
+        return;
+      }
+
+      if (optionsResult.status === 'fulfilled') {
+        setAllergenOptions(optionsResult.value.allergens);
+      }
+
+      if (savedResult.status === 'fulfilled' && savedResult.value.length > 0) {
+        setSavedEntries(savedResult.value);
+        setSelectedValues(savedResult.value.map((entry) => entry.allergen));
+      }
+
+      setIsLoadingOptions(false);
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 저장값(표준 code)을 label로 표시한다. 메타 목록에 없는 code는 code 그대로 칩을 만든다.
+  const chipOptions = useMemo(() => {
+    const knownCodes = new Set(allergenOptions.map((option) => option.code));
+    const unknownSaved = savedEntries
+      .map((entry) => entry.allergen)
+      .filter((code) => !knownCodes.has(code) && code !== NONE_VALUE)
+      .map((code) => ({ value: code, label: code }));
+
+    return [
+      ...allergenOptions.map((option) => ({ value: option.code, label: option.label })),
+      ...unknownSaved,
+      { value: NONE_VALUE, label: '없음' },
+    ];
+  }, [allergenOptions, savedEntries]);
 
   const toggle = (value: string) => {
     setSelectedValues((previous) => {
@@ -59,8 +105,18 @@ export default function AllergiesScreen() {
     setErrorMessage(null);
 
     try {
+      // '없음'은 앱 전용 값 — 서버로는 표준 code만 보낸다.
+      // replace-all PUT이므로 기존 저장값의 severity를 유실하지 않게 함께 보낸다.
+      const severityByAllergen = new Map(
+        savedEntries.map((entry) => [entry.allergen, entry.severity]),
+      );
       const allergens = selectedValues.filter((value) => value !== NONE_VALUE);
-      await putAllergies(allergens.map((allergen) => ({ allergen })));
+      await putAllergies(
+        allergens.map((allergen) => ({
+          allergen,
+          severity: severityByAllergen.get(allergen) ?? null,
+        })),
+      );
       goNext();
     } catch (error) {
       // 403(동의 없음/철회)은 세션 만료가 아니다. 동의 화면으로 되돌린다.
@@ -86,7 +142,11 @@ export default function AllergiesScreen() {
             <Text style={styles.subtitle}>추천 식단에서 완전히 제외합니다.</Text>
           </View>
 
-          <ChipGroup onToggle={toggle} options={ALLERGY_OPTIONS} selectedValues={selectedValues} />
+          {isLoadingOptions ? (
+            <ActivityIndicator color="#3182f6" />
+          ) : (
+            <ChipGroup onToggle={toggle} options={chipOptions} selectedValues={selectedValues} />
+          )}
 
           <View style={styles.noteBox}>
             <Text style={styles.noteText}>
