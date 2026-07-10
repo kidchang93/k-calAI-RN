@@ -26,6 +26,11 @@
 | `PetForm`은 서버 타입을 import 하지 않고 구조적 타입 선언 | `components/pet-form.tsx` | `components/ → services/` 의존 금지. `PetFormValue`는 `PetUpsertRequest`와 구조 호환 |
 | 초대코드 공유는 RN `Share` 시트 | `app/groups/[id].tsx` | 추가 의존성 없이 OS 공유. 취소·미지원(web)은 오류로 취급하지 않음 |
 | 예측 목록을 `score` 내림차순 정렬 후 표시 | `app/(tabs)/index.tsx:105` | 서버 정렬을 신뢰하지 않음 |
+| 식단 추천 진입점은 홈 (그룹 카드와 같은 행 패턴) | `app/(tabs)/home.tsx`, `app/recommendations/` | 다음 끼니를 정하는 곳은 오늘 요약 옆이다 (기획 목업) |
+| 추천 고지 문구는 서버 `disclaimer`를 그대로 표시 | `app/recommendations/index.tsx` | 앱 하드코딩 문구가 화면마다 어긋나는 것을 막는다 (DATA_MODEL.md 11장) |
+| 추천 403은 `ConsentRequiredError`로 동의 화면 리다이렉트 | `services/recommendation-api.ts` | 질병·알러지를 쓰는 조회라 온보딩 화면들의 403 규약과 동일하게 처리 |
+| estimate 404(DB 미매칭)는 에러 배너가 아니라 수동 입력 유도 | `app/(tabs)/index.tsx`, `NutritionNotFoundError` | 유사도 검색은 결정적이라 재시도가 무의미하다. 서버 detail 문구를 안내문으로 쓰고 기존 kcal 수동 입력 경로로 잇는다 (13장) |
+| estimate 유사도 매칭 이름을 사용자에게 표시하고 그 이름으로 저장 | `app/(tabs)/index.tsx` | 어떤 음식으로 인식됐는지 투명하게 — 화면에 보여준 이름과 기록된 이름을 일치시킨다 |
 | `quality: 0.86`, `aspect: [4,3]`로 업로드 이미지 축소 | `app/(tabs)/index.tsx:53` | 업로드 크기와 지연 절감 |
 
 ## 선택지 데이터 규칙 (2026-07-09 확정)
