@@ -484,6 +484,9 @@ export default function RecordScreen() {
                 </>
               )}
             </Pressable>
+
+            {/* 추정치 고지 — 저장 직전 지점에도 홈 하단과 같은 문구를 보여준다 (HEALTHCARE_EXPANSION 3장 공통 요소). */}
+            <Text style={styles.confirmDisclaimer}>AI 추정값이며 실제와 다를 수 있습니다.</Text>
           </View>
         ) : null}
       </ScrollView>
@@ -834,6 +837,11 @@ const styles = StyleSheet.create({
     color: '#191f28',
     fontSize: 22,
     fontWeight: '900',
+  },
+  confirmDisclaimer: {
+    color: '#8b95a1',
+    fontSize: 13,
+    textAlign: 'center',
   },
   confirmPlaceholder: {
     color: '#8b95a1',

@@ -88,7 +88,7 @@ export default function HomeScreen() {
                 하루 목표 칼로리를 정하면 진행률을 볼 수 있습니다.
               </Text>
               <Pressable
-                onPress={() => router.navigate('/account')}
+                onPress={() => router.push('/me/goal')}
                 style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
                 <Text style={styles.primaryButtonText}>목표 설정하기</Text>
               </Pressable>
@@ -98,6 +98,9 @@ export default function HomeScreen() {
               targetKcal={summary.target_kcal}
               consumedKcal={summary.consumed_kcal}
               meals={summary.meals}
+              onPressMeal={() =>
+                router.push({ pathname: '/meals', params: { date: summary.date } })
+              }
             />
           )}
 
@@ -136,10 +139,12 @@ function SummaryContent({
   targetKcal,
   consumedKcal,
   meals,
+  onPressMeal,
 }: {
   targetKcal: number;
   consumedKcal: number;
   meals: MealBreakdown;
+  onPressMeal: () => void;
 }) {
   const target = targetKcal;
   const consumed = consumedKcal;
@@ -165,6 +170,7 @@ function SummaryContent({
             icon={meal.icon}
             label={meal.label}
             kcal={meals[meal.meal_type]}
+            onPress={onPressMeal}
           />
         ))}
       </View>

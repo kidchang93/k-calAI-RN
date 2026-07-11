@@ -160,7 +160,10 @@ export default function AuthScreen() {
             ) : null}
 
             {message ? <Text style={styles.messageText}>{message}</Text> : null}
-            {devCode ? <Text style={styles.devCodeText}>개발용 인증번호: {devCode}</Text> : null}
+            {/* dev_code는 서버의 개발 편의 응답이다. 프로덕션 번들에서는 렌더링하지 않는다. */}
+            {__DEV__ && devCode ? (
+              <Text style={styles.devCodeText}>개발용 인증번호: {devCode}</Text>
+            ) : null}
             {errorMessage ? (
               <View style={styles.errorBox}>
                 <MaterialIcons name="error-outline" size={20} color="#e5484d" />

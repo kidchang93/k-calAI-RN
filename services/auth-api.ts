@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-import { readErrorMessage } from '@/services/http';
+import { apiFetch, readErrorMessage } from '@/services/http';
 
 export type AuthMode = 'signup' | 'login';
 
@@ -82,6 +82,17 @@ export async function verifyPhoneCode(
   }
 
   return data;
+}
+
+// 로그아웃은 발급된 세션을 폐기하는 요청이라 예외적으로 apiFetch로 Bearer를 첨부한다.
+// 서버 폐기 실패(오프라인 등)와 무관하게 로컬 세션 삭제는 호출부(clearAuthSession)가 책임진다.
+export async function logout(): Promise<void> {
+  const response = await apiFetch(`${AUTH_API_URL}/logout`, { method: 'POST' });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response);
+    throw new Error(message || `로그아웃 실패: ${response.status}`);
+  }
 }
 
 function isPhoneCodeResponse(value: unknown): value is PhoneCodeResponse {
