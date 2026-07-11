@@ -152,6 +152,22 @@ export default function AccountScreen() {
               <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
             </Pressable>
 
+            <Pressable
+              onPress={() => router.push('/me/conditions')}
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+              <MaterialIcons color="#4e5968" name="medical-services" size={20} />
+              <Text style={styles.rowLabel}>질병 정보</Text>
+              <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+            </Pressable>
+
+            <Pressable
+              onPress={() => router.push('/me/allergies')}
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+              <MaterialIcons color="#4e5968" name="no-food" size={20} />
+              <Text style={styles.rowLabel}>알러지 정보</Text>
+              <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+            </Pressable>
+
             <Link href="/pets" asChild>
               <Pressable style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
                 <MaterialIcons color="#4e5968" name="pets" size={20} />

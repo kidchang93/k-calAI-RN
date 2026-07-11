@@ -3,7 +3,8 @@ import { Redirect, Stack } from 'expo-router';
 import { SessionLoading } from '@/components/session-loading';
 import { useAuthSession } from '@/services/auth-session';
 
-// 내 정보 하위(프로필·목표·체중) 화면은 인증된 사용자만 진입한다 (펫 레이아웃과 같은 선언형 가드).
+// 내 정보 하위(프로필·목표·체중·질병·알러지) 화면은 인증된 사용자만 진입한다
+// (펫 레이아웃과 같은 선언형 가드).
 export default function MeLayout() {
   const authState = useAuthSession();
 

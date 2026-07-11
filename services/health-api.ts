@@ -117,6 +117,21 @@ export class NutritionNotFoundError extends Error {
   }
 }
 
+// 주/월 추이 집계 (DATA_MODEL.md 15장). days는 범위 내 모든 날짜를 오름차순으로 채운다.
+// 기록 없는 날도 0으로 존재한다. target_kcal은 목표 미설정 시 null (0이 아니다 — summary와 동일 규칙).
+export type TrendDay = {
+  date: string;
+  consumed_kcal: number;
+  meal_count: number;
+};
+
+export type TrendsResponse = {
+  start_date: string;
+  end_date: string;
+  target_kcal: number | null;
+  days: TrendDay[];
+};
+
 export type CreateWeightRequest = {
   weight_kg: number;
   // 미지정 시 서버가 현재 시각(UTC)으로 저장한다.
@@ -143,6 +158,15 @@ export function formatDateParam(date: Date): string {
   const day = String(date.getDate()).padStart(2, '0');
 
   return `${year}-${month}-${day}`;
+}
+
+// 오늘을 끝으로 하는 최근 N일(오늘 포함) 범위. 추이 탭의 주(7)/월(30) 조회에 쓴다.
+export function recentDateRange(days: number): { start_date: string; end_date: string } {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - (days - 1));
+
+  return { start_date: formatDateParam(start), end_date: formatDateParam(end) };
 }
 
 export async function getProfile(): Promise<ProfileResponse | null> {
@@ -237,6 +261,15 @@ export async function deleteMeal(id: number): Promise<void> {
     const message = await readErrorMessage(response);
     throw new Error(message || `식단 삭제 실패: ${response.status}`);
   }
+}
+
+// 범위 위반(역순, 92일 초과)은 서버가 400 + 한국어 detail을 준다 (DATA_MODEL.md 15장).
+export async function getTrends(startDate: string, endDate: string): Promise<TrendsResponse> {
+  const response = await apiFetch(
+    `${HEALTH_API_URL}/me/trends?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`
+  );
+
+  return ensure(parseTrendsResponse(await parseOk(response, '추이 조회 실패')));
 }
 
 export async function createWeight(input: CreateWeightRequest): Promise<WeightLog> {
@@ -550,6 +583,64 @@ function parseMealLog(value: unknown): MealLog | null {
     total_kcal: value.total_kcal,
     photo_s3_key: value.photo_s3_key ?? null,
     items,
+  };
+}
+
+function parseTrendDay(value: unknown): TrendDay | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const consumed_kcal = toNumber(value.consumed_kcal);
+
+  if (
+    typeof value.date !== 'string' ||
+    consumed_kcal === null ||
+    typeof value.meal_count !== 'number'
+  ) {
+    return null;
+  }
+
+  return {
+    date: value.date,
+    consumed_kcal,
+    meal_count: value.meal_count,
+  };
+}
+
+function parseTrendsResponse(value: unknown): TrendsResponse | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const target_kcal = toNullableNumber(value.target_kcal);
+
+  if (
+    typeof value.start_date !== 'string' ||
+    typeof value.end_date !== 'string' ||
+    target_kcal === undefined ||
+    !Array.isArray(value.days)
+  ) {
+    return null;
+  }
+
+  const days: TrendDay[] = [];
+
+  for (const item of value.days) {
+    const parsed = parseTrendDay(item);
+
+    if (parsed === null) {
+      return null;
+    }
+
+    days.push(parsed);
+  }
+
+  return {
+    start_date: value.start_date,
+    end_date: value.end_date,
+    target_kcal,
+    days,
   };
 }
 
