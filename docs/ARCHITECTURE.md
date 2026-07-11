@@ -13,7 +13,7 @@ k-calAI-RN/
 │   │   ├── home.tsx            # 홈 탭 - 오늘 요약 (그룹 진입점)
 │   │   ├── index.tsx           # 기록 탭 - 사진 입력 → 예측 → 끼니 저장
 │   │   ├── trends.tsx          # 추이 탭 (준비 중)
-│   │   ├── account.tsx         # 내 정보 탭 (반려동물 진입점, 로그아웃)
+│   │   ├── account.tsx         # 내 정보 탭 (프로필·목표 요약, 체중·반려동물 진입점, 로그아웃)
 │   │   └── explore.tsx         # 개발자 진단 (탭 바에서 숨김)
 │   ├── onboarding/             # 온보딩 스택 (consent → body → …)
 │   ├── groups/                 # 그룹 스택 (홈에서 진입)
@@ -29,11 +29,19 @@ k-calAI-RN/
 │   │   └── [id]/
 │   │       ├── index.tsx       # 상세 + 오늘 급여 기록·목록 + 삭제
 │   │       └── edit.tsx        # 수정 (전체 교체 PUT)
+│   ├── me/                     # 내 정보 하위 스택 (내 정보 탭에서 진입)
+│   │   ├── _layout.tsx         # 인증 가드
+│   │   ├── profile.tsx         # 프로필 수정 (GET/PUT /api/me/profile)
+│   │   ├── goal.tsx            # 목표 수정 (GET/PUT /api/me/goal, 홈 목표 CTA에서도 진입)
+│   │   └── weights.tsx         # 체중 기록 (POST/GET /api/weights)
+│   ├── meals/                  # 끼니 기록 목록 (홈 끼니 카드에서 진입)
+│   │   ├── _layout.tsx         # 인증 가드
+│   │   └── index.tsx           # 날짜별 기록 목록 + 삭제
 │   └── recommendations/        # 식단 추천 스택 (홈에서 진입)
 │       ├── _layout.tsx         # 인증 가드
 │       └── index.tsx           # 끼니 선택 + 오늘 추천 목록
 ├── services/                   # 외부 통신 + 앱 전역 상태
-│   ├── auth-api.ts             # 인증 API 클라이언트 (Authorization 미첨부)
+│   ├── auth-api.ts             # 인증 API 클라이언트 (발급 전 순수 fetch, logout만 apiFetch로 Bearer 첨부)
 │   ├── auth-session.ts         # 세션 싱글톤 + 영속화(SecureStore) + useAuthSession 훅
 │   ├── calorie-api.ts          # 추론/칼로리 API 클라이언트
 │   ├── health-api.ts           # 프로필·목표·끼니·체중 (DATA_MODEL.md 3~5장)
@@ -102,9 +110,13 @@ expo-router의 파일 기반 라우팅입니다. `app/` 하위 파일이 곧 경
 | `app/pets/[id]/index.tsx` | `/pets/:id` | 상세 + 급여 기록 |
 | `app/pets/[id]/edit.tsx` | `/pets/:id/edit` | 수정 |
 | `app/recommendations/index.tsx` | `/recommendations` | 식단 추천 (홈에서 진입, 인증 가드 레이아웃) |
+| `app/me/profile.tsx` | `/me/profile` | 프로필 수정 (내 정보 탭에서 진입) |
+| `app/me/goal.tsx` | `/me/goal` | 목표 수정 (내 정보 탭·홈 목표 CTA에서 진입) |
+| `app/me/weights.tsx` | `/me/weights` | 체중 기록 입력 + 최근 목록 |
+| `app/meals/index.tsx` | `/meals?date=YYYY-MM-DD` | 날짜별 끼니 기록 목록 + 삭제 (홈 끼니 카드에서 진입) |
 | `app/modal.tsx` | `/modal` | `presentation: 'modal'` |
 
-`groups/`·`pets/`·`recommendations/` 스택은 루트 레이아웃에 등록하지 않고 (expo-router 자동 등록) 각 `_layout.tsx`가
+`groups/`·`pets/`·`recommendations/`·`me/`·`meals/` 스택은 루트 레이아웃에 등록하지 않고 (expo-router 자동 등록) 각 `_layout.tsx`가
 온보딩 레이아웃과 같은 방식으로 자기 헤더를 숨기고 인증 가드를 겁니다. 화면 상단의 뒤로가기는
 네이티브 헤더 대신 `components/back-button.tsx`를 씁니다 (탭 밖 스택 공통).
 

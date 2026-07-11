@@ -32,6 +32,11 @@
 | estimate 404(DB 미매칭)는 에러 배너가 아니라 수동 입력 유도 | `app/(tabs)/index.tsx`, `NutritionNotFoundError` | 유사도 검색은 결정적이라 재시도가 무의미하다. 서버 detail 문구를 안내문으로 쓰고 기존 kcal 수동 입력 경로로 잇는다 (13장) |
 | estimate 유사도 매칭 이름을 사용자에게 표시하고 그 이름으로 저장 | `app/(tabs)/index.tsx` | 어떤 음식으로 인식됐는지 투명하게 — 화면에 보여준 이름과 기록된 이름을 일치시킨다 |
 | `quality: 0.86`, `aspect: [4,3]`로 업로드 이미지 축소 | `app/(tabs)/index.tsx:53` | 업로드 크기와 지연 절감 |
+| 홈 목표 CTA는 내 정보 탭이 아니라 목표 수정 화면(`/me/goal`)으로 직행 | `app/(tabs)/home.tsx` | 탭에 내려놓고 다시 찾게 하지 않는다 — 막다른 길 제거 |
+| 홈 끼니 카드 탭 → 해당 날짜 기록 목록(`/meals?date=`) | `app/(tabs)/home.tsx`, `app/meals/index.tsx` | 합계만 보이고 개별 기록을 지울 수 없던 문제 해소. 삭제 후 홈 복귀 시 `useFocusEffect`가 합계 재조회 |
+| 로그아웃은 서버 폐기 실패에도 로컬 세션을 지운다 | `app/(tabs)/account.tsx` | 오프라인에서도 기기에서 로그아웃할 수 있어야 한다 |
+| `dev_code`는 `__DEV__`일 때만 렌더링 | `app/auth.tsx` | 서버 개발 편의 응답을 프로덕션 UI에 노출하지 않는다 |
+| 목표 수정 화면은 수동 수정이 없으면 `target_kcal`을 보내지 않는다 | `app/me/goal.tsx` (온보딩 `goal.tsx`와 동일 규칙) | 산출의 단일 진실은 서버 |
 
 ## 선택지 데이터 규칙 (2026-07-09 확정)
 
@@ -48,7 +53,7 @@
 |------|-----------|-------------|
 | ~~세션 영속화~~ | **완료.** `expo-secure-store`로 저장·복원 (웹은 메모리 폴백) | `services/auth-session.ts` |
 | ~~토큰 사용~~ | **완료.** `apiFetch`가 세션 있으면 `Authorization: Bearer` 첨부, 401 시 세션 비움 | `services/http.ts`. 서버 `get_current_user` 도입 대기 |
-| 로그아웃 | `clearAuthSession()`은 있으나 호출하는 UI 없음 | 로그아웃 진입점 위치 |
+| ~~로그아웃~~ | **완료.** 내 정보 탭에서 확인 Alert → `POST /api/auth/logout` → 로컬 세션 삭제 (서버 폐기 실패에도 삭제 = 오프라인 로그아웃 허용) | `app/(tabs)/account.tsx` |
 | 칼로리 프롬프트 | 앱에 하드코딩 (`calorie-api.ts:71`) | 서버 템플릿화 시점 |
 | 다크모드 | 테마 인프라만 있고 실화면은 하드코딩 색상 | 색상 토큰으로 통일할지, 라이트 전용으로 확정할지 |
 | 상태 탭 | 개발자용 진단 화면이 일반 탭에 노출 | 설정/개발자 영역으로 이동 (`docs/PROJECT_PLANNING.md`) |
