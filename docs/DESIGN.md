@@ -37,6 +37,11 @@
 | 로그아웃은 서버 폐기 실패에도 로컬 세션을 지운다 | `app/(tabs)/account.tsx` | 오프라인에서도 기기에서 로그아웃할 수 있어야 한다 |
 | `dev_code`는 `__DEV__`일 때만 렌더링 | `app/auth.tsx` | 서버 개발 편의 응답을 프로덕션 UI에 노출하지 않는다 |
 | 목표 수정 화면은 수동 수정이 없으면 `target_kcal`을 보내지 않는다 | `app/me/goal.tsx` (온보딩 `goal.tsx`와 동일 규칙) | 산출의 단일 진실은 서버 |
+| 질병·알러지 수정 화면은 저장값 GET 실패 시 폼을 그리지 않는다 (메타 옵션 실패만 번들 폴백) | `app/me/conditions.tsx`, `app/me/allergies.tsx` | replace-all PUT이라 프리필 없이 저장하면 기존 값(알러지 severity 포함)을 지운다. 온보딩과 달리 수정 화면은 기존 데이터가 걸려 있다 |
+| 추이 차트는 라이브러리 없이 View 높이 비례 순수 RN 바 차트 | `app/(tabs)/trends.tsx` | 주 7·월 30개 바 수준에 차트 의존성은 과하다. Expo SDK 54가 버전을 고정하는 `package.json`도 불변 |
+| 추이의 `target_kcal: null`은 목표 관련 표기를 전부 생략한다 (0으로 취급 금지) | `app/(tabs)/trends.tsx` | 0으로 치면 모든 날이 "초과"가 되고 달성일 계산이 왜곡된다 — summary(홈)와 동일 규칙. 기준선·범례·달성일 셀을 아예 그리지 않는다 |
+| 목표 달성일은 기록한 날(meal_count > 0) 중에서만 센다 | `app/(tabs)/trends.tsx` | 기록 없는 날(0 kcal)을 "달성"으로 세면 안 기록할수록 달성률이 오른다 |
+| 체중 추이는 trends API가 아니라 기존 `getWeights()` 전체를 기간으로 필터 | `app/(tabs)/trends.tsx` | 서버가 체중을 trends 응답에 넣지 않기로 확정 (DATA_MODEL.md 15장). 기간 내 기록 없으면 `/me/weights` 진입 안내 |
 
 ## 선택지 데이터 규칙 (2026-07-09 확정)
 

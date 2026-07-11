@@ -12,8 +12,8 @@ k-calAI-RN/
 │   │   ├── _layout.tsx         # 하단 탭 (홈 / 기록 / 추이 / 내 정보) + 온보딩 게이트
 │   │   ├── home.tsx            # 홈 탭 - 오늘 요약 (그룹 진입점)
 │   │   ├── index.tsx           # 기록 탭 - 사진 입력 → 예측 → 끼니 저장
-│   │   ├── trends.tsx          # 추이 탭 (준비 중)
-│   │   ├── account.tsx         # 내 정보 탭 (프로필·목표 요약, 체중·반려동물 진입점, 로그아웃)
+│   │   ├── trends.tsx          # 추이 탭 - 주/월 섭취 kcal 바 차트 + 요약 + 체중 변화
+│   │   ├── account.tsx         # 내 정보 탭 (프로필·목표 요약, 체중·질병·알러지·반려동물 진입점, 로그아웃)
 │   │   └── explore.tsx         # 개발자 진단 (탭 바에서 숨김)
 │   ├── onboarding/             # 온보딩 스택 (consent → body → …)
 │   ├── groups/                 # 그룹 스택 (홈에서 진입)
@@ -33,7 +33,9 @@ k-calAI-RN/
 │   │   ├── _layout.tsx         # 인증 가드
 │   │   ├── profile.tsx         # 프로필 수정 (GET/PUT /api/me/profile)
 │   │   ├── goal.tsx            # 목표 수정 (GET/PUT /api/me/goal, 홈 목표 CTA에서도 진입)
-│   │   └── weights.tsx         # 체중 기록 (POST/GET /api/weights)
+│   │   ├── weights.tsx         # 체중 기록 (POST/GET /api/weights)
+│   │   ├── conditions.tsx      # 질병 정보 수정 (GET/PUT /api/me/conditions, 칩 + 메타 폴백)
+│   │   └── allergies.tsx       # 알러지 정보 수정 (GET/PUT /api/me/allergies, severity 보존)
 │   ├── meals/                  # 끼니 기록 목록 (홈 끼니 카드에서 진입)
 │   │   ├── _layout.tsx         # 인증 가드
 │   │   └── index.tsx           # 날짜별 기록 목록 + 삭제
@@ -98,6 +100,7 @@ expo-router의 파일 기반 라우팅입니다. `app/` 하위 파일이 곧 경
 | `app/auth.tsx` | `/auth` | `unstable_settings.initialRouteName = 'auth'` |
 | `app/(tabs)/home.tsx` | `/home` | 로그인 직후 진입 탭. 그룹 진입점 |
 | `app/(tabs)/index.tsx` | `/` | 그룹 `(tabs)`는 URL에 나타나지 않음 |
+| `app/(tabs)/trends.tsx` | `/trends` | 주/월 토글 + 일별 섭취 바 차트(`GET /api/me/trends`) + 체중 변화(`GET /api/weights` 기간 필터) |
 | `app/(tabs)/account.tsx` | `/account` | 반려동물 진입점 |
 | `app/(tabs)/explore.tsx` | `/explore` | 탭 바에서 숨김 (`href: null`) |
 | `app/onboarding/*.tsx` | `/onboarding/…` | 인증 가드 레이아웃 |
@@ -113,6 +116,8 @@ expo-router의 파일 기반 라우팅입니다. `app/` 하위 파일이 곧 경
 | `app/me/profile.tsx` | `/me/profile` | 프로필 수정 (내 정보 탭에서 진입) |
 | `app/me/goal.tsx` | `/me/goal` | 목표 수정 (내 정보 탭·홈 목표 CTA에서 진입) |
 | `app/me/weights.tsx` | `/me/weights` | 체중 기록 입력 + 최근 목록 |
+| `app/me/conditions.tsx` | `/me/conditions` | 질병 정보 수정 (내 정보 탭에서 진입) |
+| `app/me/allergies.tsx` | `/me/allergies` | 알러지 정보 수정 (내 정보 탭에서 진입, 기존 severity 보존) |
 | `app/meals/index.tsx` | `/meals?date=YYYY-MM-DD` | 날짜별 끼니 기록 목록 + 삭제 (홈 끼니 카드에서 진입) |
 | `app/modal.tsx` | `/modal` | `presentation: 'modal'` |
 
@@ -270,6 +275,7 @@ readErrorMessage(response)
 | `createPet` / `getPets` / `updatePet` / `deletePet` | `POST·GET /api/pets`, `PUT·DELETE /api/pets/{id}` | `PetUpsertRequest` | `PetResponse`. 남의 펫은 404 (존재 은닉). 단건 조회 API 없음 — 상세 화면은 목록에서 찾는다 |
 | `createFeeding` / `getFeedings` | `POST·GET /api/pets/{id}/feedings` | `{ food_label, amount_g, kcal?, fed_at? }` | `FeedingResponse`. 권한 = 소유자 또는 펫이 참여한 그룹의 멤버 |
 | `getRecommendation` | `GET /api/recommendations?meal_type&date` | 쿼리 파라미터 | `{ meal_type, rec_date, items[], excluded[], cached, disclaimer }`. `excluded`는 판별 유니온(`allergen`/`condition`/`filtered`), `items`는 빈 배열 가능. 미동의 403 → `ConsentRequiredError`. `disclaimer`는 서버 문자열을 그대로 표시 |
+| `getTrends` | `GET /api/me/trends?start_date&end_date` | 쿼리 파라미터 (YYYY-MM-DD) | `{ start_date, end_date, target_kcal: number\|null, days[] }`. `days`는 범위 내 전 날짜 오름차순(빈 날 0). 역순·92일 초과는 400 + 한국어 `detail`. 체중은 포함하지 않음 — 앱이 `getWeights()`를 기간 필터해 병행 표시 (DATA_MODEL.md 15장) |
 | `estimateNutrition` (개정) | `POST /api/nutrition/estimate` | `{ food_label }` | 식약처 DB 유사도 검색(pg_trgm). 응답 `food_label`은 매칭된 DB 이름(요청과 다를 수 있음). 미매칭 404 → `NutritionNotFoundError` (수동 입력 유도) |
 
 그룹·반려동물 계약의 정본은 `kcalAI-model/docs/DATA_MODEL.md` 9장입니다.
