@@ -42,6 +42,8 @@
 | 추이의 `target_kcal: null`은 목표 관련 표기를 전부 생략한다 (0으로 취급 금지) | `app/(tabs)/trends.tsx` | 0으로 치면 모든 날이 "초과"가 되고 달성일 계산이 왜곡된다 — summary(홈)와 동일 규칙. 기준선·범례·달성일 셀을 아예 그리지 않는다 |
 | 목표 달성일은 기록한 날(meal_count > 0) 중에서만 센다 | `app/(tabs)/trends.tsx` | 기록 없는 날(0 kcal)을 "달성"으로 세면 안 기록할수록 달성률이 오른다 |
 | 체중 추이는 trends API가 아니라 기존 `getWeights()` 전체를 기간으로 필터 | `app/(tabs)/trends.tsx` | 서버가 체중을 trends 응답에 넣지 않기로 확정 (DATA_MODEL.md 15장). 기간 내 기록 없으면 `/me/weights` 진입 안내 |
+| 기록 확정 카드의 알러지·질병 경고는 **비차단** — 저장 버튼 동작 불변 | `app/(tabs)/index.tsx`, `checkFoodWarnings` | 기획이 "기록할 때 경고"로 확정 (HEALTHCARE_EXPANSION 12장). 차단하면 기록 자체를 포기한다 |
+| 경고 조회 실패(401/403/네트워크)는 조용히 스킵 — 배너·에러 UI·스피너 없음 | `app/(tabs)/index.tsx` `runWarningCheck` | 경고는 부가 기능이라 실패가 기록 흐름을 방해하면 안 된다. 백그라운드 조회 + estimate와 같은 시퀀스 경합 차단(라벨 바뀌면 늦은 응답 무시) |
 
 ## 선택지 데이터 규칙 (2026-07-09 확정)
 
