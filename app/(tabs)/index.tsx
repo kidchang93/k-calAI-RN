@@ -18,8 +18,10 @@ import {
 import { ChipGroup } from '@/components/chip-group';
 import { CALORIE_API_URL, Prediction, uploadFoodPhoto } from '@/services/calorie-api';
 import {
+  checkFoodWarnings,
   createMeal,
   estimateNutrition,
+  FoodWarning,
   MealType,
   NutritionEstimate,
   NutritionNotFoundError,
@@ -76,9 +78,13 @@ export default function RecordScreen() {
   const [manualKcal, setManualKcal] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // 알러지·질병 경고 (HEALTHCARE_EXPANSION 12장). 경고일 뿐 저장을 막지 않는다.
+  const [warnings, setWarnings] = useState<FoodWarning[]>([]);
 
   // 라벨을 연속으로 탭했을 때 늦게 도착한 이전 응답이 현재 선택을 덮어쓰지 않게 한다.
   const estimateSeqRef = useRef(0);
+  // 경고 조회도 같은 경합 차단 패턴 — 라벨이 바뀌면 이전 요청의 늦은 응답을 무시한다.
+  const warningSeqRef = useRef(0);
 
   const topPrediction = predictions[0];
   const confidence = useMemo(() => {
@@ -110,6 +116,12 @@ export default function RecordScreen() {
     return Math.round(parsed);
   }, [nutrition, servingRatio, manualKcal]);
 
+  // 시퀀스를 올려 진행 중인 경고 조회의 늦은 응답까지 무효화한다.
+  const clearWarnings = () => {
+    warningSeqRef.current += 1;
+    setWarnings([]);
+  };
+
   const clearConfirmState = () => {
     setSelectedPrediction(null);
     setNutrition(null);
@@ -117,6 +129,33 @@ export default function RecordScreen() {
     setManualKcal('');
     setServingRatio(1);
     setMealType(defaultMealType());
+    clearWarnings();
+  };
+
+  // 라벨 확정 시 백그라운드로 경고를 조회한다 (HEALTHCARE_EXPANSION 12장 — 경고이지 차단이 아니다).
+  // 부가 기능이라 로딩 표시가 없고, 401/403/네트워크 오류는 조용히 스킵한다 (배너 없음).
+  const runWarningCheck = (labels: string[]) => {
+    const seq = ++warningSeqRef.current;
+    setWarnings([]);
+
+    // 서버 계약: 1~10개, 각 1~100자 (DATA_MODEL.md 16장). 중복은 앱에서도 제거한다.
+    const deduped = Array.from(
+      new Set(labels.map((label) => label.trim()).filter((label) => label.length > 0))
+    ).slice(0, 10);
+
+    if (deduped.length === 0) {
+      return;
+    }
+
+    checkFoodWarnings(deduped)
+      .then((result) => {
+        if (warningSeqRef.current === seq) {
+          setWarnings(result);
+        }
+      })
+      .catch(() => {
+        // 경고는 부가 기능 — 실패해도 기록 흐름을 방해하지 않는다.
+      });
   };
 
   const pickFromCamera = async () => {
@@ -209,9 +248,14 @@ export default function RecordScreen() {
 
       if (estimateSeqRef.current === seq) {
         setNutrition(result);
+        // 선택 라벨 + 유사도 매칭된 DB 이름 두 표기 모두로 경고를 판정한다 (중복은 제거).
+        runWarningCheck([prediction.label, result.food_label]);
       }
     } catch (error) {
       if (estimateSeqRef.current === seq) {
+        // 수동 입력 경로 진입 — 라벨은 확정됐으므로 경고는 선택 라벨로 판정한다.
+        runWarningCheck([prediction.label]);
+
         // 404(미매칭)는 오류가 아니라 정상 분기 — 배너 없이 수동 입력으로 자연스럽게 넘긴다.
         if (error instanceof NutritionNotFoundError) {
           setNotFoundMessage(error.message);
@@ -233,6 +277,8 @@ export default function RecordScreen() {
     setNutrition(null);
     setNotFoundMessage(null);
     setManualKcal('');
+    // 라벨이 바뀌었으므로 이전 라벨의 경고를 즉시 제거한다 (늦은 응답도 무효화).
+    clearWarnings();
     await runEstimate(prediction);
   };
 
@@ -438,6 +484,22 @@ export default function RecordScreen() {
               </View>
             )}
 
+            {/* 알러지·질병 경고 — 저장을 막지 않는다 (HEALTHCARE_EXPANSION 12장). */}
+            {warnings.length > 0 ? (
+              <View style={styles.warningBox}>
+                <MaterialIcons name="warning-amber" size={20} color="#e5484d" />
+                <View style={styles.warningBody}>
+                  {warnings.map((warning) => (
+                    <Text
+                      key={`${warning.source}-${warning.code}-${warning.matched_label}`}
+                      style={styles.warningText}>
+                      {formatWarning(warning)}
+                    </Text>
+                  ))}
+                </View>
+              </View>
+            ) : null}
+
             <View style={styles.choiceSection}>
               <Text style={styles.choiceLabel}>끼니</Text>
               <ChipGroup
@@ -544,6 +606,24 @@ function PredictionRow({
       </View>
     </Pressable>
   );
+}
+
+// 경고 1건 → 1줄. allergy는 "계란 알러지: …", condition은 "당뇨 주의: …" (DATA_MODEL.md 16장).
+function formatWarning(warning: FoodWarning): string {
+  const prefix = warning.source === 'allergy' ? `${warning.label} 알러지` : `${warning.label} 주의`;
+
+  return `${prefix}: '${warning.matched_label}'에 ${warning.matched_keyword}${subjectParticle(warning.matched_keyword)} 포함될 수 있어요`;
+}
+
+// 주격 조사(이/가) — 마지막 글자의 받침 유무로 고른다. 한글이 아니면 병기 폴백.
+function subjectParticle(word: string): string {
+  const code = word.charCodeAt(word.length - 1);
+
+  if (code >= 0xac00 && code <= 0xd7a3) {
+    return (code - 0xac00) % 28 === 0 ? '가' : '이';
+  }
+
+  return '이(가)';
 }
 
 function NutrientItem({ label, grams }: { label: string; grams: number | null }) {
@@ -916,6 +996,24 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  warningBody: {
+    flex: 1,
+    gap: 4,
+  },
+  warningBox: {
+    alignItems: 'flex-start',
+    backgroundColor: '#fff5f5',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 8,
+    padding: 14,
+  },
+  warningText: {
+    color: '#e5484d',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 19,
   },
   choiceSection: {
     gap: 8,

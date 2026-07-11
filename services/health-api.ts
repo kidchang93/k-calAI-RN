@@ -132,6 +132,18 @@ export type TrendsResponse = {
   days: TrendDay[];
 };
 
+// 기록 직전 알러지·질병 경고 판정 (DATA_MODEL.md 16장). source는 판별 유니온 —
+// 모르는 값은 recommendation-api.ts의 excluded 처리와 같은 방식으로 응답 전체를 형식 오류로 취급한다.
+export type FoodWarningSource = 'condition' | 'allergy';
+
+export type FoodWarning = {
+  source: FoodWarningSource;
+  code: string;
+  label: string;
+  matched_keyword: string;
+  matched_label: string;
+};
+
 export type CreateWeightRequest = {
   weight_kg: number;
   // 미지정 시 서버가 현재 시각(UTC)으로 저장한다.
@@ -270,6 +282,25 @@ export async function getTrends(startDate: string, endDate: string): Promise<Tre
   );
 
   return ensure(parseTrendsResponse(await parseOk(response, '추이 조회 실패')));
+}
+
+// 기록 확정 직전 경고 판정 (DATA_MODEL.md 16장). Bearer + sensitive_health 동의 필수(401/403).
+// 경고는 부가 기능이라 화면이 실패(401/403/네트워크)를 조용히 스킵한다 — 여기서는 규약대로 던지기만 한다.
+// 라벨은 1~10개. 서버가 중복을 제거하고, 해당 없으면 빈 배열을 준다.
+export async function checkFoodWarnings(foodLabels: string[]): Promise<FoodWarning[]> {
+  const response = await apiFetch(`${HEALTH_API_URL}/nutrition/warnings`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ food_labels: foodLabels }),
+  });
+
+  const data = await parseOk(response, '경고 판정 실패');
+
+  if (!isRecord(data) || !Array.isArray(data.warnings)) {
+    throw new Error('서버 응답 형식이 올바르지 않습니다.');
+  }
+
+  return ensureList(data.warnings, parseFoodWarning);
 }
 
 export async function createWeight(input: CreateWeightRequest): Promise<WeightLog> {
@@ -641,6 +672,36 @@ function parseTrendsResponse(value: unknown): TrendsResponse | null {
     end_date: value.end_date,
     target_kcal,
     days,
+  };
+}
+
+function toFoodWarningSource(value: unknown): FoodWarningSource | null {
+  return value === 'condition' || value === 'allergy' ? value : null;
+}
+
+function parseFoodWarning(value: unknown): FoodWarning | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const source = toFoodWarningSource(value.source);
+
+  if (
+    source === null ||
+    typeof value.code !== 'string' ||
+    typeof value.label !== 'string' ||
+    typeof value.matched_keyword !== 'string' ||
+    typeof value.matched_label !== 'string'
+  ) {
+    return null;
+  }
+
+  return {
+    source,
+    code: value.code,
+    label: value.label,
+    matched_keyword: value.matched_keyword,
+    matched_label: value.matched_label,
   };
 }
 
