@@ -111,7 +111,7 @@ export async function doSomething(input: Input): Promise<Output> {
 
 1. `app/` 하위에 파일을 만듭니다. 파일명이 곧 경로입니다. **라우트가 아닌 파일을 `app/`에 두지 마세요.**
 2. `export default function <Name>Screen()` 형태로 기본 export 합니다.
-3. `SafeAreaView` → `ScrollView contentContainerStyle={styles.container}` 골격을 따릅니다.
+3. `SafeAreaView`(`react-native-safe-area-context`에서 import — react-native의 것은 deprecated) → `ScrollView contentContainerStyle={styles.container}` 골격을 따릅니다.
 4. 화면 전용 하위 컴포넌트는 **같은 파일 하단에 named function**으로 둡니다 (`ActionButton`, `PredictionRow`, `StatusItem`). 여러 화면이 공유할 때만 `components/`로 승격합니다.
 5. `StyleSheet.create`를 파일 맨 아래에 둡니다.
 6. 탭에 노출하려면 `app/(tabs)/_layout.tsx`에 `<Tabs.Screen>`을 추가합니다.

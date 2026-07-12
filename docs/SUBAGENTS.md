@@ -21,7 +21,7 @@
   - 루트 레이아웃(app/_layout.tsx)에서 router.replace()/push() 를 호출하지 않는다.
     인증 가드는 <Redirect> 로 건다.
   - 화면은 fetch를 직접 호출하지 않는다. services/ 를 경유한다.
-  - 서버 라우트는 /api/predict, /api/gpt-predict, /api/auth/**, /api/s3/** 이다.
+  - 서버 라우트는 /api/predict, /api/gpt-predict, /api/auth/** 등이다 (/api/s3/**는 제거됨).
     추가 전에 curl -sf localhost:8000/openapi.json 으로 확인한다.
   - strict TypeScript. any 금지. 서버 응답은 런타임 검증 후 사용한다.
   - 검증 명령: npx tsc --noEmit && npm run lint  (둘 다 현재 통과 중)
