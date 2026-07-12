@@ -25,8 +25,8 @@
 - 카메라 촬영 또는 앨범 선택으로 음식 사진 입력
 - `multipart/form-data`의 `file` 필드로 이미지 서버 업로드
 - `/api/predict` 응답의 `predictions` 배열을 신뢰도 순으로 표시
-- 사용자가 음식 후보를 선택하면 `/api/gpt-predict`로 칼로리 설명 요청
-- 서버 연결 주소를 `EXPO_PUBLIC_CALORIE_API_URL`, `EXPO_PUBLIC_CALORIE_DETAIL_API_URL`로 교체 가능
+- 사용자가 음식 후보를 선택하면 `/api/nutrition/estimate`로 칼로리·영양 추정 요청(식약처 DB)
+- 서버 연결 주소를 `EXPO_PUBLIC_CALORIE_API_URL` 등 환경변수로 교체 가능
 
 ## 핵심 사용자 흐름
 
@@ -58,7 +58,7 @@
 | 목적 | 메서드 | 경로 | 요청 | 응답 |
 | --- | --- | --- | --- | --- |
 | 음식 이미지 분류 | `POST` | `/api/predict` | `multipart/form-data`, `file` | `{ predictions: [{ label, score }] }` |
-| 칼로리 설명 생성 | `POST` | `/api/gpt-predict` | `{ text, max_tokens }` | `{ response_text }` |
+| 칼로리·영양 추정 | `POST` | `/api/nutrition/estimate` | `{ food_label }` | 식약처 DB 기반 kcal·영양 (`docs/DATA_MODEL.md`) |
 
 API 계약이 바뀌면 앱과 서버를 같은 작업 단위에서 함께 수정한다.
 

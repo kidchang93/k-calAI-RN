@@ -105,7 +105,7 @@ export async function doSomething(input: Input): Promise<Output> {
 }
 ```
 
-5. 서버(`kcalAI-model`)에 해당 경로가 **실제로 존재하는지 확인합니다.** `/api/gpt-predict`처럼 없는 경로를 호출하는 코드가 이미 있습니다.
+5. 서버(`kcalAI-model`)에 해당 경로가 **실제로 존재하는지 확인합니다.** `curl -sf localhost:8000/openapi.json`으로 대조하세요 (과거 없는 `/api/gpt-predict`를 호출하던 코드가 있었고, 2026-07-12에 제거했습니다).
 
 ## 새 화면 추가 절차
 

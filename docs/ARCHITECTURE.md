@@ -225,7 +225,7 @@ saveMeal()                               # 끼니(meal_type) + 섭취량(serving
   └─ reset() → router.navigate('/home')  # 홈은 useFocusEffect로 summary를 재조회
 ```
 
-> `requestCalorieDetail`(`/api/gpt-predict`, 프롬프트 하드코딩 `services/calorie-api.ts:71`)은 기록 탭에서 더 이상 쓰지 않지만 `services/calorie-api.ts`에 남아 있습니다.
+> 레거시 `requestCalorieDetail`(`/api/gpt-predict`)은 2026-07-12에 제거됐습니다 (서버 라우트도 삭제). 칼로리·영양은 `/api/nutrition/estimate`(식약처 DB)를 씁니다.
 
 ## 오류 처리 흐름
 
@@ -263,7 +263,6 @@ readErrorMessage(response)
 | 앱 함수 | 경로 | 요청 | 응답 |
 |---------|------|------|------|
 | `uploadFoodPhoto` | `POST /api/predict` | `multipart/form-data`, `file` | `{ predictions: [{ label, score }] }` — 라벨은 **한국어** (YOLO 한국 음식 분류기) |
-| `requestCalorieDetail` | `POST /api/gpt-predict` | `{ text, max_tokens }` | `{ response_text }` — 마크다운 표를 포함할 수 있음 |
 | `requestPhoneCode` | `POST /api/auth/{mode}/request-code` | `{ phone_number }` | `{ message, expires_at, dev_code? }` |
 | `verifyPhoneCode` | `POST /api/auth/{mode}/verify` | `{ phone_number, code }` | `{ access_token, token_type, expires_at, user }` |
 | `updateMeal` | `PUT /api/meals/{meal_id}` | `createMeal`과 동일 구조 (전체 교체) | `MealLog`. `logged_at` 생략 시 기존 기록 시각 유지, `total_kcal`은 서버가 items 합계로 재계산. 남의 끼니·삭제된 끼니 404 (DATA_MODEL.md 4장) |

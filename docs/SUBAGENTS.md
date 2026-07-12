@@ -21,8 +21,8 @@
   - 루트 레이아웃(app/_layout.tsx)에서 router.replace()/push() 를 호출하지 않는다.
     인증 가드는 <Redirect> 로 건다.
   - 화면은 fetch를 직접 호출하지 않는다. services/ 를 경유한다.
-  - 서버 라우트는 /api/predict, /api/gpt-predict, /api/auth/** 등이다 (/api/s3/**는 제거됨).
-    추가 전에 curl -sf localhost:8000/openapi.json 으로 확인한다.
+  - 서버 라우트는 /api/predict, /api/nutrition/estimate, /api/auth/** 등이다
+    (/api/s3/**·/api/gpt-predict는 제거됨). 추가 전에 curl -sf localhost:8000/openapi.json 으로 확인한다.
   - strict TypeScript. any 금지. 서버 응답은 런타임 검증 후 사용한다.
   - 검증 명령: npx tsc --noEmit && npm run lint  (둘 다 현재 통과 중)
   - npm run reset-project 는 절대 실행하지 않는다.
@@ -81,7 +81,7 @@
 - **`npm run reset-project` 실행.** `app/` 디렉토리를 파괴적으로 이동합니다.
 - **`expo start` / 시뮬레이터 기동.** 대화형이며 종료되지 않습니다. 필요하면 사용자에게 `! npm run ios` 실행을 요청합니다.
 - (완료) 템플릿 잔재(`modal.tsx`·`hello-wave.tsx`·`parallax-scroll-view.tsx`·`collapsible.tsx`·`external-link.tsx`·테마 인프라)는 2026-07-12에 삭제됨.
-- **`/api/gpt-predict` 관련 코드를 "고치기".** 서버에 엔드포인트가 없습니다. 앱만 수정해도 동작하지 않습니다.
+- (해소) 레거시 `/api/gpt-predict`는 2026-07-12에 서버·앱 양쪽에서 완전히 제거됨. 칼로리·영양은 `/api/nutrition/estimate`.
 - **미커밋 변경(`services/auth-session.ts`, `app/_layout.tsx`, `app/auth.tsx`) 되돌리기.**
 - **`package.json` 의존성 버전 임의 변경.** Expo SDK 54가 버전을 고정합니다.
 

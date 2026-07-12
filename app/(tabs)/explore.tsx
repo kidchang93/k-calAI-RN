@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { CALORIE_API_URL, CALORIE_DETAIL_API_URL } from '@/services/calorie-api';
+import { CALORIE_API_URL } from '@/services/calorie-api';
 
 export default function TabTwoScreen() {
   return (
@@ -11,7 +11,7 @@ export default function TabTwoScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>분석 상태</Text>
           <Text style={styles.description}>
-            Flutter 원본의 촬영, 업로드, 예측 결과 표시 흐름을 React Native로 옮긴 화면입니다.
+            사진 촬영·업로드·예측 흐름의 개발자 진단 화면입니다.
           </Text>
         </View>
 
@@ -32,18 +32,15 @@ export default function TabTwoScreen() {
         />
         <StatusItem
           icon="calculate"
-          title="칼로리 계산"
-          description="선택한 음식명을 gpt-predict API로 보내 예상 칼로리 설명을 받습니다."
+          title="칼로리·영양"
+          description="선택한 음식명을 /api/nutrition/estimate로 보내 식약처 DB 기반 kcal을 받습니다."
         />
 
         <View style={styles.serverCard}>
-          <Text style={styles.serverLabel}>API endpoint</Text>
+          <Text style={styles.serverLabel}>Predict endpoint</Text>
           <Text style={styles.serverUrl}>{CALORIE_API_URL}</Text>
-          <Text style={styles.serverLabel}>Calorie endpoint</Text>
-          <Text style={styles.serverUrl}>{CALORIE_DETAIL_API_URL}</Text>
           <Text style={styles.serverHelp}>
-            다른 서버를 사용할 때는 EXPO_PUBLIC_CALORIE_API_URL,
-            EXPO_PUBLIC_CALORIE_DETAIL_API_URL 환경변수로 교체하세요.
+            다른 서버를 사용할 때는 EXPO_PUBLIC_CALORIE_API_URL 환경변수로 교체하세요.
           </Text>
         </View>
       </ScrollView>

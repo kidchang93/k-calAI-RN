@@ -11,8 +11,8 @@
 
 | 계층 | 있는 것 |
 |------|---------|
-| 화면 | `auth`(휴대폰 인증), `(tabs)/index`(분석), `(tabs)/explore`(개발자용 진단), `modal`(템플릿 잔재) |
-| 서버 API | `/api/auth/{signup,login}/{request-code,verify}`, `/api/predict`, `/api/gpt-predict`, `/api/s3/*` |
+| 화면 | `auth`(휴대폰 인증), `(tabs)/index`(분석), `(tabs)/explore`(개발자용 진단) |
+| 서버 API | `/api/auth/{signup,login}/{request-code,verify}`, `/api/predict`, `/api/nutrition/estimate` (레거시 `/api/gpt-predict`·`/api/s3/*`는 2026-07-12 제거) |
 | DB 테이블 | `users`, `phone_verification_codes`, `auth_sessions` |
 | 세션 | 메모리에만 존재. 새로고침하면 로그아웃 |
 
@@ -77,7 +77,7 @@
   → 분석 (POST /api/predict)
   → 후보 3개 표시
   → 후보 선택
-  → 칼로리 설명 (POST /api/gpt-predict)
+  → 칼로리·영양 추정 (POST /api/nutrition/estimate, 식약처 DB)
   → ★ 기록 확정 화면 (신규)
        · 음식명 직접 수정
        · 1인분 기준 / 양 조절 (0.5인분, 1인분, 1.5인분 …)
