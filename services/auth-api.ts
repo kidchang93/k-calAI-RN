@@ -1,5 +1,4 @@
-import { Platform } from 'react-native';
-
+import { apiUrl } from '@/services/api-base';
 import { apiFetch, readErrorMessage } from '@/services/http';
 
 export type AuthMode = 'signup' | 'login';
@@ -24,10 +23,7 @@ export type AuthTokenResponse = {
   user: AuthUser;
 };
 
-const DEFAULT_AUTH_API_URL =
-  Platform.OS === 'android' ? 'http://10.0.2.2:8000/api/auth' : 'http://127.0.0.1:8000/api/auth';
-
-export const AUTH_API_URL = process.env.EXPO_PUBLIC_AUTH_API_URL ?? DEFAULT_AUTH_API_URL;
+export const AUTH_API_URL = apiUrl('/api/auth', process.env.EXPO_PUBLIC_AUTH_API_URL);
 
 // 인증 API에는 Authorization 헤더를 붙이지 않는다 (세션 발급 전 단계).
 // 따라서 apiFetch가 아니라 순수 fetch를 쓴다.

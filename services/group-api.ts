@@ -1,5 +1,4 @@
-import { Platform } from 'react-native';
-
+import { apiUrl } from '@/services/api-base';
 import { apiFetch, readErrorMessage } from '@/services/http';
 
 // kcalAI-model/docs/DATA_MODEL.md 9장 계약 (v2 2차 구현분 — 그룹).
@@ -58,10 +57,7 @@ export type GroupDetail = {
   pets: GroupPetItem[];
 };
 
-const DEFAULT_GROUP_API_URL =
-  Platform.OS === 'android' ? 'http://10.0.2.2:8000/api/groups' : 'http://127.0.0.1:8000/api/groups';
-
-export const GROUP_API_URL = process.env.EXPO_PUBLIC_GROUP_API_URL ?? DEFAULT_GROUP_API_URL;
+export const GROUP_API_URL = apiUrl('/api/groups', process.env.EXPO_PUBLIC_GROUP_API_URL);
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
 

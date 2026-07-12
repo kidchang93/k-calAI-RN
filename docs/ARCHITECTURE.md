@@ -51,7 +51,8 @@ k-calAI-RN/
 │   ├── group-api.ts            # 그룹 (9장)
 │   ├── pet-api.ts              # 반려동물·급여 기록 (9장)
 │   ├── recommendation-api.ts   # 식단 추천 (11·13장)
-│   └── http.ts                 # 공통 fetch 래퍼(apiFetch) + readErrorMessage
+│   ├── http.ts                 # 공통 fetch 래퍼(apiFetch) + readErrorMessage
+│   └── api-base.ts             # API 오리진 결정(Expo hostUri→LAN IP 자동, 실기기 도달). apiUrl()
 ├── components/                 # 재사용 UI
 │   ├── session-loading.tsx     # 세션 복원 대기 화면 (인증 가드 깜빡임 방지)
 │   ├── error-banner.tsx        # 오류 배너 + 다시 시도

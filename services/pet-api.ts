@@ -1,5 +1,4 @@
-import { Platform } from 'react-native';
-
+import { apiUrl } from '@/services/api-base';
 import { apiFetch, readErrorMessage } from '@/services/http';
 
 // kcalAI-model/docs/DATA_MODEL.md 9장 계약 (v2 2차 구현분 — 반려동물).
@@ -59,10 +58,7 @@ export type FeedingResponse = {
   created_at: string;
 };
 
-const DEFAULT_PET_API_URL =
-  Platform.OS === 'android' ? 'http://10.0.2.2:8000/api/pets' : 'http://127.0.0.1:8000/api/pets';
-
-export const PET_API_URL = process.env.EXPO_PUBLIC_PET_API_URL ?? DEFAULT_PET_API_URL;
+export const PET_API_URL = apiUrl('/api/pets', process.env.EXPO_PUBLIC_PET_API_URL);
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
 

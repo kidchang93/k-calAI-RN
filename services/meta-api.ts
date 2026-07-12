@@ -1,5 +1,4 @@
-import { Platform } from 'react-native';
-
+import { apiUrl } from '@/services/api-base';
 import { apiFetch, readErrorMessage } from '@/services/http';
 
 // kcalAI-model/docs/DATA_MODEL.md 10장 계약.
@@ -36,10 +35,7 @@ export const FALLBACK_ALLERGEN_OPTIONS: MetaOption[] = [
   { code: 'peach', label: '복숭아' },
 ];
 
-const DEFAULT_META_API_URL =
-  Platform.OS === 'android' ? 'http://10.0.2.2:8000/api/meta' : 'http://127.0.0.1:8000/api/meta';
-
-export const META_API_URL = process.env.EXPO_PUBLIC_META_API_URL ?? DEFAULT_META_API_URL;
+export const META_API_URL = apiUrl('/api/meta', process.env.EXPO_PUBLIC_META_API_URL);
 
 export async function getMetaOptions(): Promise<MetaOptions> {
   const response = await apiFetch(`${META_API_URL}/options`);

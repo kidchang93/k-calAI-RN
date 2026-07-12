@@ -1,5 +1,4 @@
-import { Platform } from 'react-native';
-
+import { apiUrl } from '@/services/api-base';
 import { MealType } from '@/services/health-api';
 import { apiFetch, readErrorMessage } from '@/services/http';
 import { ConsentRequiredError } from '@/services/onboarding-api';
@@ -44,13 +43,10 @@ export type DietRecommendation = {
   disclaimer: string;
 };
 
-const DEFAULT_RECOMMENDATION_API_URL =
-  Platform.OS === 'android'
-    ? 'http://10.0.2.2:8000/api/recommendations'
-    : 'http://127.0.0.1:8000/api/recommendations';
-
-export const RECOMMENDATION_API_URL =
-  process.env.EXPO_PUBLIC_RECOMMENDATION_API_URL ?? DEFAULT_RECOMMENDATION_API_URL;
+export const RECOMMENDATION_API_URL = apiUrl(
+  '/api/recommendations',
+  process.env.EXPO_PUBLIC_RECOMMENDATION_API_URL,
+);
 
 export async function getRecommendation(
   mealType: MealType,

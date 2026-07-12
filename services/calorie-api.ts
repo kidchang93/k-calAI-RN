@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 
+import { apiUrl } from '@/services/api-base';
 import { apiFetch, readErrorMessage } from '@/services/http';
 
 export type Prediction = {
@@ -13,10 +14,7 @@ export type PhotoAsset = {
   mimeType?: string | null;
 };
 
-const DEFAULT_API_URL =
-  Platform.OS === 'android' ? 'http://10.0.2.2:8000/api/predict' : 'http://127.0.0.1:8000/api/predict';
-
-export const CALORIE_API_URL = process.env.EXPO_PUBLIC_CALORIE_API_URL ?? DEFAULT_API_URL;
+export const CALORIE_API_URL = apiUrl('/api/predict', process.env.EXPO_PUBLIC_CALORIE_API_URL);
 
 export async function uploadFoodPhoto(asset: PhotoAsset): Promise<Prediction[]> {
   const formData = new FormData();

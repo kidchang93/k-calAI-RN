@@ -54,18 +54,20 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 
 `EXPO_PUBLIC_` 접두사가 붙은 값만 클라이언트 번들에 주입됩니다. **비밀값을 넣지 마세요.**
 
-| 변수 | 기본값 (`Platform.OS === 'android'` ? … : …) | 위치 |
-|------|---------------------------------------------|------|
-| `EXPO_PUBLIC_CALORIE_API_URL` | `http://10.0.2.2:8000/api/predict` : `http://127.0.0.1:8000/api/predict` | `services/calorie-api.ts` |
-| `EXPO_PUBLIC_AUTH_API_URL` | `…/api/auth` | `services/auth-api.ts:25` |
-| `EXPO_PUBLIC_HEALTH_API_URL` | `…/api` | `services/health-api.ts` |
-| `EXPO_PUBLIC_ONBOARDING_API_URL` | `…/api` | `services/onboarding-api.ts` |
-| `EXPO_PUBLIC_META_API_URL` | `…/api/meta` | `services/meta-api.ts` |
-| `EXPO_PUBLIC_GROUP_API_URL` | `…/api/groups` | `services/group-api.ts` |
-| `EXPO_PUBLIC_PET_API_URL` | `…/api/pets` | `services/pet-api.ts` |
-| `EXPO_PUBLIC_RECOMMENDATION_API_URL` | `…/api/recommendations` | `services/recommendation-api.ts` |
+**API base는 `services/api-base.ts`가 자동 결정합니다** — Expo 개발 서버 호스트(`Constants.expoConfig.hostUri`)에서 Mac의 LAN IP를 꺼내 `http://<LAN_IP>:8000`으로 붙습니다(실기기 포함). 시뮬레이터/에뮬레이터는 `127.0.0.1`/`10.0.2.2` 폴백. 따라서 아래 `EXPO_PUBLIC_*`는 **선택적 오버라이드**(원격·터널 서버 강제용)이며 보통 설정하지 않습니다. 실기기(iPhone) 테스트는 **`docs/DEVICE_TESTING.md`** 참조.
 
-Android 에뮬레이터는 호스트를 `10.0.2.2`로 봅니다. 새 엔드포인트를 추가할 때 이 분기를 빠뜨리지 마세요.
+| 변수 (오버라이드) | 리소스 경로 | 위치 |
+|------|-------------|------|
+| `EXPO_PUBLIC_CALORIE_API_URL` | `/api/predict` | `services/calorie-api.ts` |
+| `EXPO_PUBLIC_AUTH_API_URL` | `/api/auth` | `services/auth-api.ts` |
+| `EXPO_PUBLIC_HEALTH_API_URL` | `/api` | `services/health-api.ts` |
+| `EXPO_PUBLIC_ONBOARDING_API_URL` | `/api` | `services/onboarding-api.ts` |
+| `EXPO_PUBLIC_META_API_URL` | `/api/meta` | `services/meta-api.ts` |
+| `EXPO_PUBLIC_GROUP_API_URL` | `/api/groups` | `services/group-api.ts` |
+| `EXPO_PUBLIC_PET_API_URL` | `/api/pets` | `services/pet-api.ts` |
+| `EXPO_PUBLIC_RECOMMENDATION_API_URL` | `/api/recommendations` | `services/recommendation-api.ts` |
+
+기본 오리진(base)은 `services/api-base.ts`가 결정합니다(위 설명). 새 서비스는 `apiUrl('/api/…', process.env.EXPO_PUBLIC_…)` 패턴을 따르세요 — 호스트 분기를 개별 파일에 두지 않습니다.
 
 기본값 폴백이 있어 `.env` 없이도 로컬에서 동작합니다. 오버라이드가 필요하면 `.env.example`을 `.env`로 복사해 값을 바꾸세요(`.env`는 gitignore).
 

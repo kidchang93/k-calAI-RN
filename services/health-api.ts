@@ -1,5 +1,4 @@
-import { Platform } from 'react-native';
-
+import { apiUrl } from '@/services/api-base';
 import { apiFetch, readErrorMessage } from '@/services/http';
 
 // 서버 필드는 snake_case를 그대로 유지한다 (docs/CODE_STYLE.md).
@@ -156,10 +155,7 @@ export type WeightLog = {
   measured_at: string;
 };
 
-const DEFAULT_HEALTH_API_URL =
-  Platform.OS === 'android' ? 'http://10.0.2.2:8000/api' : 'http://127.0.0.1:8000/api';
-
-export const HEALTH_API_URL = process.env.EXPO_PUBLIC_HEALTH_API_URL ?? DEFAULT_HEALTH_API_URL;
+export const HEALTH_API_URL = apiUrl('/api', process.env.EXPO_PUBLIC_HEALTH_API_URL);
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
 
