@@ -1,8 +1,9 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -14,7 +15,19 @@ import {
 
 import { BackButton } from '@/components/back-button';
 import { ErrorBanner } from '@/components/error-banner';
-import { attachPetToGroup, getGroupDetail, GroupDetail, GroupKind } from '@/services/group-api';
+import { useAuthSession } from '@/services/auth-session';
+import {
+  attachPetToGroup,
+  deleteGroup,
+  detachPetFromGroup,
+  getGroupDetail,
+  GroupDetail,
+  GroupKind,
+  GroupMemberItem,
+  GroupPetItem,
+  leaveGroup,
+  removeMember,
+} from '@/services/group-api';
 import { getPets, PetResponse } from '@/services/pet-api';
 
 const GROUP_KIND_LABELS: Record<GroupKind, string> = {
@@ -36,14 +49,24 @@ const SPECIES_LABELS: Record<string, string> = {
 };
 
 export default function GroupDetailScreen() {
+  const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
   const groupId = Number(params.id);
   const isValidId = Number.isInteger(groupId) && groupId > 0;
+
+  // 소유자 판별: 상세 응답의 owner_id를 내 세션 user.id와 비교한다.
+  // 인증 가드(_layout)를 통과한 화면이라 정상 흐름에서는 항상 authenticated다.
+  const sessionState = useAuthSession();
+  const myUserId = sessionState.status === 'authenticated' ? sessionState.session.user.id : null;
 
   const [detail, setDetail] = useState<GroupDetail | null>(null);
   const [myPets, setMyPets] = useState<PetResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sharingPetId, setSharingPetId] = useState<number | null>(null);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [isDeletingGroup, setIsDeletingGroup] = useState(false);
+  const [removingUserId, setRemovingUserId] = useState<number | null>(null);
+  const [detachingPetId, setDetachingPetId] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const loadDetail = useCallback(async () => {
@@ -104,6 +127,104 @@ export default function GroupDetailScreen() {
     }
   };
 
+  // 라이프사이클 액션(나가기·삭제·제거·해제)의 실패는 서버 한국어 detail을 Alert로 그대로 보여준다.
+  const alertActionError = (title: string, error: unknown) => {
+    Alert.alert(title, error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+  };
+
+  const confirmLeave = (group: GroupDetail) => {
+    Alert.alert('그룹 나가기', `'${group.name}' 그룹에서 나갈까요? 공유한 반려동물도 함께 빠져요.`, [
+      { text: '취소', style: 'cancel' },
+      { text: '나가기', style: 'destructive', onPress: () => void handleLeave() },
+    ]);
+  };
+
+  const handleLeave = async () => {
+    setIsLeaving(true);
+
+    try {
+      await leaveGroup(groupId);
+      // 목록으로 복귀. 목록은 useFocusEffect로 재조회한다.
+      router.back();
+    } catch (error) {
+      alertActionError('그룹 나가기 실패', error);
+    } finally {
+      setIsLeaving(false);
+    }
+  };
+
+  const confirmDeleteGroup = (group: GroupDetail) => {
+    Alert.alert(
+      '그룹 삭제',
+      `'${group.name}' 그룹을 삭제할까요? 멤버·반려동물 참여가 모두 해제되며 되돌릴 수 없습니다.`,
+      [
+        { text: '취소', style: 'cancel' },
+        { text: '삭제', style: 'destructive', onPress: () => void handleDeleteGroup() },
+      ],
+    );
+  };
+
+  const handleDeleteGroup = async () => {
+    setIsDeletingGroup(true);
+
+    try {
+      await deleteGroup(groupId);
+      router.back();
+    } catch (error) {
+      alertActionError('그룹 삭제 실패', error);
+    } finally {
+      setIsDeletingGroup(false);
+    }
+  };
+
+  const confirmRemoveMember = (member: GroupMemberItem) => {
+    Alert.alert(
+      '멤버 제거',
+      `${member.phone_number_masked} 님을 그룹에서 제거할까요? 이 멤버가 공유한 반려동물도 함께 빠져요.`,
+      [
+        { text: '취소', style: 'cancel' },
+        { text: '제거', style: 'destructive', onPress: () => void handleRemoveMember(member.user_id) },
+      ],
+    );
+  };
+
+  const handleRemoveMember = async (userId: number) => {
+    setRemovingUserId(userId);
+
+    try {
+      await removeMember(groupId, userId);
+      await loadDetail();
+    } catch (error) {
+      alertActionError('멤버 제거 실패', error);
+    } finally {
+      setRemovingUserId(null);
+    }
+  };
+
+  const confirmDetachPet = (pet: GroupPetItem) => {
+    Alert.alert('참여 해제', `'${pet.name}'의 그룹 참여를 해제할까요? 급여 기록은 지워지지 않아요.`, [
+      { text: '취소', style: 'cancel' },
+      { text: '해제', style: 'destructive', onPress: () => void handleDetachPet(pet.pet_id) },
+    ]);
+  };
+
+  const handleDetachPet = async (petId: number) => {
+    setDetachingPetId(petId);
+
+    try {
+      await detachPetFromGroup(groupId, petId);
+      await loadDetail();
+    } catch (error) {
+      alertActionError('참여 해제 실패', error);
+    } finally {
+      setDetachingPetId(null);
+    }
+  };
+
+  const isOwner = detail !== null && myUserId !== null && detail.owner_id === myUserId;
+  const isActing =
+    isLeaving || isDeletingGroup || removingUserId !== null || detachingPetId !== null;
+
   // 이미 그룹에 참여한 펫은 공유 후보에서 제외한다.
   const sharablePets =
     detail === null
@@ -161,6 +282,19 @@ export default function GroupDetailScreen() {
                       style={[styles.roleBadge, member.role === 'owner' && styles.roleBadgeOwner]}>
                       {ROLE_LABELS[member.role]}
                     </Text>
+                    {isOwner && member.user_id !== myUserId ? (
+                      <Pressable
+                        disabled={isActing}
+                        hitSlop={8}
+                        onPress={() => confirmRemoveMember(member)}
+                        style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
+                        {removingUserId === member.user_id ? (
+                          <ActivityIndicator color="#e5484d" size="small" />
+                        ) : (
+                          <MaterialIcons color="#e5484d" name="person-remove" size={20} />
+                        )}
+                      </Pressable>
+                    ) : null}
                   </View>
                 ))}
               </View>
@@ -177,6 +311,20 @@ export default function GroupDetailScreen() {
                       <MaterialIcons color="#4e5968" name="pets" size={20} />
                       <Text style={styles.rowLabel}>{pet.name}</Text>
                       <Text style={styles.rowMeta}>{SPECIES_LABELS[pet.species] ?? pet.species}</Text>
+                      {isOwner || myPets.some((myPet) => myPet.id === pet.pet_id) ? (
+                        // 해제 권한은 펫 소유자 또는 그룹 소유자 (17장).
+                        <Pressable
+                          disabled={isActing}
+                          hitSlop={8}
+                          onPress={() => confirmDetachPet(pet)}
+                          style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
+                          {detachingPetId === pet.pet_id ? (
+                            <ActivityIndicator color="#e5484d" size="small" />
+                          ) : (
+                            <MaterialIcons color="#e5484d" name="link-off" size={20} />
+                          )}
+                        </Pressable>
+                      ) : null}
                     </View>
                   ))
                 )}
@@ -210,6 +358,34 @@ export default function GroupDetailScreen() {
                   ))}
                 </View>
               ) : null}
+
+              <View style={styles.section}>
+                {isOwner ? (
+                  <Pressable
+                    disabled={isActing}
+                    onPress={() => confirmDeleteGroup(detail)}
+                    style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+                    <MaterialIcons color="#e5484d" name="delete-outline" size={20} />
+                    {isDeletingGroup ? (
+                      <ActivityIndicator color="#e5484d" size="small" />
+                    ) : (
+                      <Text style={styles.dangerLabel}>그룹 삭제</Text>
+                    )}
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    disabled={isActing}
+                    onPress={() => confirmLeave(detail)}
+                    style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+                    <MaterialIcons color="#e5484d" name="logout" size={20} />
+                    {isLeaving ? (
+                      <ActivityIndicator color="#e5484d" size="small" />
+                    ) : (
+                      <Text style={styles.dangerLabel}>그룹 나가기</Text>
+                    )}
+                  </Pressable>
+                )}
+              </View>
             </>
           )}
         </View>
@@ -241,8 +417,19 @@ const styles = StyleSheet.create({
     maxWidth: 720,
     width: '100%',
   },
+  dangerLabel: {
+    color: '#e5484d',
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+  },
   header: {
     gap: 4,
+  },
+  iconButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 24,
   },
   inviteBody: {
     flex: 1,

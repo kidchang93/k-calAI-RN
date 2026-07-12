@@ -132,6 +132,8 @@ export default function PetDetailScreen() {
   };
 
   const totalAmount = feedings.reduce((sum, feeding) => sum + feeding.amount_g, 0);
+  // kcal은 급여 기록의 선택 입력이라 null인 행은 합계에서 제외된다.
+  const totalKcal = feedings.reduce((sum, feeding) => sum + (feeding.kcal ?? 0), 0);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -164,6 +166,26 @@ export default function PetDetailScreen() {
                 {errorMessage ? (
                   <ErrorBanner message={errorMessage} onRetry={() => void loadPet()} />
                 ) : null}
+
+                <View style={styles.recommendCard}>
+                  <View style={styles.recommendBody}>
+                    <Text style={styles.recommendLabel}>권장 일일 칼로리</Text>
+                    {pet.recommended_kcal === null ? (
+                      <Text style={styles.recommendHint}>
+                        {pet.species === 'other'
+                          ? '기타 종은 아직 권장 칼로리 계산을 지원하지 않아요.'
+                          : '체중을 입력하면 권장 칼로리가 계산돼요.'}
+                      </Text>
+                    ) : (
+                      <Text style={styles.recommendValue}>
+                        {totalKcal > 0
+                          ? `오늘 ${totalKcal.toLocaleString()} / 권장 ${pet.recommended_kcal.toLocaleString()} kcal`
+                          : `${pet.recommended_kcal.toLocaleString()} kcal`}
+                      </Text>
+                    )}
+                  </View>
+                  <MaterialIcons color="#3182f6" name="local-fire-department" size={22} />
+                </View>
 
                 <View style={styles.section}>
                   <View style={styles.sectionHeader}>
@@ -386,6 +408,32 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 15,
     fontWeight: '800',
+  },
+  recommendBody: {
+    flex: 1,
+    gap: 2,
+  },
+  recommendCard: {
+    alignItems: 'center',
+    backgroundColor: '#f5f9ff',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 16,
+  },
+  recommendHint: {
+    color: '#6b7684',
+    fontSize: 14,
+  },
+  recommendLabel: {
+    color: '#6b7684',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  recommendValue: {
+    color: '#191f28',
+    fontSize: 18,
+    fontWeight: '900',
   },
   row: {
     alignItems: 'center',

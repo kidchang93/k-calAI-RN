@@ -17,6 +17,7 @@ import { logout } from '@/services/auth-api';
 import { clearAuthSession } from '@/services/auth-session';
 import {
   ActivityLevel,
+  deleteAccount,
   getGoal,
   getProfile,
   GoalResponse,
@@ -44,6 +45,7 @@ export default function AccountScreen() {
   const [goal, setGoal] = useState<GoalResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const loadAccount = useCallback(async () => {
@@ -86,6 +88,43 @@ export default function AccountScreen() {
     } finally {
       clearAuthSession();
       setIsLoggingOut(false);
+    }
+  };
+
+  // 회원 탈퇴는 물리 삭제(DATA_MODEL.md 18장)라 2단계로 확인한다.
+  const confirmDeleteAccount = () => {
+    Alert.alert('회원 탈퇴', '정말 탈퇴하시겠어요?', [
+      { text: '취소', style: 'cancel' },
+      { text: '계속', style: 'destructive', onPress: confirmDeleteAccountFinal },
+    ]);
+  };
+
+  const confirmDeleteAccountFinal = () => {
+    Alert.alert(
+      '마지막 확인',
+      '모든 끼니·체중 기록, 반려동물, 소유한 그룹이 영구 삭제됩니다. 되돌릴 수 없습니다.',
+      [
+        { text: '취소', style: 'cancel' },
+        { text: '영구 삭제', style: 'destructive', onPress: () => void handleDeleteAccount() },
+      ],
+    );
+  };
+
+  const handleDeleteAccount = async () => {
+    setIsDeletingAccount(true);
+
+    try {
+      await deleteAccount();
+      // 성공 시에만 세션을 지운다 — <Redirect> 가드가 로그인 화면으로 보낸다.
+      clearAuthSession();
+    } catch (error) {
+      // 실패 시 세션은 유지한다 (로그아웃과 달리 서버 파기가 확인돼야 한다).
+      Alert.alert(
+        '회원 탈퇴 실패',
+        error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
+      );
+    } finally {
+      setIsDeletingAccount(false);
     }
   };
 
@@ -185,14 +224,26 @@ export default function AccountScreen() {
             </Link>
 
             <Pressable
-              disabled={isLoggingOut}
+              disabled={isLoggingOut || isDeletingAccount}
               onPress={confirmLogout}
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
               <MaterialIcons color="#e5484d" name="logout" size={20} />
               {isLoggingOut ? (
                 <ActivityIndicator color="#e5484d" size="small" />
               ) : (
-                <Text style={styles.logoutLabel}>로그아웃</Text>
+                <Text style={styles.dangerLabel}>로그아웃</Text>
+              )}
+            </Pressable>
+
+            <Pressable
+              disabled={isLoggingOut || isDeletingAccount}
+              onPress={confirmDeleteAccount}
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+              <MaterialIcons color="#e5484d" name="person-remove" size={20} />
+              {isDeletingAccount ? (
+                <ActivityIndicator color="#e5484d" size="small" />
+              ) : (
+                <Text style={styles.dangerLabel}>회원 탈퇴</Text>
               )}
             </Pressable>
           </View>
@@ -215,14 +266,14 @@ const styles = StyleSheet.create({
     maxWidth: 720,
     width: '100%',
   },
-  header: {
-    gap: 4,
-  },
-  logoutLabel: {
+  dangerLabel: {
     color: '#e5484d',
     flex: 1,
     fontSize: 16,
     fontWeight: '700',
+  },
+  header: {
+    gap: 4,
   },
   pressed: {
     opacity: 0.74,

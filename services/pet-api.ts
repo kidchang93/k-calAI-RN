@@ -33,6 +33,9 @@ export type PetResponse = {
   birth_year: number | null;
   weight_kg: number | null;
   is_neutered: boolean | null;
+  // 권장 일일 칼로리 (DATA_MODEL.md 18장, RER×MER). 응답 시마다 서버가 계산한다.
+  // weight_kg가 null이거나 species가 other면 null. 급여 kcal 자동 계산에는 쓰지 않는다.
+  recommended_kcal: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -189,6 +192,7 @@ function parsePetResponse(value: unknown): PetResponse | null {
 
   const species = toPetSpecies(value.species);
   const weight_kg = toNullableNumber(value.weight_kg);
+  const recommended_kcal = toNullableNumber(value.recommended_kcal);
 
   if (
     typeof value.id !== 'number' ||
@@ -200,6 +204,7 @@ function parsePetResponse(value: unknown): PetResponse | null {
       value.birth_year !== undefined &&
       typeof value.birth_year !== 'number') ||
     weight_kg === undefined ||
+    recommended_kcal === undefined ||
     (value.is_neutered !== null &&
       value.is_neutered !== undefined &&
       typeof value.is_neutered !== 'boolean') ||
@@ -218,6 +223,7 @@ function parsePetResponse(value: unknown): PetResponse | null {
     birth_year: value.birth_year ?? null,
     weight_kg,
     is_neutered: value.is_neutered ?? null,
+    recommended_kcal,
     created_at: value.created_at,
     updated_at: value.updated_at,
   };

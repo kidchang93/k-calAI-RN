@@ -112,6 +112,58 @@ export async function attachPetToGroup(groupId: number, petId: number): Promise<
   }
 }
 
+// ── 그룹 라이프사이클 (DATA_MODEL.md 17장) ──────────────────────────────────
+// 파괴적 라우트는 비멤버에게 404로 존재를 숨긴다. 서버 detail은 한국어라
+// 화면이 error.message를 Alert로 그대로 보여준다.
+
+// 멤버 탈퇴. 소유자는 400("그룹 삭제로 진행" 안내). 탈퇴자 소유 펫의 그룹 참여도 함께 해제된다.
+export async function leaveGroup(groupId: number): Promise<void> {
+  const response = await apiFetch(`${GROUP_API_URL}/${groupId}/members/me`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response);
+    throw new Error(message || `그룹 나가기 실패: ${response.status}`);
+  }
+}
+
+// 그룹 삭제(물리 삭제). 소유자만 — 비소유 멤버 403, 비멤버 404. 펫·급여 기록은 삭제되지 않는다.
+export async function deleteGroup(groupId: number): Promise<void> {
+  const response = await apiFetch(`${GROUP_API_URL}/${groupId}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response);
+    throw new Error(message || `그룹 삭제 실패: ${response.status}`);
+  }
+}
+
+// 멤버 제거. 소유자만 — 소유자 자신 제거는 400, 대상이 멤버가 아니면 404.
+export async function removeMember(groupId: number, userId: number): Promise<void> {
+  const response = await apiFetch(`${GROUP_API_URL}/${groupId}/members/${userId}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response);
+    throw new Error(message || `멤버 제거 실패: ${response.status}`);
+  }
+}
+
+// 펫 참여 해제. 펫 소유자 또는 그룹 소유자만 — 그 외 멤버 403, 미참여 펫 404.
+export async function detachPetFromGroup(groupId: number, petId: number): Promise<void> {
+  const response = await apiFetch(`${GROUP_API_URL}/${groupId}/pets/${petId}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response);
+    throw new Error(message || `반려동물 참여 해제 실패: ${response.status}`);
+  }
+}
+
 // ── 내부 헬퍼 (export 안 함) ────────────────────────────────────────────────
 
 async function parseOk(response: Response, fallback: string): Promise<unknown> {

@@ -258,6 +258,19 @@ export async function createMeal(input: CreateMealRequest): Promise<MealLog> {
   return ensure(parseMealLog(await parseOk(response, '식단 저장 실패')));
 }
 
+// 전체 교체(PUT) — 요청 구조는 createMeal과 동일하다 (DATA_MODEL.md 4장, 2026-07-11 확정).
+// logged_at을 생략하면 서버가 기존 기록 시각을 유지한다 (전체 교체의 유일한 예외).
+// total_kcal은 서버가 items 합계로 재계산한다. 남의 끼니·삭제된 끼니는 404 (존재 은닉).
+export async function updateMeal(mealId: number, input: CreateMealRequest): Promise<MealLog> {
+  const response = await apiFetch(`${HEALTH_API_URL}/meals/${mealId}`, {
+    method: 'PUT',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(input),
+  });
+
+  return ensure(parseMealLog(await parseOk(response, '식단 수정 실패')));
+}
+
 export async function getMeals(date: string): Promise<MealLog[]> {
   const response = await apiFetch(`${HEALTH_API_URL}/meals?date=${encodeURIComponent(date)}`);
 
@@ -317,6 +330,20 @@ export async function getWeights(): Promise<WeightLog[]> {
   const response = await apiFetch(`${HEALTH_API_URL}/weights`);
 
   return ensureList(await parseOk(response, '체중 추이 조회 실패'), parseWeightLog);
+}
+
+// 회원 탈퇴 (DATA_MODEL.md 18장). soft delete가 아니라 물리 삭제 — 끼니·체중·펫·소유 그룹이
+// 전부 파기되고 모든 토큰이 즉시 무효가 된다. 성공 시 호출부가 clearAuthSession()을 책임진다.
+// 실패 시에는 세션을 유지한다 (여기서는 던지기만 한다).
+export async function deleteAccount(): Promise<void> {
+  const response = await apiFetch(`${HEALTH_API_URL}/me`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response);
+    throw new Error(message || `회원 탈퇴 실패: ${response.status}`);
+  }
 }
 
 // ── 내부 헬퍼 (export 안 함) ────────────────────────────────────────────────

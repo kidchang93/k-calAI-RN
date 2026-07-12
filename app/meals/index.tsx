@@ -9,12 +9,21 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
 import { ErrorBanner } from '@/components/error-banner';
-import { deleteMeal, formatDateParam, getMeals, MealLog, MealType } from '@/services/health-api';
+import {
+  deleteMeal,
+  formatDateParam,
+  getMeals,
+  MealItemSource,
+  MealLog,
+  MealType,
+  updateMeal,
+} from '@/services/health-api';
 
 const MEAL_TYPE_LABELS: Record<MealType, string> = {
   breakfast: '아침',
@@ -30,6 +39,19 @@ const MEAL_TYPE_ICONS: Record<MealType, keyof typeof MaterialIcons.glyphMap> = {
   snack: 'cookie',
 };
 
+const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
+
+// 인라인 수정 폼의 항목. serving_ratio·source·confidence는 그대로 보존하고
+// 이름·kcal만 고친다 (PUT은 전체 교체라 보존 필드도 함께 보내야 한다).
+type EditItem = {
+  key: number;
+  food_label: string;
+  kcalText: string;
+  serving_ratio: number;
+  source: MealItemSource;
+  confidence: number | null;
+};
+
 export default function MealListScreen() {
   const params = useLocalSearchParams<{ date?: string }>();
   // 홈이 넘긴 날짜(YYYY-MM-DD)만 신뢰한다. 형식이 다르면 오늘로 폴백.
@@ -42,6 +64,11 @@ export default function MealListScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const [editingMealId, setEditingMealId] = useState<number | null>(null);
+  const [editMealType, setEditMealType] = useState<MealType>('breakfast');
+  const [editItems, setEditItems] = useState<EditItem[]>([]);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const loadMeals = useCallback(async () => {
     setIsLoading(true);
@@ -65,6 +92,70 @@ export default function MealListScreen() {
       void loadMeals();
     }, [loadMeals])
   );
+
+  const startEdit = (meal: MealLog) => {
+    setEditingMealId(meal.id);
+    setEditMealType(meal.meal_type);
+    setEditItems(
+      meal.items.map((item) => ({
+        key: item.id,
+        food_label: item.food_label,
+        kcalText: String(item.kcal),
+        serving_ratio: item.serving_ratio,
+        source: item.source,
+        confidence: item.confidence,
+      }))
+    );
+  };
+
+  const cancelEdit = () => {
+    setEditingMealId(null);
+    setEditItems([]);
+  };
+
+  const updateEditItem = (key: number, patch: Partial<Pick<EditItem, 'food_label' | 'kcalText'>>) => {
+    setEditItems((prev) => prev.map((item) => (item.key === key ? { ...item, ...patch } : item)));
+  };
+
+  const isEditValid =
+    editItems.length > 0 &&
+    editItems.every((item) => {
+      const kcal = Number(item.kcalText);
+
+      return (
+        item.food_label.trim().length > 0 && Number.isFinite(kcal) && kcal >= 0 && kcal <= 99999
+      );
+    });
+
+  const saveEdit = async () => {
+    if (editingMealId === null || !isEditValid) {
+      return;
+    }
+
+    setIsSavingEdit(true);
+    setErrorMessage(null);
+
+    try {
+      // logged_at을 보내지 않으면 서버가 기존 기록 시각을 유지한다 (DATA_MODEL.md 4장).
+      await updateMeal(editingMealId, {
+        meal_type: editMealType,
+        items: editItems.map((item) => ({
+          food_label: item.food_label.trim(),
+          serving_ratio: item.serving_ratio,
+          kcal: Math.round(Number(item.kcalText)),
+          source: item.source,
+          confidence: item.confidence,
+        })),
+      });
+      setEditingMealId(null);
+      setEditItems([]);
+      await loadMeals();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
 
   const confirmDelete = (meal: MealLog) => {
     const label = MEAL_TYPE_LABELS[meal.meal_type];
@@ -98,7 +189,10 @@ export default function MealListScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
         <View style={styles.container}>
           <BackButton />
 
@@ -145,10 +239,21 @@ export default function MealListScreen() {
                     </View>
                     <Text style={styles.mealKcal}>{`${meal.total_kcal.toLocaleString()} kcal`}</Text>
                     <Pressable
-                      disabled={deletingId !== null}
+                      disabled={deletingId !== null || isSavingEdit}
+                      hitSlop={8}
+                      onPress={() => (editingMealId === meal.id ? cancelEdit() : startEdit(meal))}
+                      style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
+                      <MaterialIcons
+                        color={editingMealId === meal.id ? '#3182f6' : '#6b7684'}
+                        name={editingMealId === meal.id ? 'close' : 'edit'}
+                        size={20}
+                      />
+                    </Pressable>
+                    <Pressable
+                      disabled={deletingId !== null || isSavingEdit}
                       hitSlop={8}
                       onPress={() => confirmDelete(meal)}
-                      style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
+                      style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
                       {deletingId === meal.id ? (
                         <ActivityIndicator color="#e5484d" size="small" />
                       ) : (
@@ -157,14 +262,87 @@ export default function MealListScreen() {
                     </Pressable>
                   </View>
 
-                  {meal.items.map((item) => (
-                    <View key={item.id} style={styles.itemRow}>
-                      <Text style={styles.itemLabel}>{item.food_label}</Text>
-                      <Text style={styles.itemMeta}>
-                        {`${item.serving_ratio}인분 · ${item.kcal.toLocaleString()} kcal`}
-                      </Text>
+                  {editingMealId === meal.id ? (
+                    <View style={styles.editBox}>
+                      <View style={styles.mealTypeRow}>
+                        {MEAL_TYPES.map((type) => (
+                          <Pressable
+                            key={type}
+                            onPress={() => setEditMealType(type)}
+                            style={({ pressed }) => [
+                              styles.mealTypeChip,
+                              editMealType === type && styles.mealTypeChipSelected,
+                              pressed && styles.pressed,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.mealTypeChipText,
+                                editMealType === type && styles.mealTypeChipTextSelected,
+                              ]}>
+                              {MEAL_TYPE_LABELS[type]}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+
+                      {editItems.map((item) => (
+                        <View key={item.key} style={styles.editItemRow}>
+                          <TextInput
+                            maxLength={100}
+                            onChangeText={(text) => updateEditItem(item.key, { food_label: text })}
+                            placeholder="음식 이름"
+                            placeholderTextColor="#b0b8c1"
+                            style={styles.editNameInput}
+                            value={item.food_label}
+                          />
+                          <View style={styles.editKcalWrap}>
+                            <TextInput
+                              keyboardType="numeric"
+                              maxLength={5}
+                              onChangeText={(text) => updateEditItem(item.key, { kcalText: text })}
+                              placeholder="0"
+                              placeholderTextColor="#b0b8c1"
+                              style={styles.editKcalInput}
+                              value={item.kcalText}
+                            />
+                            <Text style={styles.editKcalUnit}>kcal</Text>
+                          </View>
+                        </View>
+                      ))}
+
+                      <View style={styles.editActions}>
+                        <Pressable
+                          disabled={isSavingEdit}
+                          onPress={cancelEdit}
+                          style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
+                          <Text style={styles.cancelButtonText}>취소</Text>
+                        </Pressable>
+                        <Pressable
+                          disabled={!isEditValid || isSavingEdit}
+                          onPress={() => void saveEdit()}
+                          style={({ pressed }) => [
+                            styles.saveButton,
+                            (!isEditValid || isSavingEdit) && styles.saveButtonDisabled,
+                            pressed && styles.pressed,
+                          ]}>
+                          {isSavingEdit ? (
+                            <ActivityIndicator color="#ffffff" size="small" />
+                          ) : (
+                            <Text style={styles.saveButtonText}>저장</Text>
+                          )}
+                        </Pressable>
+                      </View>
                     </View>
-                  ))}
+                  ) : (
+                    meal.items.map((item) => (
+                      <View key={item.id} style={styles.itemRow}>
+                        <Text style={styles.itemLabel}>{item.food_label}</Text>
+                        <Text style={styles.itemMeta}>
+                          {`${item.serving_ratio}인분 · ${item.kcal.toLocaleString()} kcal`}
+                        </Text>
+                      </View>
+                    ))
+                  )}
                 </View>
               ))}
             </View>
@@ -199,24 +377,82 @@ function formatTime(isoText: string): string {
 }
 
 const styles = StyleSheet.create({
+  cancelButton: {
+    alignItems: 'center',
+    backgroundColor: '#f2f4f6',
+    borderRadius: 8,
+    flex: 1,
+    paddingVertical: 12,
+  },
+  cancelButtonText: {
+    color: '#4e5968',
+    fontSize: 15,
+    fontWeight: '800',
+  },
   container: {
     alignSelf: 'center',
     gap: 20,
     maxWidth: 720,
     width: '100%',
   },
-  deleteButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 24,
-  },
   disclaimer: {
     color: '#8b95a1',
     fontSize: 13,
     textAlign: 'center',
   },
+  editActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  editBox: {
+    gap: 10,
+  },
+  editItemRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  editKcalInput: {
+    color: '#191f28',
+    fontSize: 15,
+    fontWeight: '700',
+    minWidth: 48,
+    paddingVertical: 10,
+    textAlign: 'right',
+  },
+  editKcalUnit: {
+    color: '#8b95a1',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  editKcalWrap: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderColor: '#e5e8eb',
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 4,
+    paddingHorizontal: 12,
+  },
+  editNameInput: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e5e8eb',
+    borderRadius: 8,
+    borderWidth: 1,
+    color: '#191f28',
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
   header: {
     gap: 4,
+  },
+  iconButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 24,
   },
   itemLabel: {
     color: '#333d4b',
@@ -269,10 +505,32 @@ const styles = StyleSheet.create({
     color: '#8b95a1',
     fontSize: 12,
   },
+  mealTypeChip: {
+    alignItems: 'center',
+    backgroundColor: '#f2f4f6',
+    borderRadius: 999,
+    flex: 1,
+    paddingVertical: 8,
+  },
+  mealTypeChipSelected: {
+    backgroundColor: '#edf6ff',
+  },
+  mealTypeChipText: {
+    color: '#6b7684',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  mealTypeChipTextSelected: {
+    color: '#3182f6',
+  },
   mealTypeLabel: {
     color: '#191f28',
     fontSize: 15,
     fontWeight: '800',
+  },
+  mealTypeRow: {
+    flexDirection: 'row',
+    gap: 8,
   },
   pressed: {
     opacity: 0.74,
@@ -280,6 +538,21 @@ const styles = StyleSheet.create({
   safeArea: {
     backgroundColor: '#f7f8fa',
     flex: 1,
+  },
+  saveButton: {
+    alignItems: 'center',
+    backgroundColor: '#3182f6',
+    borderRadius: 8,
+    flex: 1,
+    paddingVertical: 12,
+  },
+  saveButtonDisabled: {
+    backgroundColor: '#b4c7e7',
+  },
+  saveButtonText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '800',
   },
   scrollContent: {
     padding: 20,
