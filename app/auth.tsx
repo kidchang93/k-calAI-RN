@@ -160,9 +160,10 @@ export default function AuthScreen() {
             ) : null}
 
             {message ? <Text style={styles.messageText}>{message}</Text> : null}
-            {/* dev_code는 서버의 개발 편의 응답이다. 프로덕션 번들에서는 렌더링하지 않는다. */}
-            {__DEV__ && devCode ? (
-              <Text style={styles.devCodeText}>개발용 인증번호: {devCode}</Text>
+            {/* 서버가 dev_code를 주면(AUTH_INCLUDE_DEV_CODE=true) 화면에 표시한다.
+                SMS 연동 후 서버에서 false로 바꾸면 dev_code가 null이라 자동으로 숨겨진다. */}
+            {devCode ? (
+              <Text style={styles.devCodeText}>인증번호: {devCode} (임시 표시 — 문자 발송 연동 전)</Text>
             ) : null}
             {errorMessage ? (
               <View style={styles.errorBox}>

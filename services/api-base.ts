@@ -4,36 +4,47 @@ import { Platform } from 'react-native';
 // 백엔드(kcalAI-model) 포트.
 const SERVER_PORT = 8000;
 
-/**
- * 백엔드에 닿을 호스트를 결정한다.
- *
- * 실기기(Expo Go)에서 `127.0.0.1`은 폰 자신을 가리켜 백엔드에 닿지 못한다. 그래서 Expo
- * 개발 서버(패키저)의 호스트 = **개발 머신의 LAN IP**를 꺼내 쓴다 — 폰이 QR로 붙는 바로 그 IP다.
- * 시뮬레이터/에뮬레이터나 호스트를 못 구하는 경우엔 플랫폼별 로컬 폴백을 쓴다.
- * (`--tunnel` 모드는 hostUri가 IP가 아니라 폴백으로 빠지므로, 실기기는 같은 Wi-Fi + LAN 모드를 쓴다.)
- */
-function resolveHost(): string {
+/** Expo 개발 서버(패키저) 호스트에서 개발 머신 LAN IP를 꺼낸다(실기기/시뮬레이터 dev용). */
+function devServerHost(): string | undefined {
   const hostUri =
     Constants.expoConfig?.hostUri ??
-    // 구버전/Expo Go 호환 경로
     (Constants as unknown as { expoGoConfig?: { debuggerHost?: string } }).expoGoConfig
       ?.debuggerHost;
   const host = hostUri ? hostUri.split(':')[0] : undefined;
-
-  if (host && host !== 'localhost' && host !== '127.0.0.1') {
-    return host; // 개발 머신 LAN IP (실기기가 도달 가능)
-  }
-
-  // 시뮬레이터/에뮬레이터 폴백: Android 에뮬레이터는 10.0.2.2가 호스트를 가리킨다.
-  return Platform.OS === 'android' ? '10.0.2.2' : '127.0.0.1';
+  return host && host !== 'localhost' && host !== '127.0.0.1' ? host : undefined;
 }
 
-/** 백엔드 오리진 (예: `http://192.168.0.12:8000`). */
-export const API_ORIGIN = `http://${resolveHost()}:${SERVER_PORT}`;
+/**
+ * 백엔드 오리진을 결정한다. **빈 문자열('')이면 상대경로(같은 오리진)**를 뜻한다.
+ *
+ * 우선순위:
+ * 1) `EXPO_PUBLIC_API_ORIGIN` — 명시 지정. 네이티브 프로덕션 빌드가 원격 서버를 볼 때 이 한 줄이면 된다.
+ * 2) 웹: 프로덕션 빌드는 FastAPI가 **같은 오리진**에서 서빙하므로 `''`(상대경로). dev(`expo start --web`)는 `:8000` 별도 포트.
+ * 3) 네이티브: Expo dev 서버 호스트의 LAN IP(실기기/시뮬레이터 dev), 없으면 로컬 폴백.
+ */
+function resolveOrigin(): string {
+  const override = process.env.EXPO_PUBLIC_API_ORIGIN?.trim();
+  if (override) return override.replace(/\/+$/, '');
+
+  if (Platform.OS === 'web') {
+    // 웹 프로덕션(FastAPI가 webapp/ 서빙): 상대경로 → 어느 도메인이든 같은 오리진 API로.
+    return __DEV__ ? `http://127.0.0.1:${SERVER_PORT}` : '';
+  }
+
+  const host = devServerHost();
+  if (host) return `http://${host}:${SERVER_PORT}`;
+  return Platform.OS === 'android'
+    ? `http://10.0.2.2:${SERVER_PORT}`
+    : `http://127.0.0.1:${SERVER_PORT}`;
+}
+
+/** 백엔드 오리진. `''`이면 상대경로(웹 프로덕션 = FastAPI 동일 오리진). */
+export const API_ORIGIN = resolveOrigin();
 
 /**
- * 리소스 base URL을 만든다. `override`(EXPO_PUBLIC_* 환경변수)가 있으면 그것을 우선한다.
+ * 리소스 base URL을 만든다. `override`(개별 `EXPO_PUBLIC_*_API_URL`)가 있으면 그것을 우선한다.
  * 예: `apiUrl('/api/auth', process.env.EXPO_PUBLIC_AUTH_API_URL)`.
+ * `API_ORIGIN`이 `''`이면 `/api/auth` 같은 상대경로가 된다.
  */
 export function apiUrl(path: string, override?: string): string {
   return override ?? `${API_ORIGIN}${path}`;
