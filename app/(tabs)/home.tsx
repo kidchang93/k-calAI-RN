@@ -4,12 +4,12 @@ import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MealTypeCard } from '@/components/meal-type-card';
 import { ProgressRing } from '@/components/progress-ring';

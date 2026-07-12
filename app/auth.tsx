@@ -6,12 +6,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SessionLoading } from '@/components/session-loading';
 import { AuthMode, AUTH_API_URL, requestPhoneCode, verifyPhoneCode } from '@/services/auth-api';

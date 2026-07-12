@@ -7,13 +7,13 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ChipGroup } from '@/components/chip-group';
 import { CALORIE_API_URL, Prediction, uploadFoodPhoto } from '@/services/calorie-api';
