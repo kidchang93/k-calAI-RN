@@ -44,6 +44,11 @@
 | 체중 추이는 trends API가 아니라 기존 `getWeights()` 전체를 기간으로 필터 | `app/(tabs)/trends.tsx` | 서버가 체중을 trends 응답에 넣지 않기로 확정 (DATA_MODEL.md 15장). 기간 내 기록 없으면 `/me/weights` 진입 안내 |
 | 기록 확정 카드의 알러지·질병 경고는 **비차단** — 저장 버튼 동작 불변 | `app/(tabs)/index.tsx`, `checkFoodWarnings` | 기획이 "기록할 때 경고"로 확정 (HEALTHCARE_EXPANSION 12장). 차단하면 기록 자체를 포기한다 |
 | 경고 조회 실패(401/403/네트워크)는 조용히 스킵 — 배너·에러 UI·스피너 없음 | `app/(tabs)/index.tsx` `runWarningCheck` | 경고는 부가 기능이라 실패가 기록 흐름을 방해하면 안 된다. 백그라운드 조회 + estimate와 같은 시퀀스 경합 차단(라벨 바뀌면 늦은 응답 무시) |
+| 끼니 수정은 별도 화면 없이 목록 카드 **인라인 편집** (끼니 종류·항목 이름·kcal만) | `app/meals/index.tsx`, `updateMeal` | 재촬영 없는 간단 수정이 목적. PUT은 전체 교체라 `serving_ratio`·`source`·`confidence`는 보존해 다시 보내고, `logged_at`은 생략해 기록 시각을 유지한다 (DATA_MODEL.md 4장) |
+| 그룹 소유자 판별은 상세 응답 `owner_id` ↔ 세션 `user.id` 비교 | `app/groups/[id].tsx` | 상세 응답에 "내 역할" 필드가 없다. 목록 `role`은 상세 화면에 없으므로 기존 필드 조합으로 판별. 펫 해제 버튼은 `isOwner \|\| 내 펫(myPets 포함 여부)` |
+| 그룹 나가기·삭제·멤버 제거·펫 해제 실패는 서버 한국어 `detail`을 Alert로 그대로 표시 | `app/groups/[id].tsx` | 400/403/404 detail이 사용자용 한국어 문장으로 확정된 계약 (DATA_MODEL.md 17장). 성공 시 나가기·삭제는 `router.back()` — 목록이 `useFocusEffect`로 재조회 |
+| 회원 탈퇴는 **2단계 Alert 확인** 후 성공 시에만 `clearAuthSession()` | `app/(tabs)/account.tsx`, `deleteAccount` | 물리 삭제 파기(DATA_MODEL.md 18장)라 되돌릴 수 없다. 2차 Alert에 파기 항목(기록·반려동물·소유 그룹)을 명시. 로그아웃과 달리 서버 파기가 확인돼야 세션을 지운다 — 실패 시 세션 유지 + 오류 Alert |
+| 펫 `recommended_kcal`이 null이면 숫자 대신 안내 문구 (`other` 종은 미지원, 그 외는 체중 입력 유도) | `app/pets/[id]/index.tsx` | 서버가 `weight_kg` 없음·`other` 종에 null을 준다(18장). 오늘 급여 kcal 합계가 있으면 `오늘 X / 권장 Y kcal`로 나란히 표시 — kcal 미입력 급여는 합계에서 제외 |
 
 ## 선택지 데이터 규칙 (2026-07-09 확정)
 

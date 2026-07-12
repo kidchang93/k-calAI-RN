@@ -13,7 +13,7 @@ k-calAI-RN/
 │   │   ├── home.tsx            # 홈 탭 - 오늘 요약 (그룹 진입점)
 │   │   ├── index.tsx           # 기록 탭 - 사진 입력 → 예측 → 끼니 저장
 │   │   ├── trends.tsx          # 추이 탭 - 주/월 섭취 kcal 바 차트 + 요약 + 체중 변화
-│   │   ├── account.tsx         # 내 정보 탭 (프로필·목표 요약, 체중·질병·알러지·반려동물 진입점, 로그아웃)
+│   │   ├── account.tsx         # 내 정보 탭 (프로필·목표 요약, 체중·질병·알러지·반려동물 진입점, 로그아웃·회원 탈퇴)
 │   │   └── explore.tsx         # 개발자 진단 (탭 바에서 숨김)
 │   ├── onboarding/             # 온보딩 스택 (consent → body → …)
 │   ├── groups/                 # 그룹 스택 (홈에서 진입)
@@ -21,7 +21,7 @@ k-calAI-RN/
 │   │   ├── index.tsx           # 내 그룹 목록
 │   │   ├── create.tsx          # 그룹 생성
 │   │   ├── join.tsx            # 초대코드로 참여
-│   │   └── [id].tsx            # 그룹 상세 (멤버·펫·초대코드 공유·내 펫 공유)
+│   │   └── [id].tsx            # 그룹 상세 (멤버·펫·초대코드 공유·내 펫 공유·나가기·삭제·멤버 제거·펫 참여 해제)
 │   ├── pets/                   # 반려동물 스택 (내 정보에서 진입)
 │   │   ├── _layout.tsx         # 인증 가드
 │   │   ├── index.tsx           # 내 반려동물 목록
@@ -38,7 +38,7 @@ k-calAI-RN/
 │   │   └── allergies.tsx       # 알러지 정보 수정 (GET/PUT /api/me/allergies, severity 보존)
 │   ├── meals/                  # 끼니 기록 목록 (홈 끼니 카드에서 진입)
 │   │   ├── _layout.tsx         # 인증 가드
-│   │   └── index.tsx           # 날짜별 기록 목록 + 삭제
+│   │   └── index.tsx           # 날짜별 기록 목록 + 삭제 + 인라인 수정(끼니 종류·이름·kcal)
 │   └── recommendations/        # 식단 추천 스택 (홈에서 진입)
 │       ├── _layout.tsx         # 인증 가드
 │       └── index.tsx           # 끼니 선택 + 오늘 추천 목록
@@ -118,7 +118,7 @@ expo-router의 파일 기반 라우팅입니다. `app/` 하위 파일이 곧 경
 | `app/me/weights.tsx` | `/me/weights` | 체중 기록 입력 + 최근 목록 |
 | `app/me/conditions.tsx` | `/me/conditions` | 질병 정보 수정 (내 정보 탭에서 진입) |
 | `app/me/allergies.tsx` | `/me/allergies` | 알러지 정보 수정 (내 정보 탭에서 진입, 기존 severity 보존) |
-| `app/meals/index.tsx` | `/meals?date=YYYY-MM-DD` | 날짜별 끼니 기록 목록 + 삭제 (홈 끼니 카드에서 진입) |
+| `app/meals/index.tsx` | `/meals?date=YYYY-MM-DD` | 날짜별 끼니 기록 목록 + 삭제 + 인라인 수정 (홈 끼니 카드에서 진입) |
 | `app/modal.tsx` | `/modal` | `presentation: 'modal'` |
 
 `groups/`·`pets/`·`recommendations/`·`me/`·`meals/` 스택은 루트 레이아웃에 등록하지 않고 (expo-router 자동 등록) 각 `_layout.tsx`가
@@ -273,17 +273,21 @@ readErrorMessage(response)
 | `requestCalorieDetail` | `POST /api/gpt-predict` | `{ text, max_tokens }` | `{ response_text }` — 마크다운 표를 포함할 수 있음 |
 | `requestPhoneCode` | `POST /api/auth/{mode}/request-code` | `{ phone_number }` | `{ message, expires_at, dev_code? }` |
 | `verifyPhoneCode` | `POST /api/auth/{mode}/verify` | `{ phone_number, code }` | `{ access_token, token_type, expires_at, user }` |
+| `updateMeal` | `PUT /api/meals/{meal_id}` | `createMeal`과 동일 구조 (전체 교체) | `MealLog`. `logged_at` 생략 시 기존 기록 시각 유지, `total_kcal`은 서버가 items 합계로 재계산. 남의 끼니·삭제된 끼니 404 (DATA_MODEL.md 4장) |
+| `deleteAccount` | `DELETE /api/me` | — | `{ message }`. **물리 삭제** — 끼니·체중·펫·소유 그룹 전부 파기, 전 토큰 즉시 무효. 성공 시에만 호출부가 `clearAuthSession()` (DATA_MODEL.md 18장) |
 | `createGroup` / `getGroups` / `joinGroup` | `POST·GET /api/groups`, `POST /api/groups/join` | `{ name, kind }` / — / `{ invite_code }` | `GroupSummary` (생성·목록·참여 동일 형태) |
 | `getGroupDetail` | `GET /api/groups/{id}` | — | 상세 + `members[]`(전화번호는 서버가 마스킹) + `pets[]` |
 | `attachPetToGroup` | `POST /api/groups/{id}/pets` | `{ pet_id }` | `{ message }` — 그룹 멤버이면서 펫 소유자만 |
-| `createPet` / `getPets` / `updatePet` / `deletePet` | `POST·GET /api/pets`, `PUT·DELETE /api/pets/{id}` | `PetUpsertRequest` | `PetResponse`. 남의 펫은 404 (존재 은닉). 단건 조회 API 없음 — 상세 화면은 목록에서 찾는다 |
+| `leaveGroup` / `deleteGroup` / `removeMember` / `detachPetFromGroup` | `DELETE /api/groups/{id}/members/me`, `DELETE /api/groups/{id}`, `DELETE /api/groups/{id}/members/{user_id}`, `DELETE /api/groups/{id}/pets/{pet_id}` | — | `{ message }`. 소유자 탈퇴 400("그룹 삭제로 진행" 안내), 비소유 삭제·제거 403, 비멤버는 404 (존재 은닉). 펫·급여 기록은 어떤 라우트에서도 삭제되지 않는다 (DATA_MODEL.md 17장) |
+| `createPet` / `getPets` / `updatePet` / `deletePet` | `POST·GET /api/pets`, `PUT·DELETE /api/pets/{id}` | `PetUpsertRequest` | `PetResponse` — `recommended_kcal`(RER×MER 서버 계산, `weight_kg` 없거나 `other` 종이면 null) 포함 (18장). 남의 펫은 404 (존재 은닉). 단건 조회 API 없음 — 상세 화면은 목록에서 찾는다 |
 | `createFeeding` / `getFeedings` | `POST·GET /api/pets/{id}/feedings` | `{ food_label, amount_g, kcal?, fed_at? }` | `FeedingResponse`. 권한 = 소유자 또는 펫이 참여한 그룹의 멤버 |
 | `getRecommendation` | `GET /api/recommendations?meal_type&date` | 쿼리 파라미터 | `{ meal_type, rec_date, items[], excluded[], cached, disclaimer }`. `excluded`는 판별 유니온(`allergen`/`condition`/`filtered`), `items`는 빈 배열 가능. 미동의 403 → `ConsentRequiredError`. `disclaimer`는 서버 문자열을 그대로 표시 |
 | `getTrends` | `GET /api/me/trends?start_date&end_date` | 쿼리 파라미터 (YYYY-MM-DD) | `{ start_date, end_date, target_kcal: number\|null, days[] }`. `days`는 범위 내 전 날짜 오름차순(빈 날 0). 역순·92일 초과는 400 + 한국어 `detail`. 체중은 포함하지 않음 — 앱이 `getWeights()`를 기간 필터해 병행 표시 (DATA_MODEL.md 15장) |
 | `estimateNutrition` (개정) | `POST /api/nutrition/estimate` | `{ food_label }` | 식약처 DB 유사도 검색(pg_trgm). 응답 `food_label`은 매칭된 DB 이름(요청과 다를 수 있음). 미매칭 404 → `NutritionNotFoundError` (수동 입력 유도) |
 | `checkFoodWarnings` | `POST /api/nutrition/warnings` | `{ food_labels }` (1~10개) | `{ warnings: [{ source: 'condition'\|'allergy', code, label, matched_keyword, matched_label }] }` — 해당 없으면 빈 배열. Bearer + sensitive_health 동의 필수(403). 기록 탭이 라벨 확정 시 백그라운드로 호출해 확정 카드에 경고 배너를 그린다 — 실패는 조용히 스킵, 저장은 막지 않는다 (DATA_MODEL.md 16장) |
 
-그룹·반려동물 계약의 정본은 `kcalAI-model/docs/DATA_MODEL.md` 9장입니다.
+그룹·반려동물 계약의 정본은 `kcalAI-model/docs/DATA_MODEL.md` 9장, 그룹 라이프사이클(탈퇴·삭제·제거·해제)은 17장,
+회원 탈퇴·펫 권장 칼로리는 18장입니다.
 끼니·체중·온보딩(`health-api.ts`, `onboarding-api.ts`, `meta-api.ts`)은 3~5·7·10장을 따릅니다.
 식단 추천(`recommendation-api.ts`)과 영양 조회 유사도·404 규약은 11·13장을 따릅니다.
 
