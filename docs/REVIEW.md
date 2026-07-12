@@ -62,7 +62,7 @@ npm start              # 그 다음 앱
 - [ ] 호출하는 경로가 `kcalAI-model`에 **실제로 존재하는가.** (`curl -sf localhost:8000/openapi.json`로 확인)
 - [ ] 응답 타입의 필드명이 서버의 `snake_case`와 일치하는가.
 - [ ] 서버 스키마가 바뀌었다면 `services/*.ts`의 `type`을 함께 고쳤는가.
-- [ ] 새 엔드포인트에 `Authorization` 헤더가 필요한지 확인했는가. (현재 서버는 토큰을 검증하지 않습니다)
+- [ ] 새 엔드포인트에 `Authorization` 헤더가 필요한지 확인했는가. (서버는 `get_current_user`로 토큰을 검증합니다 — Auth 4종 외 대부분 Bearer 필수)
 
 ### 스타일
 
@@ -89,17 +89,14 @@ npm start              # 그 다음 앱
 | 실수 | 왜 문제인가 |
 |------|-------------|
 | 서버 오류 메시지를 그대로 신뢰 | `/api/predict`, `/api/gpt-predict`는 사용자용 한국어 `detail`을 줍니다. (boto3 예외를 노출하던 `/api/s3/*`는 서버에서 제거됨 — 2026-07-12) |
-| 로그인 상태가 앱 재시작 후에도 유지된다고 가정 | `auth-session.ts`는 모듈 전역 변수입니다. 영속화가 없습니다. |
-| `access_token`이 요청에 붙는다고 가정 | 어떤 `fetch`에도 `Authorization` 헤더가 없습니다. |
-| `ThemedText`/`Colors`가 실제 화면에 적용된다고 가정 | 실화면은 하드코딩 색상을 씁니다. 다크모드가 동작하지 않습니다. |
 | `127.0.0.1`로 Android 에뮬레이터 테스트 | 에뮬레이터 자신을 가리킵니다. `10.0.2.2`여야 합니다. |
 | `app/`에 헬퍼 파일 추가 | expo-router가 라우트로 등록합니다. |
-| `readErrorMessage`를 한쪽만 수정 | `auth-api.ts`와 `calorie-api.ts`에 중복 정의되어 있고 동작이 다릅니다. |
-| `hello-wave.tsx`, `parallax-scroll-view.tsx`, `modal.tsx`를 실사용 코드로 취급 | Expo 템플릿 잔재입니다. |
 | `npm run reset-project` 실행 | `app/`을 `app-example/`로 옮기고 스캐폴드로 덮어씁니다. |
+
+> 과거 "흔한 실수"였다가 해소된 것: 세션 영속화 없음(→ `auth-session.ts`가 `expo-secure-store`로 영속화), `Authorization` 헤더 없음(→ `apiFetch`가 Bearer 첨부), `readErrorMessage` 중복 정의(→ `services/http.ts` 단일 정의로 공통화), 다크모드 테마 인프라(→ 라이트 전용 확정으로 `ThemedText`·`constants/theme` 등 제거), Expo 템플릿 잔재(→ `modal.tsx`·`hello-wave.tsx` 등 삭제).
 
 ## 커밋
 
 - 커밋 메시지는 한국어 `<type>: <요약>` 형식입니다. 관찰된 타입: `feat`, `chore`, `test`.
 - API 계약 변경 커밋은 `kcalAI-model` 대응 커밋과 짝을 이룹니다.
-- 현재 `services/auth-session.ts`가 미추적 상태이고 `app/_layout.tsx`, `app/auth.tsx`에 미커밋 변경이 있습니다. 새 작업 전에 이 상태를 정리할지 사용자에게 확인하세요.
+- 논리 단위마다 개별 커밋합니다. 커밋 여부·시점은 사용자가 정합니다 (임의 push 금지).

@@ -54,7 +54,7 @@
 | `app/(tabs)/_layout.tsx` 수정 | 탭 등록 지점. 동시 편집 시 덮어씁니다 |
 | `services/auth-session.ts` 수정 | 세션 스토어. `_layout.tsx`와 `auth.tsx`가 동시에 의존합니다 |
 | `readErrorMessage` 공통화 | 두 서비스 파일을 함께 건드립니다 |
-| `constants/theme.ts` + 화면 색상 토큰화 | 토큰 정의가 먼저 확정되어야 합니다 |
+| 화면 색상(하드코딩 팔레트) 변경 | 라이트 전용 확정 — 여러 화면이 같은 값을 하드코딩합니다 |
 | `package.json` 의존성 추가 | `package-lock.json`이 충돌합니다 |
 | 새 화면 추가 (화면 파일 → 탭 등록) | 뒤 단계가 앞 단계에 의존합니다 |
 
@@ -80,7 +80,7 @@
 
 - **`npm run reset-project` 실행.** `app/` 디렉토리를 파괴적으로 이동합니다.
 - **`expo start` / 시뮬레이터 기동.** 대화형이며 종료되지 않습니다. 필요하면 사용자에게 `! npm run ios` 실행을 요청합니다.
-- **템플릿 잔재 일괄 삭제.** `modal.tsx`, `hello-wave.tsx`, `parallax-scroll-view.tsx`, `collapsible.tsx`, react-logo 이미지의 삭제 범위는 제품 결정입니다. 사용자에게 확인합니다.
+- (완료) 템플릿 잔재(`modal.tsx`·`hello-wave.tsx`·`parallax-scroll-view.tsx`·`collapsible.tsx`·`external-link.tsx`·테마 인프라)는 2026-07-12에 삭제됨.
 - **`/api/gpt-predict` 관련 코드를 "고치기".** 서버에 엔드포인트가 없습니다. 앱만 수정해도 동작하지 않습니다.
 - **미커밋 변경(`services/auth-session.ts`, `app/_layout.tsx`, `app/auth.tsx`) 되돌리기.**
 - **`package.json` 의존성 버전 임의 변경.** Expo SDK 54가 버전을 고정합니다.

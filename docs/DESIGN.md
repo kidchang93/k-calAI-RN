@@ -67,9 +67,9 @@
 | ~~토큰 사용~~ | **완료.** `apiFetch`가 세션 있으면 `Authorization: Bearer` 첨부, 401 시 세션 비움 | `services/http.ts`. 서버 `get_current_user` 도입 대기 |
 | ~~로그아웃~~ | **완료.** 내 정보 탭에서 확인 Alert → `POST /api/auth/logout` → 로컬 세션 삭제 (서버 폐기 실패에도 삭제 = 오프라인 로그아웃 허용) | `app/(tabs)/account.tsx` |
 | 칼로리 프롬프트 | 앱에 하드코딩 (`calorie-api.ts:71`) | 서버 템플릿화 시점 |
-| 다크모드 | 테마 인프라만 있고 실화면은 하드코딩 색상 | 색상 토큰으로 통일할지, 라이트 전용으로 확정할지 |
-| 상태 탭 | 개발자용 진단 화면이 일반 탭에 노출 | 설정/개발자 영역으로 이동 (`docs/PROJECT_PLANNING.md`) |
-| 템플릿 잔재 | `modal.tsx`, `hello-wave.tsx`, `parallax-scroll-view.tsx`, `collapsible.tsx`, react-logo 이미지 | 삭제 시점 |
+| ~~다크모드~~ | **라이트 전용 확정** (2026-07-12). 테마 인프라(`ThemedText`·`constants/theme` 등) 제거, 실화면은 하드코딩 팔레트 | 해소 |
+| 상태 탭 | 개발자용 진단 화면(`explore.tsx`)은 `href:null`로 탭 바에서 숨기고 내 정보에서 진입 | 해소 (숨김 처리됨) |
+| ~~템플릿 잔재~~ | **삭제됨** (2026-07-12): `modal.tsx`, `hello-wave.tsx`, `parallax-scroll-view.tsx`, `collapsible.tsx`, `external-link.tsx` | 해소 |
 
 ## 새 API 클라이언트 추가 절차
 
@@ -151,7 +151,7 @@ try {
 
 ## 디자인 토큰 (실화면 기준)
 
-`constants/theme.ts`의 `Colors`는 템플릿 컴포넌트(`ThemedText` 등)만 사용합니다. 실제 화면은 아래 팔레트를 하드코딩합니다.
+실제 화면은 아래 팔레트를 하드코딩합니다 (라이트 전용 확정, 테마 토큰 시스템은 제거됨).
 
 | 용도 | 값 |
 |------|-----|

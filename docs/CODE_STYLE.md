@@ -7,11 +7,10 @@
 | 종류 | 위치 | 예시 |
 |------|------|------|
 | 라우트/화면 | `app/` | `app/auth.tsx`, `app/(tabs)/index.tsx` |
-| 공유 컴포넌트 | `components/` | `components/themed-text.tsx` |
+| 공유 컴포넌트 | `components/` | `components/chip-group.tsx` |
 | 저수준 UI 프리미티브 | `components/ui/` | `components/ui/icon-symbol.tsx` |
 | API 클라이언트·전역 상태 | `services/` | `services/calorie-api.ts` |
-| 훅 | `hooks/` | `hooks/use-theme-color.ts` |
-| 디자인 토큰 | `constants/` | `constants/theme.ts` |
+| 훅 | `hooks/` | `hooks/use-color-scheme.ts` |
 
 **`app/`에는 라우트만 둡니다.** expo-router가 모든 파일을 화면으로 해석합니다.
 
@@ -19,9 +18,9 @@
 
 | 대상 | 규칙 | 예시 |
 |------|------|------|
-| 파일명 | `kebab-case` | `themed-text.tsx`, `use-color-scheme.ts`, `calorie-api.ts` |
+| 파일명 | `kebab-case` | `chip-group.tsx`, `use-color-scheme.ts`, `calorie-api.ts` |
 | 라우트 파일 | expo-router 규약 | `_layout.tsx`, `(tabs)/`, `index.tsx` |
-| 컴포넌트 | `PascalCase` | `ThemedText`, `PredictionRow`, `ActionButton` |
+| 컴포넌트 | `PascalCase` | `ChipGroup`, `PredictionRow`, `ActionButton` |
 | 화면 컴포넌트 | `<Name>Screen` | `HomeScreen`, `AuthScreen`, `TabTwoScreen` |
 | 훅 | `use` 접두사 | `useThemeColor`, `useAuthSession` |
 | 함수·변수 | `camelCase` | `pickFromCamera`, `topPrediction`, `isUploading` |
@@ -76,7 +75,7 @@ function ActionButton({
 }) {
 ```
 
-여러 곳에서 재사용하는 props만 `export type XxxProps = ...`로 분리합니다 (`components/themed-text.tsx:5`).
+여러 곳에서 재사용하는 props만 `export type XxxProps = ...`로 분리합니다 (`components/chip-group.tsx`).
 
 - 서버 응답은 `unknown`으로 받아 좁힙니다.
 

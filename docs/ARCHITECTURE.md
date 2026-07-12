@@ -7,7 +7,6 @@ k-calAI-RN/
 ├── app/                        # expo-router 파일 기반 라우트 (이 안의 파일 = 화면)
 │   ├── _layout.tsx             # 루트 Stack + ThemeProvider + 인증 가드
 │   ├── auth.tsx                # 휴대폰 인증 (initialRouteName)
-│   ├── modal.tsx               # Expo 템플릿 잔재
 │   ├── (tabs)/
 │   │   ├── _layout.tsx         # 하단 탭 (홈 / 기록 / 추이 / 내 정보) + 온보딩 게이트
 │   │   ├── home.tsx            # 홈 탭 - 오늘 요약 (그룹 진입점)
@@ -59,16 +58,11 @@ k-calAI-RN/
 │   ├── back-button.tsx         # 탭 밖 스택 화면(그룹·펫)의 뒤로가기
 │   ├── pet-form.tsx            # 반려동물 등록·수정 공용 폼 (services 미의존, 구조적 타입)
 │   ├── chip-group.tsx, meal-type-card.tsx, progress-ring.tsx, onboarding-progress.tsx
-│   ├── themed-text.tsx, themed-view.tsx
-│   ├── external-link.tsx, haptic-tab.tsx
-│   ├── hello-wave.tsx, parallax-scroll-view.tsx   # 템플릿 잔재
+│   ├── haptic-tab.tsx          # 탭 햅틱
 │   └── ui/
-│       ├── collapsible.tsx
 │       └── icon-symbol.tsx / icon-symbol.ios.tsx  # 플랫폼 분기
 ├── hooks/
-│   ├── use-color-scheme.ts / use-color-scheme.web.ts
-│   └── use-theme-color.ts
-├── constants/theme.ts          # Colors, Fonts
+│   └── use-color-scheme.ts / use-color-scheme.web.ts   # 루트 ThemeProvider(내비 라이트/다크)용
 ├── assets/images/
 └── scripts/reset-project.js    # 파괴적 - 실행 금지
 ```
@@ -119,7 +113,6 @@ expo-router의 파일 기반 라우팅입니다. `app/` 하위 파일이 곧 경
 | `app/me/conditions.tsx` | `/me/conditions` | 질병 정보 수정 (내 정보 탭에서 진입) |
 | `app/me/allergies.tsx` | `/me/allergies` | 알러지 정보 수정 (내 정보 탭에서 진입, 기존 severity 보존) |
 | `app/meals/index.tsx` | `/meals?date=YYYY-MM-DD` | 날짜별 끼니 기록 목록 + 삭제 + 인라인 수정 (홈 끼니 카드에서 진입) |
-| `app/modal.tsx` | `/modal` | `presentation: 'modal'` |
 
 `groups/`·`pets/`·`recommendations/`·`me/`·`meals/` 스택은 루트 레이아웃에 등록하지 않고 (expo-router 자동 등록) 각 `_layout.tsx`가
 온보딩 레이아웃과 같은 방식으로 자기 헤더를 숨기고 인증 가드를 겁니다. 화면 상단의 뒤로가기는
