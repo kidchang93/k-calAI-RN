@@ -92,7 +92,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="trends"
         options={{
-          title: '추이',
+          title: '리포트',
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="chart.line.uptrend.xyaxis" color={color} />
           ),
@@ -105,8 +105,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
         }}
       />
-      {/* 개발자용 진단 화면. 탭 바에서 숨기고 내 정보 > 개발자 정보에서 진입한다. */}
-      <Tabs.Screen name="explore" options={{ href: null }} />
     </Tabs>
   );
 }

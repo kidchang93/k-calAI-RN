@@ -11,11 +11,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ChipGroup } from '@/components/chip-group';
+import { KcalCalendar } from '@/components/kcal-calendar';
+import { Segmented } from '@/components/segmented';
 import {
   formatDateParam,
+  getMeals,
   getTrends,
   getWeights,
+  MealLog,
+  MealType,
   recentDateRange,
   TrendDay,
   TrendsResponse,
@@ -23,15 +27,28 @@ import {
 } from '@/services/health-api';
 
 type TrendPeriod = 'week' | 'month';
+type ViewMode = 'chart' | 'calendar';
+
+const VIEW_OPTIONS: { value: ViewMode; label: string }[] = [
+  { value: 'chart', label: '그래프' },
+  { value: 'calendar', label: '캘린더' },
+];
 
 const PERIOD_OPTIONS: { value: TrendPeriod; label: string }[] = [
-  { value: 'week', label: '주 (7일)' },
-  { value: 'month', label: '월 (30일)' },
+  { value: 'week', label: '7일' },
+  { value: 'month', label: '30일' },
 ];
 
 const PERIOD_DAYS: Record<TrendPeriod, number> = {
   week: 7,
   month: 30,
+};
+
+const MEAL_TYPE_LABELS: Record<MealType, string> = {
+  breakfast: '아침',
+  lunch: '점심',
+  dinner: '저녁',
+  snack: '간식',
 };
 
 const CHART_HEIGHT = 160;
@@ -41,16 +58,41 @@ function formatShortDate(date: string): string {
   return `${Number(date.slice(5, 7))}.${Number(date.slice(8, 10))}`;
 }
 
+// 해당 달의 1일~말일. 캘린더 모드의 조회 범위다 (최대 31일 — trends의 92일 상한 이내).
+function monthRange(month: Date): { start_date: string; end_date: string } {
+  const year = month.getFullYear();
+  const index = month.getMonth();
+
+  return {
+    start_date: formatDateParam(new Date(year, index, 1)),
+    end_date: formatDateParam(new Date(year, index + 1, 0)),
+  };
+}
+
+function startOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
 export default function TrendsScreen() {
   const router = useRouter();
+  const [viewMode, setViewMode] = useState<ViewMode>('chart');
   const [period, setPeriod] = useState<TrendPeriod>('week');
+  // 캘린더가 보고 있는 달 (해당 달 1일). 그래프 모드에서는 쓰지 않는다.
+  const [month, setMonth] = useState<Date>(() => startOfMonth(new Date()));
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedMeals, setSelectedMeals] = useState<MealLog[] | null>(null);
+  const [isLoadingMeals, setIsLoadingMeals] = useState(false);
   const [trends, setTrends] = useState<TrendsResponse | null>(null);
   const [weights, setWeights] = useState<WeightLog[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const todayDate = formatDateParam(new Date());
+
   // 칩을 연속으로 탭했을 때 늦게 도착한 이전 기간 응답이 현재 선택을 덮어쓰지 않게 한다.
   const loadSeqRef = useRef(0);
+  // 날짜를 빠르게 옮길 때 늦게 온 끼니 응답이 현재 선택을 덮어쓰지 않게 한다.
+  const mealsSeqRef = useRef(0);
 
   const loadData = useCallback(async () => {
     const seq = ++loadSeqRef.current;
@@ -59,7 +101,9 @@ export default function TrendsScreen() {
     setErrorMessage(null);
 
     try {
-      const { start_date, end_date } = recentDateRange(PERIOD_DAYS[period]);
+      // 캘린더는 보고 있는 '달' 전체가 조회 범위다. 그래프는 오늘 기준 최근 N일.
+      const { start_date, end_date } =
+        viewMode === 'calendar' ? monthRange(month) : recentDateRange(PERIOD_DAYS[period]);
       const [trendsResult, weightsResult] = await Promise.all([
         getTrends(start_date, end_date),
         getWeights(),
@@ -82,7 +126,7 @@ export default function TrendsScreen() {
         setIsLoading(false);
       }
     }
-  }, [period]);
+  }, [month, period, viewMode]);
 
   // 마운트 시 1회가 아니라 탭이 포커스될 때마다 다시 읽는다 (홈 화면 패턴).
   // 기록 탭에서 끼니를 저장하고 돌아왔을 때 그래프를 갱신하기 위함이다.
@@ -92,13 +136,44 @@ export default function TrendsScreen() {
     }, [loadData])
   );
 
-  const selectPeriod = (value: string) => {
-    const option = PERIOD_OPTIONS.find((item) => item.value === value);
+  const loadMealsFor = useCallback(async (date: string) => {
+    const seq = ++mealsSeqRef.current;
 
-    if (option) {
-      setPeriod(option.value);
+    setIsLoadingMeals(true);
+    try {
+      const meals = await getMeals(date);
+
+      if (mealsSeqRef.current === seq) {
+        setSelectedMeals(meals);
+      }
+    } catch {
+      // 끼니 상세 실패는 캘린더 전체를 막지 않는다 — 빈 목록으로 두고 안내만 한다.
+      if (mealsSeqRef.current === seq) {
+        setSelectedMeals([]);
+      }
+    } finally {
+      if (mealsSeqRef.current === seq) {
+        setIsLoadingMeals(false);
+      }
     }
+  }, []);
+
+  const selectDate = (date: string) => {
+    setSelectedDate(date);
+    setSelectedMeals(null);
+    void loadMealsFor(date);
   };
+
+  const changeMonth = (delta: number) => {
+    // 달을 옮기면 이전 달의 선택·끼니는 무효다.
+    mealsSeqRef.current += 1;
+    setSelectedDate(null);
+    setSelectedMeals(null);
+    setMonth((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1));
+  };
+
+  // 이번 달을 넘어서는 달로는 못 간다 (미래엔 기록이 없다).
+  const canGoNextMonth = month < startOfMonth(new Date());
 
   const summary = useMemo(() => {
     if (trends === null) {
@@ -141,21 +216,17 @@ export default function TrendsScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.container}>
+          {/* 제목과 뷰 토글을 한 줄에 둔다 — 칩 두 줄이 세로 공간을 먹어 체중 섹션이
+              첫 화면 밖으로 밀려나 있었다. 기간(주/월) 토글은 그래프 카드 안으로 옮겼다. */}
           <View style={styles.header}>
-            <Text style={styles.title}>추이</Text>
-            <Text style={styles.subtitle}>주·월 섭취 칼로리와 체중 변화를 확인하세요.</Text>
+            <Text style={styles.title}>리포트</Text>
+            <Segmented onChange={setViewMode} options={VIEW_OPTIONS} value={viewMode} />
           </View>
-
-          <ChipGroup
-            onToggle={selectPeriod}
-            options={PERIOD_OPTIONS}
-            selectedValues={[period]}
-          />
 
           {isLoading ? (
             <View style={styles.stateBox}>
               <ActivityIndicator color="#3182f6" />
-              <Text style={styles.stateText}>추이 기록을 불러오는 중입니다.</Text>
+              <Text style={styles.stateText}>기록을 불러오는 중입니다.</Text>
             </View>
           ) : errorMessage ? (
             <View style={styles.errorBox}>
@@ -169,19 +240,61 @@ export default function TrendsScreen() {
                 </Pressable>
               </View>
             </View>
-          ) : trends === null || summary === null ? null : (
+          ) : trends === null || summary === null ? null : viewMode === 'calendar' ? (
+            <>
+              <KcalCalendar
+                canGoNext={canGoNextMonth}
+                days={trends.days}
+                month={month}
+                onChangeMonth={changeMonth}
+                onSelectDate={selectDate}
+                selectedDate={selectedDate}
+                targetKcal={trends.target_kcal}
+                todayDate={todayDate}
+              />
+
+              <DayDetail
+                date={selectedDate}
+                isLoading={isLoadingMeals}
+                meals={selectedMeals}
+                onPressManage={() => router.push('/meals')}
+              />
+
+              {/* 체중은 두 모드 모두에 둔다 — 한쪽에만 있으면 "있는지 없는지" 모르게 된다.
+                  캘린더 모드에서는 보고 있는 달의 기록을 보여준다. */}
+              <WeightSection
+                logs={periodWeights}
+                onPressManage={() => router.push('/me/weights')}
+              />
+
+              <Text style={styles.disclaimer}>AI 추정값이며 실제와 다를 수 있습니다.</Text>
+            </>
+          ) : (
             <>
               {summary.recordedDays === 0 ? (
                 <View style={styles.emptyCard}>
+                  {/* 기간 토글은 평소 그래프 카드 안에 있다. 빈 기간에도 주↔월 전환은
+                      할 수 있어야 하므로 여기서도 노출한다. */}
+                  <Segmented
+                    compact
+                    onChange={setPeriod}
+                    options={PERIOD_OPTIONS}
+                    value={period}
+                  />
                   <MaterialIcons color="#8b95a1" name="show-chart" size={32} />
                   <Text style={styles.emptyTitle}>이 기간에 식단 기록이 없어요</Text>
                   <Text style={styles.emptyText}>
-                    기록 탭에서 사진으로 식사를 남기면 여기에서 추이를 볼 수 있습니다.
+                    기록 탭에서 사진으로 식사를 남기면 여기에서 확인할 수 있습니다.
                   </Text>
                 </View>
               ) : (
                 <>
-                  <KcalBarChart days={trends.days} targetKcal={trends.target_kcal} />
+                  <KcalBarChart
+                    days={trends.days}
+                    onChangePeriod={setPeriod}
+                    period={period}
+                    targetKcal={trends.target_kcal}
+                  />
 
                   <View style={styles.summaryCard}>
                     <View style={styles.summaryRow}>
@@ -226,18 +339,107 @@ export default function TrendsScreen() {
   );
 }
 
-function KcalBarChart({ days, targetKcal }: { days: TrendDay[]; targetKcal: number | null }) {
+// 캘린더에서 고른 날의 끼니 상세. 날짜를 안 고른 상태가 기본이다 (달력만 보여준다).
+function DayDetail({
+  date,
+  meals,
+  isLoading,
+  onPressManage,
+}: {
+  date: string | null;
+  meals: MealLog[] | null;
+  isLoading: boolean;
+  onPressManage: () => void;
+}) {
+  if (date === null) {
+    return (
+      <View style={styles.dayHintCard}>
+        <MaterialIcons color="#8b95a1" name="touch-app" size={20} />
+        <Text style={styles.dayHintText}>날짜를 누르면 그날 먹은 음식을 볼 수 있어요.</Text>
+      </View>
+    );
+  }
+
+  const totalKcal = (meals ?? []).reduce((acc, meal) => acc + meal.total_kcal, 0);
+
+  return (
+    <View style={styles.dayCard}>
+      <View style={styles.dayHeadRow}>
+        <Text style={styles.dayTitle}>{formatFullDate(date)}</Text>
+        {meals !== null && meals.length > 0 ? (
+          <Text style={styles.dayTotal}>{`${totalKcal.toLocaleString()} kcal`}</Text>
+        ) : null}
+      </View>
+
+      {isLoading ? (
+        <View style={styles.dayLoadingBox}>
+          <ActivityIndicator color="#3182f6" />
+        </View>
+      ) : meals === null || meals.length === 0 ? (
+        <Text style={styles.dayEmptyText}>이 날은 기록이 없어요.</Text>
+      ) : (
+        <>
+          {meals.map((meal) => (
+            <View key={meal.id} style={styles.mealRow}>
+              <View style={styles.mealTypeChip}>
+                <Text style={styles.mealTypeChipText}>{MEAL_TYPE_LABELS[meal.meal_type]}</Text>
+              </View>
+              <View style={styles.mealBody}>
+                <Text style={styles.mealFoods} numberOfLines={2}>
+                  {meal.items.map((item) => item.food_label).join(', ')}
+                </Text>
+              </View>
+              <Text style={styles.mealKcal}>{`${meal.total_kcal.toLocaleString()} kcal`}</Text>
+            </View>
+          ))}
+
+          <Pressable
+            onPress={onPressManage}
+            style={({ pressed }) => [styles.manageButton, pressed && styles.pressed]}>
+            <Text style={styles.manageButtonText}>기록 관리</Text>
+            <MaterialIcons color="#3182f6" name="chevron-right" size={18} />
+          </Pressable>
+        </>
+      )}
+    </View>
+  );
+}
+
+// 'YYYY-MM-DD' → '7월 13일 (월)'
+function formatFullDate(date: string): string {
+  const weekday = ['일', '월', '화', '수', '목', '금', '토'][
+    new Date(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10))).getDay()
+  ];
+
+  return `${Number(date.slice(5, 7))}월 ${Number(date.slice(8, 10))}일 (${weekday})`;
+}
+
+function KcalBarChart({
+  days,
+  targetKcal,
+  period,
+  onChangePeriod,
+}: {
+  days: TrendDay[];
+  targetKcal: number | null;
+  period: TrendPeriod;
+  onChangePeriod: (value: TrendPeriod) => void;
+}) {
   // 목표선까지 축에 포함해 "목표 대비 어디쯤인지"가 바로 보이게 한다. 목표 null이면 섭취 최대값 기준.
   const maxValue = Math.max(...days.map((day) => day.consumed_kcal), targetKcal ?? 0, 1);
   const showDayLabels = days.length <= 7;
 
   return (
     <View style={styles.chartCard}>
+      {/* 기간 토글을 카드 헤더 우측에 둔다 — 화면 상단의 칩 한 줄을 통째로 없앤다. */}
       <View style={styles.chartHeadRow}>
-        <Text style={styles.chartTitle}>일별 섭취 kcal</Text>
-        {targetKcal !== null ? (
-          <Text style={styles.chartTarget}>{`목표 ${targetKcal.toLocaleString()} kcal`}</Text>
-        ) : null}
+        <View style={styles.chartHeadTitles}>
+          <Text style={styles.chartTitle}>일별 섭취 kcal</Text>
+          {targetKcal !== null ? (
+            <Text style={styles.chartTarget}>{`목표 ${targetKcal.toLocaleString()} kcal`}</Text>
+          ) : null}
+        </View>
+        <Segmented compact onChange={onChangePeriod} options={PERIOD_OPTIONS} value={period} />
       </View>
 
       <View style={styles.chartArea}>
@@ -404,6 +606,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  chartHeadTitles: {
+    gap: 2,
+  },
   chartTarget: {
     color: '#6b7684',
     fontSize: 13,
@@ -416,7 +621,7 @@ const styles = StyleSheet.create({
   },
   container: {
     alignSelf: 'center',
-    gap: 20,
+    gap: 14,
     maxWidth: 720,
     width: '100%',
   },
@@ -424,6 +629,94 @@ const styles = StyleSheet.create({
     color: '#8b95a1',
     fontSize: 13,
     textAlign: 'center',
+  },
+  // 캘린더 모드 — 날짜 선택 안내 / 선택한 날의 끼니 상세
+  dayHintCard: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 8,
+    padding: 16,
+  },
+  dayHintText: {
+    color: '#8b95a1',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  dayCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    gap: 10,
+    padding: 16,
+  },
+  dayHeadRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  dayTitle: {
+    color: '#191f28',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  dayTotal: {
+    color: '#3182f6',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  dayLoadingBox: {
+    paddingVertical: 12,
+  },
+  dayEmptyText: {
+    color: '#8b95a1',
+    fontSize: 13,
+    paddingVertical: 4,
+  },
+  mealRow: {
+    alignItems: 'center',
+    borderTopColor: '#f2f4f6',
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    gap: 10,
+    paddingTop: 10,
+  },
+  mealTypeChip: {
+    backgroundColor: '#f2f4f6',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  mealTypeChipText: {
+    color: '#4e5968',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  mealBody: {
+    flex: 1,
+  },
+  mealFoods: {
+    color: '#333d4b',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+  mealKcal: {
+    color: '#191f28',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  manageButton: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 2,
+    justifyContent: 'center',
+    paddingTop: 6,
+  },
+  manageButtonText: {
+    color: '#3182f6',
+    fontSize: 13,
+    fontWeight: '800',
   },
   emptyCard: {
     alignItems: 'center',
@@ -459,7 +752,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   header: {
-    gap: 4,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   legendDot: {
     backgroundColor: '#3182f6',
@@ -508,7 +803,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    padding: 16,
   },
   stateBox: {
     alignItems: 'center',
@@ -528,12 +823,12 @@ const styles = StyleSheet.create({
   summaryCard: {
     backgroundColor: '#ffffff',
     borderRadius: 8,
-    gap: 12,
-    padding: 16,
+    gap: 8,
+    padding: 12,
   },
   summaryRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
   },
   summaryStat: {
     backgroundColor: '#f2f4f6',
@@ -560,7 +855,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#191f28',
-    fontSize: 30,
+    fontSize: 24,
     fontWeight: '900',
   },
   weightCard: {

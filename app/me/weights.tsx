@@ -17,7 +17,7 @@ import { BackButton } from '@/components/back-button';
 import { ErrorBanner } from '@/components/error-banner';
 import { createWeight, getWeights, WeightLog } from '@/services/health-api';
 
-// 최근 기록만 보여준다. 그래프(추이 탭)는 서버 API 결정 대기 — 이 화면의 범위가 아니다.
+// 최근 기록만 보여준다. 그래프는 리포트 탭에 있다 — 이 화면의 범위가 아니다.
 const RECENT_LIMIT = 30;
 
 export default function WeightsScreen() {
