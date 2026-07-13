@@ -107,8 +107,9 @@ export type MealLog = {
   items: MealItem[];
 };
 
-// estimate의 404(유사도 검색까지 미매칭)를 일반 오류와 구분하는 명시적 오류 타입 (DATA_MODEL.md 13장).
-// 화면은 catch에서 instanceof로 판별해 에러 배너 대신 kcal 수동 입력으로 유도한다.
+// estimate의 404(데이터셋·캐시·AI 추정까지 모두 실패)를 일반 오류와 구분하는 명시적 오류 타입
+// (DATA_MODEL.md 13·19장). 화면은 catch에서 instanceof로 판별해 에러 배너 대신 kcal 수동 입력으로
+// 유도한다. 404는 결정적이라 재시도해도 같은 결과다 — 재시도 버튼을 띄우지 않는다.
 export class NutritionNotFoundError extends Error {
   constructor(message: string) {
     super(message);
@@ -116,7 +117,17 @@ export class NutritionNotFoundError extends Error {
   }
 }
 
-// 주/월 추이 집계 (DATA_MODEL.md 15장). days는 범위 내 모든 날짜를 오름차순으로 채운다.
+// estimate의 503(추정 백엔드 일시 장애 — Gemini 타임아웃·과부하) (DATA_MODEL.md 19장).
+// 404와 달리 **일시적**이라 재시도하면 성공할 수 있다. 화면은 재시도 버튼을 유지한 채
+// 수동 입력도 열어 둔다 — 사용자를 막다른 길에 두지 않는다.
+export class NutritionUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'NutritionUnavailableError';
+  }
+}
+
+// 주/월 섭취 집계 — 리포트 탭이 쓴다 (DATA_MODEL.md 15장). days는 범위 내 모든 날짜를 오름차순으로 채운다.
 // 기록 없는 날도 0으로 존재한다. target_kcal은 목표 미설정 시 null (0이 아니다 — summary와 동일 규칙).
 export type TrendDay = {
   date: string;
@@ -168,7 +179,7 @@ export function formatDateParam(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-// 오늘을 끝으로 하는 최근 N일(오늘 포함) 범위. 추이 탭의 주(7)/월(30) 조회에 쓴다.
+// 오늘을 끝으로 하는 최근 N일(오늘 포함) 범위. 리포트 탭의 주(7)/월(30) 조회에 쓴다.
 export function recentDateRange(days: number): { start_date: string; end_date: string } {
   const end = new Date();
   const start = new Date();
@@ -223,10 +234,12 @@ export async function getSummary(date: string): Promise<DaySummary> {
   return ensure(parseDaySummary(await parseOk(response, '오늘 요약 조회 실패')));
 }
 
-// 서버는 식약처 DB 유사도 검색(pg_trgm)으로 조회한다 (DATA_MODEL.md 13장).
-// - 미매칭이면 404 → NutritionNotFoundError (detail은 수동 입력을 안내하는 한국어 문장).
+// 서버는 식약처 DB를 먼저 조회하고(유사도 검색 포함), 없으면 AI가 1회 추정해 DB에 적재한다
+// (DATA_MODEL.md 13·19장). 조회 경로에 LLM은 없다 — 같은 음식은 항상 같은 값이 돌아온다.
 // - 매칭 성공 시 응답 food_label은 매칭된 DB 행의 이름이라 요청 라벨과 다를 수 있다
 //   (예: "오리구이" 요청 → "오리고기구이" 응답). 화면이 매칭 결과를 사용자에게 보여준다.
+// - `source === 'llm'`이면 실측이 아닌 **AI 추정값**이다 → 화면이 배지로 알리고 수정을 열어 준다.
+// - 404 = 추정까지 실패(음식이 아니거나 값이 비정상) → 수동 입력. 503 = 추정 백엔드 일시 장애 → 재시도.
 export async function estimateNutrition(foodLabel: string): Promise<NutritionEstimate> {
   const response = await apiFetch(`${HEALTH_API_URL}/nutrition/estimate`, {
     method: 'POST',
@@ -238,6 +251,13 @@ export async function estimateNutrition(foodLabel: string): Promise<NutritionEst
     const message = await readErrorMessage(response);
     throw new NutritionNotFoundError(
       message || '일치하는 음식을 찾지 못했습니다. 칼로리를 직접 입력해주세요.'
+    );
+  }
+
+  if (response.status === 503) {
+    const message = await readErrorMessage(response);
+    throw new NutritionUnavailableError(
+      message || '지금은 영양 정보를 계산할 수 없습니다. 잠시 후 다시 시도해주세요.'
     );
   }
 
@@ -290,7 +310,7 @@ export async function getTrends(startDate: string, endDate: string): Promise<Tre
     `${HEALTH_API_URL}/me/trends?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`
   );
 
-  return ensure(parseTrendsResponse(await parseOk(response, '추이 조회 실패')));
+  return ensure(parseTrendsResponse(await parseOk(response, '리포트 조회 실패')));
 }
 
 // 기록 확정 직전 경고 판정 (DATA_MODEL.md 16장). Bearer + sensitive_health 동의 필수(401/403).
@@ -325,7 +345,7 @@ export async function createWeight(input: CreateWeightRequest): Promise<WeightLo
 export async function getWeights(): Promise<WeightLog[]> {
   const response = await apiFetch(`${HEALTH_API_URL}/weights`);
 
-  return ensureList(await parseOk(response, '체중 추이 조회 실패'), parseWeightLog);
+  return ensureList(await parseOk(response, '체중 기록 조회 실패'), parseWeightLog);
 }
 
 // 회원 탈퇴 (DATA_MODEL.md 18장). soft delete가 아니라 물리 삭제 — 끼니·체중·펫·소유 그룹이
