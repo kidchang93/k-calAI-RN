@@ -68,7 +68,7 @@
 | ~~로그아웃~~ | **완료.** 내 정보 탭에서 확인 Alert → `POST /api/auth/logout` → 로컬 세션 삭제 (서버 폐기 실패에도 삭제 = 오프라인 로그아웃 허용) | `app/(tabs)/account.tsx` |
 | 칼로리 프롬프트 | 앱에 하드코딩 (`calorie-api.ts:71`) | 서버 템플릿화 시점 |
 | ~~다크모드~~ | **라이트 전용 확정** (2026-07-12). 테마 인프라(`ThemedText`·`constants/theme` 등) 제거, 실화면은 하드코딩 팔레트 | 해소 |
-| 상태 탭 | 개발자용 진단 화면(`explore.tsx`)은 `href:null`로 탭 바에서 숨기고 내 정보에서 진입 | 해소 (숨김 처리됨) |
+| 상태 탭 | 개발자용 진단 화면(`explore.tsx`)은 **삭제** (2026-07-13) — 서버 endpoint URL 노출 제거 | 해소 (삭제됨) |
 | ~~템플릿 잔재~~ | **삭제됨** (2026-07-12): `modal.tsx`, `hello-wave.tsx`, `parallax-scroll-view.tsx`, `collapsible.tsx`, `external-link.tsx` | 해소 |
 
 ## 새 API 클라이언트 추가 절차

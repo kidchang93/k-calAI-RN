@@ -84,8 +84,9 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 | 로그아웃(서버 세션 폐기) | `POST` | `/api/auth/logout` | 동일 | 일치 (`auth-api.ts`, 2026-07-11 openapi.json 실측. Bearer 첨부, 실패해도 앱은 로컬 세션 삭제) |
 | 음식 이미지 분류 | `POST` | `/api/predict` | 동일 | 일치 (YOLO, 한국어 라벨). 칼로리·영양은 `/api/nutrition/estimate`. (레거시 `/api/gpt-predict`는 2026-07-12 서버·앱 모두 제거) |
 | 프로필·목표·끼니·체중 | — | `/api/me/**`, `/api/meals*`, `/api/weights`, `/api/nutrition/estimate` | 동일 | 일치 (`health-api.ts`. `PUT /api/meals/{meal_id}` 전체 교체 수정 포함 — 2026-07-11 user 15 실측, `logged_at` 생략 시 기존 시각 유지) |
+| 칼로리·영양 추정 | `POST` | `/api/nutrition/estimate` | 동일 | 일치 (2026-07-13, `DATA_MODEL.md` **19장**). 서버가 식약처 DB에 없는 음식은 **AI로 1회 추정해 DB에 적재·동결**한다 → 같은 음식은 항상 같은 값. `source === 'llm'`이면 실측이 아닌 **AI 추정값**이라 기록 화면이 'AI 추정' 배지를 띄운다. **404** = 추정까지 실패(수동 입력) → `NutritionNotFoundError`, **503** = 추정 백엔드 일시 장애(재시도 가능) → `NutritionUnavailableError` |
 | 회원 탈퇴 | `DELETE` | `/api/me` | 동일 | 일치 (`health-api.ts` `deleteAccount`, 2026-07-11 openapi.json 확인 — 물리 삭제·전 토큰 무효라 로컬 호출 실측은 하지 않는다) |
-| 주/월 추이 집계 | `GET` | `/api/me/trends?start_date&end_date` | 동일 | 일치 (`health-api.ts`, 2026-07-11 openapi.json·user 15 실측. Bearer 필수, 최대 92일, 초과·역순 400) |
+| 주/월 추이 집계 · **캘린더** | `GET` | `/api/me/trends?start_date&end_date` | 동일 | 일치 (`health-api.ts`, 2026-07-11 openapi.json·user 15 실측. Bearer 필수, 최대 92일, 초과·역순 400). 추이 탭의 **캘린더 뷰**(2026-07-13, `components/kcal-calendar.tsx`)가 같은 API를 '해당 달 1일~말일' 범위로 재사용한다 — 서버 신규 API 없음. 날짜를 누르면 `GET /api/meals?date=`로 그날 끼니를 읽는다 |
 | 동의·건강 프로필·질병·알러지 | — | `/api/me/consents*`, `/api/me/{health-profile\|conditions\|allergies}` | 동일 | 일치 (`onboarding-api.ts`) |
 | 선택지 참조 | `GET` | `/api/meta/options` | 동일 | 일치 (`meta-api.ts`) |
 | 그룹 | — | `/api/groups`, `/api/groups/join`, `/api/groups/{id}`, `/api/groups/{id}/pets` | 동일 | 일치 (`group-api.ts`, 2026-07-10 로컬 실측) |
@@ -108,7 +109,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 | 4 | ~~`readErrorMessage` 중복 정의~~ **해결.** `services/http.ts` 공통 함수로 통일(배열 `detail` 처리 포함). | `services/http.ts` |
 | 5 | ~~서버 `/api/s3/*`가 `detail`에 boto3 내부 예외 노출~~ **해소.** S3 미사용 확정으로 서버에서 라우트가 제거되었습니다(`file_upload_api.py` 삭제, 2026-07-12 서버 소스 확인). 앱은 원래 호출하지 않았고, `photo_s3_key`는 `/api/meals` 응답 스키마 필드로만 남아 있습니다. | `kcalAI-model/api/` |
 | 6 | ~~`themed-text.tsx`·`themed-view.tsx`·`constants/theme.ts` 다크모드 체계가 있으나 실화면은 하드코딩~~ **해소** (2026-07-12): 라이트 전용 확정으로 테마 인프라 제거. 실화면 하드코딩 팔레트가 표준. 루트 `use-color-scheme`(내비 테마용)만 유지. | — |
-| 7 | ~~Expo 템플릿 잔재(`modal.tsx`·`hello-wave.tsx`·`parallax-scroll-view.tsx`·`collapsible.tsx`·`external-link.tsx`)~~ **삭제됨** (2026-07-12). `explore.tsx`는 개발자 진단 화면으로 유지(탭 바 숨김, 내 정보에서 진입). | — |
+| 7 | ~~Expo 템플릿 잔재(`modal.tsx`·`hello-wave.tsx`·`parallax-scroll-view.tsx`·`collapsible.tsx`·`external-link.tsx`)~~ **삭제됨** (2026-07-12). `explore.tsx`(개발자 진단 화면)도 **삭제됨** (2026-07-13) — 서버 endpoint URL을 화면에 노출하고 있었습니다. 내 정보의 '개발자 정보' 진입점, 로그인 화면·기록 화면의 '연결 서버' 카드도 함께 제거했습니다. | — |
 | 8 | ~~`auth-session.ts` 미커밋~~ **해소.** 커밋됨(세션 영속화·Bearer 첨부 포함). | — |
 
 ---

@@ -13,7 +13,6 @@ k-calAI-RN/
 │   │   ├── index.tsx           # 기록 탭 - 사진 입력 → 예측 → 끼니 저장
 │   │   ├── trends.tsx          # 추이 탭 - 주/월 섭취 kcal 바 차트 + 요약 + 체중 변화
 │   │   ├── account.tsx         # 내 정보 탭 (프로필·목표 요약, 체중·질병·알러지·반려동물 진입점, 로그아웃·회원 탈퇴)
-│   │   └── explore.tsx         # 개발자 진단 (탭 바에서 숨김)
 │   ├── onboarding/             # 온보딩 스택 (consent → body → …)
 │   ├── groups/                 # 그룹 스택 (홈에서 진입)
 │   │   ├── _layout.tsx         # 인증 가드 (온보딩 레이아웃과 같은 패턴)
@@ -97,7 +96,6 @@ expo-router의 파일 기반 라우팅입니다. `app/` 하위 파일이 곧 경
 | `app/(tabs)/index.tsx` | `/` | 그룹 `(tabs)`는 URL에 나타나지 않음 |
 | `app/(tabs)/trends.tsx` | `/trends` | 주/월 토글 + 일별 섭취 바 차트(`GET /api/me/trends`) + 체중 변화(`GET /api/weights` 기간 필터) |
 | `app/(tabs)/account.tsx` | `/account` | 반려동물 진입점 |
-| `app/(tabs)/explore.tsx` | `/explore` | 탭 바에서 숨김 (`href: null`) |
 | `app/onboarding/*.tsx` | `/onboarding/…` | 인증 가드 레이아웃 |
 | `app/groups/index.tsx` | `/groups` | 내 그룹 목록 |
 | `app/groups/create.tsx` | `/groups/create` | 그룹 생성 |

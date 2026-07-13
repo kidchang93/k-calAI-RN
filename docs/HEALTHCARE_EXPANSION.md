@@ -11,7 +11,7 @@
 
 | 계층 | 있는 것 |
 |------|---------|
-| 화면 | `auth`(휴대폰 인증), `(tabs)/index`(분석), `(tabs)/explore`(개발자용 진단) |
+| 화면 | `auth`(휴대폰 인증), `(tabs)/index`(분석). `(tabs)/explore`(개발자용 진단)는 2026-07-13 삭제 |
 | 서버 API | `/api/auth/{signup,login}/{request-code,verify}`, `/api/predict`, `/api/nutrition/estimate` (레거시 `/api/gpt-predict`·`/api/s3/*`는 2026-07-12 제거) |
 | DB 테이블 | `users`, `phone_verification_codes`, `auth_sessions` |
 | 세션 | 메모리에만 존재. 새로고침하면 로그아웃 |
@@ -68,7 +68,7 @@
 | 7 | **추이** | **신규** | 주/월 섭취 칼로리 그래프, 체중 변화, 목표 달성률 |
 | 8 | **내 정보** | **신규** | 프로필·목표 수정, 로그아웃, 개인정보 정책, 앱 정보 |
 
-`(tabs)/explore.tsx`(현재 "상태" 탭, API 엔드포인트를 노출)는 **일반 사용자 탭에서 제거**하고 내 정보 > 개발자 정보로 옮깁니다.
+`(tabs)/explore.tsx`("상태" 탭, API 엔드포인트를 노출)는 **완전히 삭제했습니다** (2026-07-13). 서버 URL은 사용자에게 보여줄 정보가 아닙니다 — 로그인 화면·기록 화면의 '연결 서버' 카드도 함께 제거했습니다.
 
 ### 기록 플로우 상세 (6번 개편의 핵심)
 
@@ -172,7 +172,7 @@
 
 ### 재사용 가능한 기존 컴포넌트
 
-`ActionButton`, `PredictionRow`(진행 바 포함), `StatusItem`, 오류 배너, 카드 컨테이너 — 모두 `app/(tabs)/index.tsx`와 `explore.tsx`에 있습니다.
+`ActionButton`, `PredictionRow`(진행 바 포함), 오류 배너, 카드 컨테이너 — `app/(tabs)/index.tsx`에 있습니다. (`StatusItem`은 `explore.tsx`와 함께 삭제됐습니다.)
 
 ### 새로 그려야 하는 것
 
