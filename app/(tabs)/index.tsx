@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ChipGroup } from '@/components/chip-group';
-import { CALORIE_API_URL, Prediction, uploadFoodPhoto } from '@/services/calorie-api';
+import { Prediction, uploadFoodPhoto } from '@/services/calorie-api';
 import {
   checkFoodWarnings,
   createMeal,
@@ -25,6 +25,7 @@ import {
   MealType,
   NutritionEstimate,
   NutritionNotFoundError,
+  NutritionUnavailableError,
 } from '@/services/health-api';
 
 const MEAL_TYPE_OPTIONS: { value: MealType; label: string }[] = [
@@ -73,6 +74,8 @@ export default function RecordScreen() {
   const [isEstimating, setIsEstimating] = useState(false);
   // 404(DB 미매칭) 안내 문구. 서버 오류가 아니라 정상 분기라 에러 배너 대신 수동 입력으로 유도한다.
   const [notFoundMessage, setNotFoundMessage] = useState<string | null>(null);
+  // 503(추정 백엔드 일시 장애) 전용 — 404와 달리 재시도 버튼을 남긴다 (19장).
+  const [unavailableMessage, setUnavailableMessage] = useState<string | null>(null);
   const [mealType, setMealType] = useState<MealType>(() => defaultMealType());
   const [servingRatio, setServingRatio] = useState(1);
   const [manualKcal, setManualKcal] = useState('');
@@ -126,6 +129,7 @@ export default function RecordScreen() {
     setSelectedPrediction(null);
     setNutrition(null);
     setNotFoundMessage(null);
+    setUnavailableMessage(null);
     setManualKcal('');
     setServingRatio(1);
     setMealType(defaultMealType());
@@ -242,6 +246,7 @@ export default function RecordScreen() {
     setIsEstimating(true);
     setErrorMessage(null);
     setNotFoundMessage(null);
+    setUnavailableMessage(null);
 
     try {
       const result = await estimateNutrition(prediction.label);
@@ -259,6 +264,9 @@ export default function RecordScreen() {
         // 404(미매칭)는 오류가 아니라 정상 분기 — 배너 없이 수동 입력으로 자연스럽게 넘긴다.
         if (error instanceof NutritionNotFoundError) {
           setNotFoundMessage(error.message);
+        } else if (error instanceof NutritionUnavailableError) {
+          // 503은 일시 장애다 — 에러 배너 대신 안내만 하고 재시도 버튼을 남긴다 (19장).
+          setUnavailableMessage(error.message);
         } else {
           const message =
             error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
@@ -276,6 +284,7 @@ export default function RecordScreen() {
     setSelectedPrediction(prediction);
     setNutrition(null);
     setNotFoundMessage(null);
+    setUnavailableMessage(null);
     setManualKcal('');
     // 라벨이 바뀌었으므로 이전 라벨의 경고를 즉시 제거한다 (늦은 응답도 무효화).
     clearWarnings();
@@ -422,12 +431,7 @@ export default function RecordScreen() {
               />
             ))}
           </View>
-        ) : (
-          <View style={styles.endpointCard}>
-            <Text style={styles.endpointTitle}>연결 서버</Text>
-            <Text style={styles.endpointUrl}>{CALORIE_API_URL}</Text>
-          </View>
-        )}
+        ) : null}
 
         {selectedPrediction ? (
           <View style={styles.confirmCard}>
@@ -450,6 +454,18 @@ export default function RecordScreen() {
                     {`'${selectedPrediction.label}' 대신 가장 비슷한 '${nutrition.food_label}'의 영양 정보를 찾았어요.`}
                   </Text>
                 ) : null}
+                {/* source='llm'은 식약처 DB에 없어 AI가 추정한 값이다 — 실측과 구분해 알린다 (19장). */}
+                {nutrition.source === 'llm' ? (
+                  <View style={styles.estimatedBadgeRow}>
+                    <View style={styles.estimatedBadge}>
+                      <MaterialIcons name="auto-awesome" size={13} color="#b45309" />
+                      <Text style={styles.estimatedBadgeText}>AI 추정</Text>
+                    </View>
+                    <Text style={styles.estimatedNote}>
+                      영양 DB에 없는 음식이라 AI가 추정했어요. 값이 다르면 직접 고쳐주세요.
+                    </Text>
+                  </View>
+                ) : null}
                 <Text style={styles.nutritionKcal}>
                   {`${nutrition.serving_desc} 기준 약 ${Math.round(nutrition.kcal_per_serving).toLocaleString()} kcal`}
                 </Text>
@@ -463,9 +479,11 @@ export default function RecordScreen() {
               <View style={styles.manualBox}>
                 <Text style={styles.manualGuide}>
                   {notFoundMessage ??
+                    unavailableMessage ??
                     '영양 정보를 불러오지 못했어요. 칼로리를 직접 입력하면 저장할 수 있어요.'}
                 </Text>
-                {/* 미매칭(404)은 결정적 결과라 재시도해도 같다 — 재시도 버튼은 일반 오류에만 보인다. */}
+                {/* 미매칭(404)은 결정적 결과라 재시도해도 같다 — 재시도 버튼은 일시 장애(503)와
+                    일반 오류에만 보인다 (19장). */}
                 {notFoundMessage === null ? (
                   <Pressable
                     onPress={() => void runEstimate(selectedPrediction)}
@@ -880,22 +898,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     height: '100%',
   },
-  endpointCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    gap: 6,
-    padding: 16,
-  },
-  endpointTitle: {
-    color: '#6b7684',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  endpointUrl: {
-    color: '#4e5968',
-    fontSize: 13,
-    lineHeight: 18,
-  },
   confirmCard: {
     backgroundColor: '#ffffff',
     borderRadius: 8,
@@ -969,6 +971,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 19,
+  },
+  // AI 추정값 배지 — 실측(식약처 DB) 값과 시각적으로 구분한다 (앰버 계열, 경고 아님).
+  estimatedBadgeRow: {
+    gap: 6,
+  },
+  estimatedBadge: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#fef3c7',
+    borderRadius: 6,
+    flexDirection: 'row',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  estimatedBadgeText: {
+    color: '#b45309',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  estimatedNote: {
+    color: '#8b95a1',
+    fontSize: 12,
+    lineHeight: 17,
   },
   manualGuide: {
     color: '#6b7684',
