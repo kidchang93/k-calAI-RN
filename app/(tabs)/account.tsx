@@ -1,5 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Link, useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -207,21 +207,13 @@ export default function AccountScreen() {
               <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
             </Pressable>
 
-            <Link href="/pets" asChild>
-              <Pressable style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-                <MaterialIcons color="#4e5968" name="pets" size={20} />
-                <Text style={styles.rowLabel}>내 반려동물</Text>
-                <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
-              </Pressable>
-            </Link>
-
-            <Link href="/explore" asChild>
-              <Pressable style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-                <MaterialIcons color="#4e5968" name="build" size={20} />
-                <Text style={styles.rowLabel}>개발자 정보</Text>
-                <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
-              </Pressable>
-            </Link>
+            <Pressable
+              onPress={() => router.push('/pets')}
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+              <MaterialIcons color="#4e5968" name="pets" size={20} />
+              <Text style={styles.rowLabel}>내 반려동물</Text>
+              <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+            </Pressable>
 
             <Pressable
               disabled={isLoggingOut || isDeletingAccount}

@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SessionLoading } from '@/components/session-loading';
-import { AuthMode, AUTH_API_URL, requestPhoneCode, verifyPhoneCode } from '@/services/auth-api';
+import { AuthMode, requestPhoneCode, verifyPhoneCode } from '@/services/auth-api';
 import { setAuthSession, useAuthSession } from '@/services/auth-session';
 
 export default function AuthScreen() {
@@ -191,10 +191,6 @@ export default function AuthScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.endpointCard}>
-            <Text style={styles.endpointLabel}>Auth endpoint</Text>
-            <Text style={styles.endpointUrl}>{AUTH_API_URL}</Text>
-          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -349,23 +345,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '700',
-    lineHeight: 20,
-  },
-  endpointCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    gap: 6,
-    padding: 14,
-  },
-  endpointLabel: {
-    color: '#6b7684',
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  endpointUrl: {
-    color: '#333d4b',
-    fontSize: 14,
-    fontWeight: '800',
     lineHeight: 20,
   },
 });
