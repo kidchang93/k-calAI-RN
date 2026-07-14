@@ -3,7 +3,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ErrorBanner } from '@/components/error-banner';
 import { logout } from '@/services/auth-api';
 import { clearAuthSession } from '@/services/auth-session';
+import { confirmDialog, notifyDialog } from '@/services/dialog';
 import {
   ActivityLevel,
   deleteAccount,
@@ -70,11 +70,17 @@ export default function AccountScreen() {
     }, [loadAccount])
   );
 
-  const confirmLogout = () => {
-    Alert.alert('로그아웃', '이 기기에서 로그아웃할까요?', [
-      { text: '취소', style: 'cancel' },
-      { text: '로그아웃', style: 'destructive', onPress: () => void handleLogout() },
-    ]);
+  const confirmLogout = async () => {
+    const confirmed = await confirmDialog({
+      title: '로그아웃',
+      message: '이 기기에서 로그아웃할까요?',
+      confirmLabel: '로그아웃',
+      destructive: true,
+    });
+
+    if (confirmed) {
+      await handleLogout();
+    }
   };
 
   const handleLogout = async () => {
@@ -92,22 +98,28 @@ export default function AccountScreen() {
   };
 
   // 회원 탈퇴는 물리 삭제(DATA_MODEL.md 18장)라 2단계로 확인한다.
-  const confirmDeleteAccount = () => {
-    Alert.alert('회원 탈퇴', '정말 탈퇴하시겠어요?', [
-      { text: '취소', style: 'cancel' },
-      { text: '계속', style: 'destructive', onPress: confirmDeleteAccountFinal },
-    ]);
-  };
+  const confirmDeleteAccount = async () => {
+    const proceed = await confirmDialog({
+      title: '회원 탈퇴',
+      message: '정말 탈퇴하시겠어요?',
+      confirmLabel: '계속',
+      destructive: true,
+    });
 
-  const confirmDeleteAccountFinal = () => {
-    Alert.alert(
-      '마지막 확인',
-      '모든 끼니·체중 기록, 반려동물, 소유한 그룹이 영구 삭제됩니다. 되돌릴 수 없습니다.',
-      [
-        { text: '취소', style: 'cancel' },
-        { text: '영구 삭제', style: 'destructive', onPress: () => void handleDeleteAccount() },
-      ],
-    );
+    if (!proceed) {
+      return;
+    }
+
+    const confirmed = await confirmDialog({
+      title: '마지막 확인',
+      message: '모든 끼니·체중 기록, 반려동물, 소유한 그룹이 영구 삭제됩니다. 되돌릴 수 없습니다.',
+      confirmLabel: '영구 삭제',
+      destructive: true,
+    });
+
+    if (confirmed) {
+      await handleDeleteAccount();
+    }
   };
 
   const handleDeleteAccount = async () => {
@@ -119,7 +131,7 @@ export default function AccountScreen() {
       clearAuthSession();
     } catch (error) {
       // 실패 시 세션은 유지한다 (로그아웃과 달리 서버 파기가 확인돼야 한다).
-      Alert.alert(
+      notifyDialog(
         '회원 탈퇴 실패',
         error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
       );
@@ -183,6 +195,14 @@ export default function AccountScreen() {
           )}
 
           <View style={styles.section}>
+            <Pressable
+              onPress={() => router.push('/plan')}
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+              <MaterialIcons color="#4e5968" name="workspace-premium" size={20} />
+              <Text style={styles.rowLabel}>요금제 · 사진 인식 사용량</Text>
+              <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+            </Pressable>
+
             <Pressable
               onPress={() => router.push('/me/weights')}
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}>

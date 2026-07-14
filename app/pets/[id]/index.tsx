@@ -3,7 +3,6 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -18,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/back-button';
 import { ErrorBanner } from '@/components/error-banner';
 import { formatDateParam } from '@/services/health-api';
+import { confirmDialog } from '@/services/dialog';
 import {
   createFeeding,
   deletePet,
@@ -110,11 +110,17 @@ export default function PetDetailScreen() {
     }
   };
 
-  const confirmDelete = (target: PetResponse) => {
-    Alert.alert('반려동물 삭제', `'${target.name}' 기록을 삭제할까요? 되돌릴 수 없습니다.`, [
-      { text: '취소', style: 'cancel' },
-      { text: '삭제', style: 'destructive', onPress: () => void removePet() },
-    ]);
+  const confirmDelete = async (target: PetResponse) => {
+    const confirmed = await confirmDialog({
+      title: '반려동물 삭제',
+      message: `'${target.name}' 기록을 삭제할까요? 되돌릴 수 없습니다.`,
+      confirmLabel: '삭제',
+      destructive: true,
+    });
+
+    if (confirmed) {
+      await removePet();
+    }
   };
 
   const removePet = async () => {

@@ -3,7 +3,6 @@ import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/back-button';
 import { ErrorBanner } from '@/components/error-banner';
+import { confirmDialog } from '@/services/dialog';
 import {
   deleteMeal,
   formatDateParam,
@@ -157,17 +157,19 @@ export default function MealListScreen() {
     }
   };
 
-  const confirmDelete = (meal: MealLog) => {
+  const confirmDelete = async (meal: MealLog) => {
     const label = MEAL_TYPE_LABELS[meal.meal_type];
 
-    Alert.alert(
-      '기록 삭제',
-      `${label} 기록(${meal.total_kcal.toLocaleString()} kcal)을 삭제할까요? 되돌릴 수 없습니다.`,
-      [
-        { text: '취소', style: 'cancel' },
-        { text: '삭제', style: 'destructive', onPress: () => void removeMeal(meal.id) },
-      ],
-    );
+    const confirmed = await confirmDialog({
+      title: '기록 삭제',
+      message: `${label} 기록(${meal.total_kcal.toLocaleString()} kcal)을 삭제할까요? 되돌릴 수 없습니다.`,
+      confirmLabel: '삭제',
+      destructive: true,
+    });
+
+    if (confirmed) {
+      await removeMeal(meal.id);
+    }
   };
 
   const removeMeal = async (mealId: number) => {
