@@ -3,7 +3,6 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   Share,
@@ -15,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/back-button';
 import { ErrorBanner } from '@/components/error-banner';
+import { PlanLimitBanner } from '@/components/plan-limit-banner';
 import { useAuthSession } from '@/services/auth-session';
 import {
   attachPetToGroup,
@@ -28,7 +28,9 @@ import {
   leaveGroup,
   removeMember,
 } from '@/services/group-api';
+import { PlanLimitError } from '@/services/http';
 import { getPets, PetResponse } from '@/services/pet-api';
+import { confirmDialog, notifyDialog } from '@/services/dialog';
 
 const GROUP_KIND_LABELS: Record<GroupKind, string> = {
   family: '가족',
@@ -68,6 +70,8 @@ export default function GroupDetailScreen() {
   const [removingUserId, setRemovingUserId] = useState<number | null>(null);
   const [detachingPetId, setDetachingPetId] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // 402(요금제 한도) 전용 — 펫 공유가 그룹 소유자의 정원에 걸렸을 때.
+  const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
 
   const loadDetail = useCallback(async () => {
     if (!isValidId) {
@@ -116,12 +120,18 @@ export default function GroupDetailScreen() {
   const sharePet = async (petId: number) => {
     setSharingPetId(petId);
     setErrorMessage(null);
+    setPlanLimitMessage(null);
 
     try {
       await attachPetToGroup(groupId, petId);
       await loadDetail();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+      // 402(그룹의 반려동물 정원 초과) — 한도는 그룹 소유자의 요금제로 판정된다.
+      if (error instanceof PlanLimitError) {
+        setPlanLimitMessage(error.message);
+      } else {
+        setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+      }
     } finally {
       setSharingPetId(null);
     }
@@ -129,14 +139,20 @@ export default function GroupDetailScreen() {
 
   // 라이프사이클 액션(나가기·삭제·제거·해제)의 실패는 서버 한국어 detail을 Alert로 그대로 보여준다.
   const alertActionError = (title: string, error: unknown) => {
-    Alert.alert(title, error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+    notifyDialog(title, error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
   };
 
-  const confirmLeave = (group: GroupDetail) => {
-    Alert.alert('그룹 나가기', `'${group.name}' 그룹에서 나갈까요? 공유한 반려동물도 함께 빠져요.`, [
-      { text: '취소', style: 'cancel' },
-      { text: '나가기', style: 'destructive', onPress: () => void handleLeave() },
-    ]);
+  const confirmLeave = async (group: GroupDetail) => {
+    const confirmed = await confirmDialog({
+      title: '그룹 나가기',
+      message: `'${group.name}' 그룹에서 나갈까요? 공유한 반려동물도 함께 빠져요.`,
+      confirmLabel: '나가기',
+      destructive: true,
+    });
+
+    if (confirmed) {
+      await handleLeave();
+    }
   };
 
   const handleLeave = async () => {
@@ -153,15 +169,17 @@ export default function GroupDetailScreen() {
     }
   };
 
-  const confirmDeleteGroup = (group: GroupDetail) => {
-    Alert.alert(
-      '그룹 삭제',
-      `'${group.name}' 그룹을 삭제할까요? 멤버·반려동물 참여가 모두 해제되며 되돌릴 수 없습니다.`,
-      [
-        { text: '취소', style: 'cancel' },
-        { text: '삭제', style: 'destructive', onPress: () => void handleDeleteGroup() },
-      ],
-    );
+  const confirmDeleteGroup = async (group: GroupDetail) => {
+    const confirmed = await confirmDialog({
+      title: '그룹 삭제',
+      message: `'${group.name}' 그룹을 삭제할까요? 멤버·반려동물 참여가 모두 해제되며 되돌릴 수 없습니다.`,
+      confirmLabel: '삭제',
+      destructive: true,
+    });
+
+    if (confirmed) {
+      await handleDeleteGroup();
+    }
   };
 
   const handleDeleteGroup = async () => {
@@ -177,15 +195,17 @@ export default function GroupDetailScreen() {
     }
   };
 
-  const confirmRemoveMember = (member: GroupMemberItem) => {
-    Alert.alert(
-      '멤버 제거',
-      `${member.phone_number_masked} 님을 그룹에서 제거할까요? 이 멤버가 공유한 반려동물도 함께 빠져요.`,
-      [
-        { text: '취소', style: 'cancel' },
-        { text: '제거', style: 'destructive', onPress: () => void handleRemoveMember(member.user_id) },
-      ],
-    );
+  const confirmRemoveMember = async (member: GroupMemberItem) => {
+    const confirmed = await confirmDialog({
+      title: '멤버 제거',
+      message: `${member.nickname} 님을 그룹에서 제거할까요? 이 멤버가 공유한 반려동물도 함께 빠져요.`,
+      confirmLabel: '제거',
+      destructive: true,
+    });
+
+    if (confirmed) {
+      await handleRemoveMember(member.user_id);
+    }
   };
 
   const handleRemoveMember = async (userId: number) => {
@@ -201,11 +221,17 @@ export default function GroupDetailScreen() {
     }
   };
 
-  const confirmDetachPet = (pet: GroupPetItem) => {
-    Alert.alert('참여 해제', `'${pet.name}'의 그룹 참여를 해제할까요? 급여 기록은 지워지지 않아요.`, [
-      { text: '취소', style: 'cancel' },
-      { text: '해제', style: 'destructive', onPress: () => void handleDetachPet(pet.pet_id) },
-    ]);
+  const confirmDetachPet = async (pet: GroupPetItem) => {
+    const confirmed = await confirmDialog({
+      title: '참여 해제',
+      message: `'${pet.name}'의 그룹 참여를 해제할까요? 급여 기록은 지워지지 않아요.`,
+      confirmLabel: '해제',
+      destructive: true,
+    });
+
+    if (confirmed) {
+      await handleDetachPet(pet.pet_id);
+    }
   };
 
   const handleDetachPet = async (petId: number) => {
@@ -259,6 +285,10 @@ export default function GroupDetailScreen() {
                 <ErrorBanner message={errorMessage} onRetry={() => void loadDetail()} />
               ) : null}
 
+              {planLimitMessage ? (
+                <PlanLimitBanner message={planLimitMessage} onUpgrade={() => router.push('/plan')} />
+              ) : null}
+
               <View style={styles.inviteCard}>
                 <View style={styles.inviteBody}>
                   <Text style={styles.inviteLabel}>초대코드</Text>
@@ -277,7 +307,7 @@ export default function GroupDetailScreen() {
                 {detail.members.map((member) => (
                   <View key={member.user_id} style={styles.row}>
                     <MaterialIcons color="#4e5968" name="person" size={20} />
-                    <Text style={styles.rowLabel}>{member.phone_number_masked}</Text>
+                    <Text style={styles.rowLabel}>{member.nickname}</Text>
                     <Text
                       style={[styles.roleBadge, member.role === 'owner' && styles.roleBadgeOwner]}>
                       {ROLE_LABELS[member.role]}

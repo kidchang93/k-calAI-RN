@@ -33,8 +33,9 @@ export type GroupSummary = {
 
 export type GroupMemberItem = {
   user_id: number;
-  // 다른 멤버의 휴대폰 번호 원본은 서버가 노출하지 않는다 (마스킹된 값만 내려온다).
-  phone_number_masked: string;
+  // 그룹에 보이는 이름 = 카카오 닉네임 (2026-07-14 이전엔 마스킹한 휴대폰 번호였다).
+  // 닉네임이 없으면 서버가 '이름 미설정'을 채워 준다 — 앱에서 빈 문자열을 다루지 않는다.
+  nickname: string;
   role: GroupRole;
   joined_at: string;
 };
@@ -243,7 +244,7 @@ function parseGroupMemberItem(value: unknown): GroupMemberItem | null {
 
   if (
     typeof value.user_id !== 'number' ||
-    typeof value.phone_number_masked !== 'string' ||
+    typeof value.nickname !== 'string' ||
     role === null ||
     typeof value.joined_at !== 'string'
   ) {
@@ -252,7 +253,7 @@ function parseGroupMemberItem(value: unknown): GroupMemberItem | null {
 
   return {
     user_id: value.user_id,
-    phone_number_masked: value.phone_number_masked,
+    nickname: value.nickname,
     role,
     joined_at: value.joined_at,
   };
