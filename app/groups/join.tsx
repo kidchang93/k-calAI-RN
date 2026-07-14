@@ -15,13 +15,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/back-button';
 import { ErrorBanner } from '@/components/error-banner';
+import { PlanLimitBanner } from '@/components/plan-limit-banner';
 import { joinGroup } from '@/services/group-api';
+import { PlanLimitError } from '@/services/http';
 
 export default function GroupJoinScreen() {
   const router = useRouter();
   const [code, setCode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // 402(그룹 정원 초과). 정원을 산 사람은 그룹 소유자라, 서버 detail이 "소유자가 업그레이드해야
+  // 한다"고 알려준다 — 문구를 앱에서 바꾸지 않고 그대로 보여준다.
+  const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
 
   // 초대코드는 서버 생성 8자 (대문자·숫자, I/L/O/0/1 제외). 서버가 대문자로 정규화한다.
   const trimmedCode = code.trim();
@@ -30,13 +35,18 @@ export default function GroupJoinScreen() {
   const join = async () => {
     setIsJoining(true);
     setErrorMessage(null);
+    setPlanLimitMessage(null);
 
     try {
       const group = await joinGroup(trimmedCode);
 
       router.replace({ pathname: '/groups/[id]', params: { id: String(group.id) } });
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+      if (error instanceof PlanLimitError) {
+        setPlanLimitMessage(error.message);
+      } else {
+        setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+      }
     } finally {
       setIsJoining(false);
     }
@@ -77,6 +87,10 @@ export default function GroupJoinScreen() {
 
             {errorMessage ? (
               <ErrorBanner message={errorMessage} onRetry={() => void join()} />
+            ) : null}
+
+            {planLimitMessage ? (
+              <PlanLimitBanner message={planLimitMessage} onUpgrade={() => router.push('/plan')} />
             ) : null}
 
             <Pressable

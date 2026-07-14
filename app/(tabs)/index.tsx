@@ -5,7 +5,6 @@ import { useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ChipGroup } from '@/components/chip-group';
+import { PlanLimitBanner } from '@/components/plan-limit-banner';
 import { Prediction, uploadFoodPhoto } from '@/services/calorie-api';
 import {
   checkFoodWarnings,
@@ -27,6 +27,8 @@ import {
   NutritionNotFoundError,
   NutritionUnavailableError,
 } from '@/services/health-api';
+import { PlanLimitError } from '@/services/http';
+import { notifyDialog } from '@/services/dialog';
 
 const MEAL_TYPE_OPTIONS: { value: MealType; label: string }[] = [
   { value: 'breakfast', label: '아침' },
@@ -81,6 +83,10 @@ export default function RecordScreen() {
   const [manualKcal, setManualKcal] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // 402(요금제 한도 초과) 전용 — 재시도해도 풀리지 않으므로 에러 배너 대신 요금제 안내를 띄운다.
+  const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
+  // 서버가 predict 응답에 담아 준 오늘 사용량 (vision_used / vision_limit).
+  const [visionUsage, setVisionUsage] = useState<{ used: number; limit: number } | null>(null);
   // 알러지·질병 경고 (HEALTHCARE_EXPANSION 12장). 경고일 뿐 저장을 막지 않는다.
   const [warnings, setWarnings] = useState<FoodWarning[]>([]);
 
@@ -166,7 +172,7 @@ export default function RecordScreen() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
 
     if (!permission.granted) {
-      Alert.alert('카메라 권한 필요', '음식 사진을 촬영하려면 카메라 권한을 허용해주세요.');
+      notifyDialog('카메라 권한 필요', '음식 사진을 촬영하려면 카메라 권한을 허용해주세요.');
       return;
     }
 
@@ -188,7 +194,7 @@ export default function RecordScreen() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
-      Alert.alert('사진 권한 필요', '앨범에서 음식 사진을 선택하려면 사진 접근 권한을 허용해주세요.');
+      notifyDialog('사진 권한 필요', '앨범에서 음식 사진을 선택하려면 사진 접근 권한을 허용해주세요.');
       return;
     }
 
@@ -209,12 +215,13 @@ export default function RecordScreen() {
 
   const analyzePhoto = async () => {
     if (!photo) {
-      Alert.alert('사진이 필요해요', '분석할 음식 사진을 먼저 촬영하거나 선택해주세요.');
+      notifyDialog('사진이 필요해요', '분석할 음식 사진을 먼저 촬영하거나 선택해주세요.');
       return;
     }
 
     setIsUploading(true);
     setErrorMessage(null);
+    setPlanLimitMessage(null);
 
     try {
       const result = await uploadFoodPhoto({
@@ -223,11 +230,21 @@ export default function RecordScreen() {
         mimeType: photo.mimeType,
       });
 
-      setPredictions(result.sort((a, b) => b.score - a.score));
+      setPredictions([...result.predictions].sort((a, b) => b.score - a.score));
+      setVisionUsage(
+        result.vision_used !== null && result.vision_limit !== null
+          ? { used: result.vision_used, limit: result.vision_limit }
+          : null
+      );
       clearConfirmState();
     } catch (error) {
-      const message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
-      setErrorMessage(message);
+      // 요금제 한도(402)는 서버 detail을 그대로 안내하고 요금제 화면으로 보낸다 — 재시도 유도 금지.
+      if (error instanceof PlanLimitError) {
+        setPlanLimitMessage(error.message);
+      } else {
+        const message = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+        setErrorMessage(message);
+      }
     } finally {
       setIsUploading(false);
     }
@@ -238,6 +255,7 @@ export default function RecordScreen() {
     setPredictions([]);
     clearConfirmState();
     setErrorMessage(null);
+    setPlanLimitMessage(null);
   };
 
   const runEstimate = async (prediction: Prediction) => {
@@ -413,6 +431,10 @@ export default function RecordScreen() {
           </View>
         ) : null}
 
+        {planLimitMessage ? (
+          <PlanLimitBanner message={planLimitMessage} onUpgrade={() => router.push('/plan')} />
+        ) : null}
+
         {predictions.length > 0 ? (
           <View style={styles.resultSection}>
             <View style={styles.sectionHeader}>
@@ -421,6 +443,12 @@ export default function RecordScreen() {
                 <Text style={styles.resetText}>다시 선택</Text>
               </Pressable>
             </View>
+            {/* 오늘 남은 인식 건수 — 서버가 predict 응답에 담아 준 값이라 별도 조회를 하지 않는다. */}
+            {visionUsage !== null ? (
+              <Text style={styles.usageText}>
+                {`오늘 사진 인식 ${visionUsage.used}/${visionUsage.limit}건 · ${Math.max(visionUsage.limit - visionUsage.used, 0)}건 남음`}
+              </Text>
+            ) : null}
             <Text style={styles.resultGuide}>음식을 선택하면 영양 정보를 추정해 기록할 수 있어요.</Text>
             {predictions.map((prediction) => (
               <PredictionRow
@@ -849,6 +877,11 @@ const styles = StyleSheet.create({
     color: '#8b95a1',
     fontSize: 13,
     lineHeight: 18,
+  },
+  usageText: {
+    color: '#6b7684',
+    fontSize: 12,
+    fontWeight: '700',
   },
   resetText: {
     color: '#3182f6',

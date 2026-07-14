@@ -16,7 +16,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/back-button';
 import { ChipGroup } from '@/components/chip-group';
 import { ErrorBanner } from '@/components/error-banner';
+import { PlanLimitBanner } from '@/components/plan-limit-banner';
 import { createGroup, GroupKind } from '@/services/group-api';
+import { PlanLimitError } from '@/services/http';
 
 const KIND_OPTIONS = [
   { value: 'family', label: '가족' },
@@ -31,6 +33,8 @@ export default function GroupCreateScreen() {
   const [kind, setKind] = useState<GroupKind | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // 402(그룹 개수 한도) 전용 — 다시 시도해도 풀리지 않으므로 요금제 안내로 보낸다.
+  const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
 
   const trimmedName = name.trim();
   const isValid = trimmedName.length > 0 && trimmedName.length <= 100 && kind !== null;
@@ -42,6 +46,7 @@ export default function GroupCreateScreen() {
 
     setIsSaving(true);
     setErrorMessage(null);
+    setPlanLimitMessage(null);
 
     try {
       const group = await createGroup({ name: trimmedName, kind });
@@ -49,7 +54,11 @@ export default function GroupCreateScreen() {
       // 뒤로가기가 이 폼으로 돌아오지 않도록 상세로 교체 이동한다. 목록은 포커스 시 재조회된다.
       router.replace({ pathname: '/groups/[id]', params: { id: String(group.id) } });
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+      if (error instanceof PlanLimitError) {
+        setPlanLimitMessage(error.message);
+      } else {
+        setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+      }
     } finally {
       setIsSaving(false);
     }
@@ -108,6 +117,10 @@ export default function GroupCreateScreen() {
 
             {errorMessage ? (
               <ErrorBanner message={errorMessage} onRetry={() => void save()} />
+            ) : null}
+
+            {planLimitMessage ? (
+              <PlanLimitBanner message={planLimitMessage} onUpgrade={() => router.push('/plan')} />
             ) : null}
 
             <Pressable

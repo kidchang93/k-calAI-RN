@@ -13,18 +13,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/back-button';
 import { ErrorBanner } from '@/components/error-banner';
 import { PetForm, PetFormValue } from '@/components/pet-form';
+import { PlanLimitBanner } from '@/components/plan-limit-banner';
+import { PlanLimitError } from '@/services/http';
 import { createPet } from '@/services/pet-api';
 
 export default function PetNewScreen() {
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // 402(반려동물 등록 한도) 전용 — 재시도가 아니라 요금제 화면으로 보낸다.
+  const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
   const [lastValue, setLastValue] = useState<PetFormValue | null>(null);
 
   const save = async (value: PetFormValue) => {
     setLastValue(value);
     setIsSaving(true);
     setErrorMessage(null);
+    setPlanLimitMessage(null);
 
     try {
       const pet = await createPet(value);
@@ -32,7 +37,11 @@ export default function PetNewScreen() {
       // 뒤로가기가 이 폼으로 돌아오지 않도록 상세로 교체 이동한다. 목록은 포커스 시 재조회된다.
       router.replace({ pathname: '/pets/[id]', params: { id: String(pet.id) } });
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+      if (error instanceof PlanLimitError) {
+        setPlanLimitMessage(error.message);
+      } else {
+        setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+      }
     } finally {
       setIsSaving(false);
     }
@@ -64,6 +73,10 @@ export default function PetNewScreen() {
                   }
                 }}
               />
+            ) : null}
+
+            {planLimitMessage ? (
+              <PlanLimitBanner message={planLimitMessage} onUpgrade={() => router.push('/plan')} />
             ) : null}
 
             <PetForm isSaving={isSaving} onSubmit={(value) => void save(value)} submitLabel="등록하기" />
