@@ -6,7 +6,7 @@
 k-calAI-RN/
 ├── app/                        # expo-router 파일 기반 라우트 (이 안의 파일 = 화면)
 │   ├── _layout.tsx             # 루트 Stack + ThemeProvider + 인증 가드
-│   ├── auth.tsx                # 휴대폰 인증 (initialRouteName)
+│   ├── auth.tsx                # 카카오 로그인 + 신규 회원 동의·요금제 (initialRouteName, 딥링크 kcalairn://auth 목적지)
 │   ├── (tabs)/
 │   │   ├── _layout.tsx         # 하단 탭 (홈 / 기록 / 추이 / 내 정보) + 온보딩 게이트
 │   │   ├── home.tsx            # 홈 탭 - 오늘 요약 (그룹 진입점)
@@ -34,6 +34,7 @@ k-calAI-RN/
 │   │   ├── weights.tsx         # 체중 기록 (POST/GET /api/weights)
 │   │   ├── conditions.tsx      # 질병 정보 수정 (GET/PUT /api/me/conditions, 칩 + 메타 폴백)
 │   │   └── allergies.tsx       # 알러지 정보 수정 (GET/PUT /api/me/allergies, severity 보존)
+│   ├── plan.tsx                # 요금제 (내 정보에서 진입). 내 플랜·오늘 인식 사용량·3종 비교·변경
 │   ├── meals/                  # 끼니 기록 목록 (홈 끼니 카드에서 진입)
 │   │   ├── _layout.tsx         # 인증 가드
 │   │   └── index.tsx           # 날짜별 기록 목록 + 삭제 + 인라인 수정(끼니 종류·이름·kcal)
@@ -41,7 +42,7 @@ k-calAI-RN/
 │       ├── _layout.tsx         # 인증 가드
 │       └── index.tsx           # 끼니 선택 + 오늘 추천 목록
 ├── services/                   # 외부 통신 + 앱 전역 상태
-│   ├── auth-api.ts             # 인증 API 클라이언트 (발급 전 순수 fetch, logout만 apiFetch로 Bearer 첨부)
+│   ├── auth-api.ts             # 카카오 로그인 API 클라이언트 (expo-web-browser로 서버 start URL 오픈 → 딥링크 파싱. 발급 전 순수 fetch, logout만 apiFetch로 Bearer 첨부)
 │   ├── auth-session.ts         # 세션 싱글톤 + 영속화(SecureStore) + useAuthSession 훅
 │   ├── calorie-api.ts          # 추론/칼로리 API 클라이언트
 │   ├── health-api.ts           # 프로필·목표·끼니·체중 (DATA_MODEL.md 3~5장)
@@ -50,11 +51,13 @@ k-calAI-RN/
 │   ├── group-api.ts            # 그룹 (9장)
 │   ├── pet-api.ts              # 반려동물·급여 기록 (9장)
 │   ├── recommendation-api.ts   # 식단 추천 (11·13장)
-│   ├── http.ts                 # 공통 fetch 래퍼(apiFetch) + readErrorMessage
+│   ├── subscription-api.ts     # 요금제·구독 (GET /api/plans 무인증, GET·PUT /api/me/subscription) + FALLBACK_PLANS
+│   ├── http.ts                 # 공통 fetch 래퍼(apiFetch) + readErrorMessage + PlanLimitError(402)
 │   └── api-base.ts             # API 오리진 결정(Expo hostUri→LAN IP 자동, 실기기 도달). apiUrl()
 ├── components/                 # 재사용 UI
 │   ├── session-loading.tsx     # 세션 복원 대기 화면 (인증 가드 깜빡임 방지)
 │   ├── error-banner.tsx        # 오류 배너 + 다시 시도
+│   ├── plan-limit-banner.tsx   # 402 안내 배너 + 요금제 화면 유도 (재시도 대신 업그레이드)
 │   ├── back-button.tsx         # 탭 밖 스택 화면(그룹·펫)의 뒤로가기
 │   ├── pet-form.tsx            # 반려동물 등록·수정 공용 폼 (services 미의존, 구조적 타입)
 │   ├── chip-group.tsx, meal-type-card.tsx, progress-ring.tsx, onboarding-progress.tsx
@@ -112,6 +115,7 @@ expo-router의 파일 기반 라우팅입니다. `app/` 하위 파일이 곧 경
 | `app/me/conditions.tsx` | `/me/conditions` | 질병 정보 수정 (내 정보 탭에서 진입) |
 | `app/me/allergies.tsx` | `/me/allergies` | 알러지 정보 수정 (내 정보 탭에서 진입, 기존 severity 보존) |
 | `app/meals/index.tsx` | `/meals?date=YYYY-MM-DD` | 날짜별 끼니 기록 목록 + 삭제 + 인라인 수정 (홈 끼니 카드에서 진입) |
+| `app/plan.tsx` | `/plan` | 요금제 (내 정보에서 진입, 402 배너의 업그레이드 버튼 목적지). 레이아웃 없는 단일 라우트라 화면 자신이 `<Stack.Screen options={{ headerShown: false }} />` + `<Redirect>` 가드를 건다 |
 
 `groups/`·`pets/`·`recommendations/`·`me/`·`meals/` 스택은 루트 레이아웃에 등록하지 않고 (expo-router 자동 등록) 각 `_layout.tsx`가
 온보딩 레이아웃과 같은 방식으로 자기 헤더를 숨기고 인증 가드를 겁니다. 화면 상단의 뒤로가기는
@@ -173,20 +177,41 @@ useAuthSession()      → useState(스냅샷) + useEffect로 listener 등록 →
 
 ## 데이터 흐름
 
-### 인증 (`app/auth.tsx`)
+### 인증 — 카카오 로그인 (`app/auth.tsx`, 2026-07-14)
+
+로그인/회원가입 탭이 없습니다. **카카오가 신규(`is_new`)를 알려주므로** 앱이 미리 물어볼 이유가 없습니다.
 
 ```
-사용자 입력 (mode: signup | login, phoneNumber)
-  └─ requestPhoneCode(mode, phoneNumber)
-       └─ POST {AUTH_API_URL}/{mode}/request-code
-            ← { message, expires_at, dev_code? }
-  └─ (사용자가 code 입력)
-  └─ verifyPhoneCode(mode, phoneNumber, code)
-       └─ POST {AUTH_API_URL}/{mode}/verify
-            ← { access_token, token_type, expires_at, user }
-       └─ setAuthSession(result)   → SecureStore 저장 + 스토어 notify
-            └─ auth.tsx 리렌더 → <Redirect href="/(tabs)" /> (router.replace 아님)
+[카카오로 시작하기]
+  └─ startKakaoLogin()
+       └─ WebBrowser.openAuthSessionAsync(
+            `{AUTH_API_URL}/kakao/start?platform=native|web`, 'kcalairn://auth')
+            → 서버 302 → 카카오 동의 → 카카오 → 서버 콜백 → 딥링크 복귀
+       └─ Linking.parse(result.url)
+            ← code=<1회용 연동코드>&is_new=true|false        (성공)
+            ← error=cancelled|invalid_state|expired|kakao_unavailable   (실패)
+              cancelled → KakaoCancelledError (에러 배너 없이 조용히 원상복귀)
+              그 외      → 한국어 메시지 Error
+
+  ├─ is_new=false ─ loginWithKakao(link_code)
+  │                   └─ POST {AUTH_API_URL}/kakao/login  { link_code }
+  │                        ← { access_token, token_type, expires_at, user }
+  │                        404 → KakaoNotRegisteredError → 가입 단계로 이어 붙임
+  │                        400 → KakaoLinkExpiredError    → 처음부터 다시
+  │
+  └─ is_new=true ── (같은 화면에서 동의 2종 + 요금제 카드 3종)
+                      └─ signupWithKakao(link_code, { agreed_terms, agreed_privacy, plan_code })
+                           └─ POST {AUTH_API_URL}/kakao/signup
+                                400 → KakaoLinkExpiredError (TTL 10분 초과·1회용 소비)
+                                      → 화면이 'kakao' 단계로 되돌리고 재시도를 안내
+
+  └─ setAuthSession(result)   → SecureStore 저장 + 스토어 notify
+       └─ auth.tsx 리렌더 → <Redirect href="/(tabs)" /> (router.replace 아님)
 ```
+
+연동 코드는 **1회용·TTL 10분**입니다 (서버 `auth_service.LINK_CODE_TTL_MINUTES`). 요금제 목록은 가입 단계에 진입할 때만 `GET /api/plans`(무인증)로 읽고, 실패하면 번들 폴백(`FALLBACK_PLANS`)으로 그립니다 — 네트워크 오류로 가입이 막히면 안 됩니다.
+
+**웹:** `platform=web`으로 열면 서버가 같은 오리진의 `/auth?…`로 되돌립니다. 팝업이 결과를 부모 창에 넘기도록 `app/auth.tsx`가 마운트 시 `completeKakaoAuthSession()`(`WebBrowser.maybeCompleteAuthSession()`)을 호출합니다 (네이티브 no-op).
 
 ### 식단 분석 (`app/(tabs)/index.tsx`)
 
@@ -241,6 +266,8 @@ readErrorMessage(response)
 
 화면은 `catch`에서 `error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.'`로 받아 `errorMessage` 상태에 넣고 배너로 표시합니다.
 
+**402(요금제 한도)는 예외입니다.** `apiFetch`가 응답 본문을 `PlanLimitError`(`message`·`resource`·`plan`·`limit`)로 바꿔 던지므로, 개별 서비스 함수는 402를 다루지 않습니다. 화면은 `catch`에서 `instanceof PlanLimitError`를 먼저 판별해 **재시도 버튼이 있는 `ErrorBanner` 대신** `PlanLimitBanner`(→ `/plan`)를 그립니다 — 한도 초과는 재시도로 풀리지 않기 때문입니다.
+
 `readErrorMessage`는 `services/http.ts`의 **공통 함수**입니다 (배열 `detail` = Pydantic 422 처리 포함). `auth-api.ts`·`calorie-api.ts`가 이를 import 합니다. 과거의 중복 정의는 제거되었습니다.
 
 ## 플랫폼 분기
@@ -261,13 +288,16 @@ readErrorMessage(response)
 
 | 앱 함수 | 경로 | 요청 | 응답 |
 |---------|------|------|------|
-| `uploadFoodPhoto` | `POST /api/predict` | `multipart/form-data`, `file` | `{ predictions: [{ label, score }] }` — 라벨은 **한국어** (YOLO 한국 음식 분류기) |
-| `requestPhoneCode` | `POST /api/auth/{mode}/request-code` | `{ phone_number }` | `{ message, expires_at, dev_code? }` |
-| `verifyPhoneCode` | `POST /api/auth/{mode}/verify` | `{ phone_number, code }` | `{ access_token, token_type, expires_at, user }` |
+| `uploadFoodPhoto` | `POST /api/predict` | `multipart/form-data`, `file` | `{ predictions: [{ label, score }], vision_used, vision_limit }` — 라벨은 **한국어**. 사용량 2종은 오늘 기준이며, 값이 없는 응답도 기록을 막지 않도록 `number \| null`로 좁혀 받는다. 일일 쿼터 초과 시 **402**(`PlanLimitError`) |
+| `startKakaoLogin` | `GET /api/auth/kakao/start?platform=native\|web` | — (브라우저가 연다) | 302 → 카카오 → 서버 콜백 → 딥링크 `kcalairn://auth?code=…&is_new=…` 또는 `?error=…`. 앱은 `expo-web-browser`만 쓴다 (네이티브 카카오 SDK 없음) |
+| `loginWithKakao` | `POST /api/auth/kakao/login` | `{ link_code }` | `{ access_token, token_type, expires_at, user }`. **404 = 미가입**(`KakaoNotRegisteredError`), **400 = 연동 코드 만료·소비**(`KakaoLinkExpiredError`) |
+| `signupWithKakao` | `POST /api/auth/kakao/signup` | `{ link_code, agreed_terms, agreed_privacy, plan_code \| null }` | 같은 `AuthTokenResponse`. 동의 누락 422, `false` 400. `plan_code` 생략 시 서버가 무료(lite) 부여. 연동 코드 TTL 10분 초과 시 400 |
+| `fetchPlans` | `GET /api/plans` | — | `{ plans: [{ code, label, price_krw, daily_vision_quota, max_group_members, max_pets, max_owned_groups }] }`. **무인증**(가입 화면이 로그인 전에 호출) — 실패 시 `FALLBACK_PLANS`(번들 폴백)로 그린다 |
+| `fetchMySubscription` / `changePlan` | `GET·PUT /api/me/subscription` | PUT: `{ plan_code }` | `{ plan, vision_usage: { used, limit, remaining, resets_at }, started_at }`. **결제 미연동** — PUT은 영수증 검증 없이 즉시 반영된다(화면이 이 사실을 명시) |
 | `updateMeal` | `PUT /api/meals/{meal_id}` | `createMeal`과 동일 구조 (전체 교체) | `MealLog`. `logged_at` 생략 시 기존 기록 시각 유지, `total_kcal`은 서버가 items 합계로 재계산. 남의 끼니·삭제된 끼니 404 (DATA_MODEL.md 4장) |
 | `deleteAccount` | `DELETE /api/me` | — | `{ message }`. **물리 삭제** — 끼니·체중·펫·소유 그룹 전부 파기, 전 토큰 즉시 무효. 성공 시에만 호출부가 `clearAuthSession()` (DATA_MODEL.md 18장) |
 | `createGroup` / `getGroups` / `joinGroup` | `POST·GET /api/groups`, `POST /api/groups/join` | `{ name, kind }` / — / `{ invite_code }` | `GroupSummary` (생성·목록·참여 동일 형태) |
-| `getGroupDetail` | `GET /api/groups/{id}` | — | 상세 + `members[]`(전화번호는 서버가 마스킹) + `pets[]` |
+| `getGroupDetail` | `GET /api/groups/{id}` | — | 상세 + `members[]`(**`nickname`** = 카카오 닉네임. 2026-07-14 이전의 `phone_number_masked`를 대체. 닉네임이 없으면 서버가 '이름 미설정'을 준다) + `pets[]` |
 | `attachPetToGroup` | `POST /api/groups/{id}/pets` | `{ pet_id }` | `{ message }` — 그룹 멤버이면서 펫 소유자만 |
 | `leaveGroup` / `deleteGroup` / `removeMember` / `detachPetFromGroup` | `DELETE /api/groups/{id}/members/me`, `DELETE /api/groups/{id}`, `DELETE /api/groups/{id}/members/{user_id}`, `DELETE /api/groups/{id}/pets/{pet_id}` | — | `{ message }`. 소유자 탈퇴 400("그룹 삭제로 진행" 안내), 비소유 삭제·제거 403, 비멤버는 404 (존재 은닉). 펫·급여 기록은 어떤 라우트에서도 삭제되지 않는다 (DATA_MODEL.md 17장) |
 | `createPet` / `getPets` / `updatePet` / `deletePet` | `POST·GET /api/pets`, `PUT·DELETE /api/pets/{id}` | `PetUpsertRequest` | `PetResponse` — `recommended_kcal`(RER×MER 서버 계산, `weight_kg` 없거나 `other` 종이면 null) 포함 (18장). 남의 펫은 404 (존재 은닉). 단건 조회 API 없음 — 상세 화면은 목록에서 찾는다 |
@@ -282,6 +312,6 @@ readErrorMessage(response)
 끼니·체중·온보딩(`health-api.ts`, `onboarding-api.ts`, `meta-api.ts`)은 3~5·7·10장을 따릅니다.
 식단 추천(`recommendation-api.ts`)과 영양 조회 유사도·404 규약은 11·13장을 따릅니다.
 
-`dev_code`는 서버의 `AUTH_INCLUDE_DEV_CODE=true`일 때만 내려옵니다. 로컬 개발 편의 기능이며 **프로덕션 UI에 노출하면 안 됩니다.**
+`dev_code`(휴대폰 OTP 개발 편의 응답)는 2026-07-14 카카오 로그인 전환과 함께 서버·앱 양쪽에서 **사라졌습니다.**
 
 두 엔드포인트 모두 실패 시 `{"detail": "<사용자용 한국어 메시지>"}`를 반환합니다. `readErrorMessage`가 `detail`을 뽑아 화면 배너에 그대로 표시합니다. 서버는 내부 예외를 `task-logs/error_log.txt`에만 남깁니다.

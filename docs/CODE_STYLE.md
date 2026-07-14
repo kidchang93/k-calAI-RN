@@ -34,8 +34,7 @@
 ```typescript
 export type AuthUser = {
   id: number;
-  phone_number: string;
-  is_phone_verified: boolean;
+  nickname: string | null;
   created_at: string;
 };
 ```
@@ -204,7 +203,7 @@ async function readErrorMessage(response: Response) { ... }
 - `readErrorMessage(response)` — 서버 오류 메시지 추출. 배열 `detail`(Pydantic 422)을 `\n`으로 join 합니다. `auth-api.ts`·`calorie-api.ts`가 공유합니다. **재정의하지 마세요.**
 - `apiFetch(input, init)` — 세션이 있으면 `Authorization: Bearer <access_token>`을 붙이고, `401`이면 `clearAuthSession()`으로 세션을 비웁니다. 인증이 필요한 요청은 `fetch` 대신 `apiFetch`를 씁니다.
 
-인증 API(`request-code`, `verify`)는 세션 발급 전 단계라 **순수 `fetch`**를 씁니다 (헤더 미첨부).
+인증 API(`kakao/login`, `kakao/signup`)는 세션 발급 전 단계라 **순수 `fetch`**를 씁니다 (헤더 미첨부). `logout`만 `apiFetch`로 Bearer를 붙입니다.
 
 ## 테스트 스타일
 

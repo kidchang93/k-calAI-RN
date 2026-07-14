@@ -35,7 +35,10 @@
 | 홈 목표 CTA는 내 정보 탭이 아니라 목표 수정 화면(`/me/goal`)으로 직행 | `app/(tabs)/home.tsx` | 탭에 내려놓고 다시 찾게 하지 않는다 — 막다른 길 제거 |
 | 홈 끼니 카드 탭 → 해당 날짜 기록 목록(`/meals?date=`) | `app/(tabs)/home.tsx`, `app/meals/index.tsx` | 합계만 보이고 개별 기록을 지울 수 없던 문제 해소. 삭제 후 홈 복귀 시 `useFocusEffect`가 합계 재조회 |
 | 로그아웃은 서버 폐기 실패에도 로컬 세션을 지운다 | `app/(tabs)/account.tsx` | 오프라인에서도 기기에서 로그아웃할 수 있어야 한다 |
-| `dev_code`는 `__DEV__`일 때만 렌더링 | `app/auth.tsx` | 서버 개발 편의 응답을 프로덕션 UI에 노출하지 않는다 |
+| 카카오 로그인을 네이티브 SDK 없이 `expo-web-browser`로만 구현 | `services/auth-api.ts` | 카카오는 Redirect URI에 커스텀 스킴을 등록할 수 없고 `client_secret`이 필요하다 — 토큰 교환은 서버가 한다. 네이티브 SDK를 넣으면 iOS/Android 네이티브 설정이 붙고 **웹 빌드가 깨진다** (서버 CLAUDE.md 21장의 같은 판단) |
+| 로그인·회원가입 탭을 없애고 진입점을 버튼 하나로 | `app/auth.tsx` | 신규 여부는 서버가 `is_new`로 알려준다. 사용자에게 "가입인가 로그인인가"를 먼저 묻는 것은 앱이 모르는 것을 사용자에게 떠넘기는 질문이다 |
+| 카카오 취소(`error=cancelled`)는 에러 배너를 띄우지 않는다 | `KakaoCancelledError` | 사용자가 스스로 닫은 것은 실패가 아니다. 오류로 표시하면 앱이 고장난 것처럼 보인다 |
+| 연동 코드 400(만료·소비)은 화면을 '카카오' 단계로 되돌리고 재시도를 안내 | `KakaoLinkExpiredError`, `app/auth.tsx` | 코드는 1회용·TTL 10분이다. 동의 화면에 오래 머물면 죽는데, 그 코드를 붙들고 재시도 버튼을 주면 영원히 실패한다 |
 | 목표 수정 화면은 수동 수정이 없으면 `target_kcal`을 보내지 않는다 | `app/me/goal.tsx` (온보딩 `goal.tsx`와 동일 규칙) | 산출의 단일 진실은 서버 |
 | 질병·알러지 수정 화면은 저장값 GET 실패 시 폼을 그리지 않는다 (메타 옵션 실패만 번들 폴백) | `app/me/conditions.tsx`, `app/me/allergies.tsx` | replace-all PUT이라 프리필 없이 저장하면 기존 값(알러지 severity 포함)을 지운다. 온보딩과 달리 수정 화면은 기존 데이터가 걸려 있다 |
 | 추이 차트는 라이브러리 없이 View 높이 비례 순수 RN 바 차트 | `app/(tabs)/trends.tsx` | 주 7·월 30개 바 수준에 차트 의존성은 과하다. Expo SDK 54가 버전을 고정하는 `package.json`도 불변 |
@@ -49,6 +52,13 @@
 | 그룹 나가기·삭제·멤버 제거·펫 해제 실패는 서버 한국어 `detail`을 Alert로 그대로 표시 | `app/groups/[id].tsx` | 400/403/404 detail이 사용자용 한국어 문장으로 확정된 계약 (DATA_MODEL.md 17장). 성공 시 나가기·삭제는 `router.back()` — 목록이 `useFocusEffect`로 재조회 |
 | 회원 탈퇴는 **2단계 Alert 확인** 후 성공 시에만 `clearAuthSession()` | `app/(tabs)/account.tsx`, `deleteAccount` | 물리 삭제 파기(DATA_MODEL.md 18장)라 되돌릴 수 없다. 2차 Alert에 파기 항목(기록·반려동물·소유 그룹)을 명시. 로그아웃과 달리 서버 파기가 확인돼야 세션을 지운다 — 실패 시 세션 유지 + 오류 Alert |
 | 펫 `recommended_kcal`이 null이면 숫자 대신 안내 문구 (`other` 종은 미지원, 그 외는 체중 입력 유도) | `app/pets/[id]/index.tsx` | 서버가 `weight_kg` 없음·`other` 종에 null을 준다(18장). 오늘 급여 kcal 합계가 있으면 `오늘 X / 권장 Y kcal`로 나란히 표시 — kcal 미입력 급여는 합계에서 제외 |
+| 402(요금제 한도)를 `apiFetch` **한 곳에서** `PlanLimitError`로 변환 | `services/http.ts` | 서버가 어느 라우트에서든 같은 본문을 준다. 각 API 클라이언트가 따로 처리하면 업그레이드 유도가 화면마다 어긋난다 — 호출부는 `instanceof`로만 분기한다 |
+| 402는 `ErrorBanner`(다시 시도)가 아니라 `PlanLimitBanner`(요금제 업그레이드) | `components/plan-limit-banner.tsx` | 한도 초과는 재시도로 풀리지 않는다. 429(기다리면 풀림)와 달리 402는 "결제해야 풀린다"는 뜻이라 다음 행동이 다르다 |
+| 요금제 `code`·`resource`를 앱에서 유니온으로 굳히지 않는다 (`string` 유지) | `services/subscription-api.ts`, `services/http.ts` | 요금제는 서버 참조 테이블(`plans`)이 정본이다. 플랜을 추가할 때 앱을 함께 배포해야 하는 결합을 만들지 않는다 (서버 `subscription_schema.py`의 같은 판단) |
+| 가입 화면의 요금제는 `GET /api/plans`로 그리고, 실패 시 번들 폴백(`FALLBACK_PLANS`) | `app/auth.tsx` | 메타 옵션과 같은 규칙 — 네트워크 오류로 **가입 자체가 막히면 안 된다**. 기본 선택은 Lite(무료)로, 서버의 `plan_code` 미지정 기본값과 일치시킨다 |
+| 동의·요금제는 **가입 바디에만** 싣는다 (로그인 바디는 `{ link_code }` 하나) | `services/auth-api.ts` | 서버가 `kakao/login`과 `kakao/signup`을 분리했다. 기존 회원에게는 동의·요금제 UI를 렌더하지도 않는다 |
+| 유료 플랜 변경 버튼 옆에 "결제 연동 준비 중 — 지금은 즉시 적용됩니다" 명시 | `app/plan.tsx` | 서버가 결제 검증 없이 플랜을 바꾼다. 결제가 없다는 사실을 UI가 숨기면 사용자는 결제한 줄 안다 |
+| 오늘 남은 인식 건수는 `predict` 응답의 `vision_used`/`vision_limit`로 표시 (별도 조회 없음) | `app/(tabs)/index.tsx` | 서버가 응답에 담아 준다. 기록 흐름에 조회를 하나 더 얹지 않는다 — 값이 없으면 표시를 생략한다 |
 
 ## 선택지 데이터 규칙 (2026-07-09 확정)
 
@@ -57,7 +67,8 @@
 ## 의도적으로 하지 않은 것
 
 - **상태 관리 라이브러리를 쓰지 않습니다.** `useState` + 모듈 싱글톤으로 충분한 규모입니다.
-- **비밀번호가 없습니다.** 휴대폰 번호 + 일회용 코드가 유일한 인증 수단입니다.
+- **비밀번호가 없습니다.** 카카오 로그인이 유일한 인증 수단입니다 (2026-07-14, 휴대폰 OTP 제거).
+- **네이티브 카카오 SDK를 쓰지 않습니다.** `expo-web-browser`로 서버 start URL만 엽니다 — 앱에 카카오 키가 없습니다.
 
 ## 미완성 설계 (구현 전 반드시 확인)
 
@@ -166,7 +177,10 @@ try {
 | 비활성 | `#b4c7e7`, `#b0b8c1`, `#d1d6db`, `#e5e8eb` |
 | 성공 | `#20c997` |
 | 오류 | `#e5484d`, 배경 `#fff5f5` |
+| 카카오 브랜드 (버튼 배경 전용) | `#fee500` + 텍스트 `#191f28` |
 | 라운드 | `8` (pill은 `999`) |
 | 눌림 상태 | `opacity: 0.74` |
+
+`#fee500`은 **카카오 로그인 버튼에만** 쓰는 브랜드 색입니다 (`app/auth.tsx`, 카카오 로그인 디자인 가이드). 다른 화면·다른 용도로 확장하지 않습니다.
 
 새 화면은 이 팔레트를 따릅니다. **새로운 색상을 임의로 추가하지 마세요.** 토큰화가 필요하다고 판단되면 별도 작업으로 제안합니다.
