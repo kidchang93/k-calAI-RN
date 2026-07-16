@@ -81,20 +81,29 @@ export default function PaymentsScreen() {
   );
 }
 
+// 두 줄로 읽는다: 위는 '무엇을 얼마에'(상품명 ↔ 금액), 아래는 '언제 어떻게 됐나'(날짜 · 상태).
+// 금액을 오른쪽에 세로 중앙으로 두면 3줄짜리 왼쪽 칼럼의 가운데(= 날짜 줄)에 걸려, 무엇의
+// 금액인지 눈으로 잇기 어려웠다. 상품명과 같은 줄에 맞춘다.
 function PaymentRow({ payment, onPress }: { payment: PaymentItem; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [styles.paymentRow, pressed && styles.pressed]}>
       <View style={styles.paymentBody}>
-        <Text style={styles.paymentLabel}>{payment.plan_label}</Text>
-        <Text style={styles.paymentMeta}>{formatDate(payment.approved_at ?? payment.created_at)}</Text>
-        <PaymentStatusBadge status={payment.status} />
+        <View style={styles.paymentTopLine}>
+          <Text numberOfLines={1} style={styles.paymentLabel}>
+            {payment.plan_label}
+          </Text>
+          <Text style={styles.paymentAmount}>{`₩${payment.amount.toLocaleString()}`}</Text>
+        </View>
+        <View style={styles.paymentBottomLine}>
+          <Text style={styles.paymentMeta}>
+            {formatDate(payment.approved_at ?? payment.created_at)}
+          </Text>
+          <PaymentStatusBadge status={payment.status} />
+        </View>
       </View>
-      <View style={styles.paymentTrailing}>
-        <Text style={styles.paymentAmount}>{`₩${payment.amount.toLocaleString()}`}</Text>
-        <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
-      </View>
+      <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
     </Pressable>
   );
 }
@@ -148,10 +157,16 @@ const styles = StyleSheet.create({
   },
   paymentBody: {
     flex: 1,
-    gap: 6,
+    gap: 8,
+  },
+  paymentBottomLine: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
   },
   paymentLabel: {
     color: '#191f28',
+    flexShrink: 1,
     fontSize: 16,
     fontWeight: '800',
   },
@@ -170,10 +185,12 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 16,
   },
-  paymentTrailing: {
-    alignItems: 'center',
+  // 상품명 ↔ 금액. baseline 정렬이라 글자 크기가 달라도 밑선이 맞는다.
+  paymentTopLine: {
+    alignItems: 'baseline',
     flexDirection: 'row',
-    gap: 4,
+    gap: 12,
+    justifyContent: 'space-between',
   },
   pressed: {
     opacity: 0.74,

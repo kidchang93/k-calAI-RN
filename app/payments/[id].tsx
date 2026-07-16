@@ -86,20 +86,27 @@ export default function PaymentDetailScreen() {
                 <ErrorBanner message={errorMessage} onRetry={() => void loadPayment()} />
               ) : null}
 
+              {/* 배지를 금액 아래가 아니라 라벨 옆(오른쪽 위)에 둔다 — 720px 카드에서 내용이
+                  왼쪽 1/3에만 몰려 오른쪽이 비어 보이던 자리다. */}
               <View style={styles.amountCard}>
-                <Text style={styles.amountLabel}>결제금액</Text>
+                <View style={styles.amountTopLine}>
+                  <Text style={styles.amountLabel}>결제금액</Text>
+                  <PaymentStatusBadge status={payment.status} />
+                </View>
                 <Text style={styles.amountValue}>{`₩${payment.amount.toLocaleString()}`}</Text>
-                <PaymentStatusBadge status={payment.status} />
               </View>
 
+              {/* 상품명은 헤더 부제에 이미 있다 — 여기 또 두면 한 화면에 같은 값이 세 번 나온다
+                  (목록에서 넘어온 것까지 치면 네 번). */}
               <View style={styles.receiptCard}>
-                <ReceiptRow label="상품명" value={payment.plan_label} />
                 <ReceiptRow label="결제수단" value={payment.method ?? '정보 없음'} />
-                <ReceiptRow label="주문번호" value={payment.order_id} />
+                {/* 승인 시각이 없으면 결제가 이뤄지지 않은 것이다(실패·대기). 그때 created_at을
+                    '결제일시'로 부르면 나가지도 않은 돈에 결제 시각을 붙이는 셈이다. */}
                 <ReceiptRow
-                  label="결제일시"
+                  label={payment.approved_at !== null ? '결제일시' : '시도일시'}
                   value={formatDateTime(payment.approved_at ?? payment.created_at)}
                 />
+                <ReceiptRow label="주문번호" value={payment.order_id} />
                 {payment.fail_reason !== null ? (
                   <ReceiptRow label="실패 사유" value={payment.fail_reason} />
                 ) : null}
@@ -149,6 +156,11 @@ const styles = StyleSheet.create({
     color: '#6b7684',
     fontSize: 13,
     fontWeight: '700',
+  },
+  amountTopLine: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   amountValue: {
     color: '#191f28',
