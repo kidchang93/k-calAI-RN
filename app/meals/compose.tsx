@@ -618,7 +618,13 @@ export default function MealComposeScreen() {
           {previewUri ? (
             <View style={styles.previewCard}>
               <Image resizeMode="cover" source={{ uri: previewUri }} style={styles.previewImage} />
-              <Text style={styles.previewCaption}>분석한 사진 · 서버에 저장되지 않아요</Text>
+              {/* "저장되지 않아요"만 쓰면 사진이 기기 밖으로 안 나가는 것으로 읽힌다 — 실제로는
+                  서버를 거쳐 AI 인식 서비스로 전송된다(저장만 하지 않는다). 전송 사실을 먼저 쓴다.
+                  근거: services/calorie-api.ts 가 FormData 로 업로드 → 서버가 메모리에서 Gemini 로
+                  넘기고 폐기(kcalAI-model/api/predict_api.py). 처리방침 2·6항과 같은 내용이다. */}
+              <Text style={styles.previewCaption}>
+                AI 인식을 위해 전송돼요 · 서버에 저장되지 않아요
+              </Text>
             </View>
           ) : null}
 

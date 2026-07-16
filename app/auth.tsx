@@ -1,5 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Redirect } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -290,11 +290,13 @@ export default function AuthScreen() {
                     <Text style={styles.agreeAllText}>모두 동의</Text>
                   </Pressable>
                   <ConsentRow
+                    href="/legal/terms"
                     isChecked={agreedTerms}
                     label="[필수] 서비스 이용약관"
                     onToggle={() => setAgreedTerms((prev) => !prev)}
                   />
                   <ConsentRow
+                    href="/legal/privacy"
                     isChecked={agreedPrivacy}
                     label="[필수] 개인정보 처리방침"
                     onToggle={() => setAgreedPrivacy((prev) => !prev)}
@@ -397,24 +399,38 @@ function CheckBox({ isChecked }: { isChecked: boolean }) {
   );
 }
 
+// 동의 체크박스 + 전문 '보기'. 링크를 체크박스 **밖**에 둔다 — 안에 두면 문서를 열려다
+// 동의가 토글된다. 2026-07-16 이전에는 이 링크가 없어, 읽을 수 없는 문서에 동의를 받고 있었다.
 function ConsentRow({
+  href,
   isChecked,
   label,
   onToggle,
 }: {
+  href: '/legal/terms' | '/legal/privacy';
   isChecked: boolean;
   label: string;
   onToggle: () => void;
 }) {
+  const router = useRouter();
+
   return (
-    <Pressable
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: isChecked }}
-      onPress={onToggle}
-      style={({ pressed }) => [styles.consentRow, pressed && styles.pressed]}>
-      <CheckBox isChecked={isChecked} />
-      <Text style={styles.consentText}>{label}</Text>
-    </Pressable>
+    <View style={styles.consentRow}>
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: isChecked }}
+        onPress={onToggle}
+        style={({ pressed }) => [styles.consentToggle, pressed && styles.pressed]}>
+        <CheckBox isChecked={isChecked} />
+        <Text style={styles.consentText}>{label}</Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="link"
+        onPress={() => router.push(href)}
+        style={({ pressed }) => [styles.consentViewButton, pressed && styles.pressed]}>
+        <Text style={styles.consentViewText}>보기</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -587,9 +603,25 @@ const styles = StyleSheet.create({
   consentRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 10,
     paddingHorizontal: 4,
     paddingVertical: 6,
+  },
+  // 체크박스와 라벨만 토글 영역이다. '보기'는 이 밖에 있어야 문서를 열 때 동의가 켜지지 않는다.
+  consentToggle: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  consentViewButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  consentViewText: {
+    color: '#6b7684',
+    fontSize: 13,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
   consentText: {
     color: '#4e5968',
