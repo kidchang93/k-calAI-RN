@@ -235,6 +235,16 @@ export default function AccountScreen() {
               <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
             </Pressable>
 
+            {/* 온보딩이 "내 정보에서 언제든 철회할 수 있어요"라고 약속한 진입점이다
+                (app/onboarding/consent.tsx·blood.tsx). 이 행이 없으면 그 고지가 거짓이 된다. */}
+            <Pressable
+              onPress={() => router.push('/me/consents')}
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+              <MaterialIcons color="#4e5968" name="fact-check" size={20} />
+              <Text style={styles.rowLabel}>동의 관리</Text>
+              <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+            </Pressable>
+
             <Pressable
               onPress={() => router.push('/pets')}
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}>

@@ -12,10 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ErrorBanner } from '@/components/error-banner';
 import { OnboardingProgress } from '@/components/onboarding-progress';
+import { CONSENT_VERSION } from '@/constants/consent';
 import { postConsent } from '@/services/onboarding-api';
-
-// user_consents에 남는 동의 버전. 약관이 바뀌면 이 값을 올린다.
-const CONSENT_VERSION = 'v1.0';
 
 export default function ConsentScreen() {
   const router = useRouter();
