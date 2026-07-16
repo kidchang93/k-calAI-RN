@@ -156,6 +156,10 @@ export default function MealComposeScreen() {
   const [searchText, setSearchText] = useState('');
   // 방금 업로드한 사진(로컬 URI). 화면에 보여주기만 하고 서버엔 저장하지 않는다.
   const [previewUri, setPreviewUri] = useState<string | null>(null);
+  // 고른 뒤 아직 분석하지 않은 사진. '분석' 버튼을 눌러야 API 요청한다(쿼터 오용 방지).
+  const [pendingAsset, setPendingAsset] = useState<PhotoAsset | null>(null);
+  // 직접 입력 항목의 이름으로 DB 칼로리를 조회 중인 draft key(로딩 표시용).
+  const [lookupKey, setLookupKey] = useState<string | null>(null);
 
   // append 모드: 기존 끼니 항목은 그대로 보존해 다시 보낸다 (PUT은 전체 교체).
   const [existingItems, setExistingItems] = useState<MealItem[]>([]);
@@ -271,6 +275,39 @@ export default function MealComposeScreen() {
     runWarningCheck(next.map((draft) => draft.food_label));
   };
 
+  // 직접 입력 항목: 이름을 다 쓰면 데이터셋에서 칼로리를 조회해 채운다(쿼터 0). kcal이 이미
+  // 있으면 덮지 않는다(AI·사용자 값 보존). 404(미매칭)·오류면 조용히 두고 직접 입력하게 한다.
+  const lookupDraftKcal = useCallback(async (key: string) => {
+    const draft = draftsRef.current.find((item) => item.key === key);
+
+    if (draft === undefined) {
+      return;
+    }
+
+    const name = draft.food_label.trim();
+
+    if (name === '' || draft.kcalText.trim() !== '') {
+      return;
+    }
+
+    setLookupKey(key);
+
+    try {
+      const estimate = await estimateNutrition(name);
+      setDrafts((prev) =>
+        prev.map((item) =>
+          item.key === key
+            ? { ...item, kcalText: String(Math.round(estimate.kcal_per_serving)) }
+            : item
+        )
+      );
+    } catch {
+      // 미매칭(404)·일시 장애(503)·오류면 그대로 둔다 — 사용자가 직접 칼로리를 입력한다.
+    } finally {
+      setLookupKey((current) => (current === key ? null : current));
+    }
+  }, []);
+
   const analyzePhoto = useCallback(
     async (asset: PhotoAsset) => {
       setIsAnalyzing(true);
@@ -286,6 +323,7 @@ export default function MealComposeScreen() {
             ? { used: result.vision_used, limit: result.vision_limit }
             : null
         );
+        setPendingAsset(null); // 분석 완료 — 대기 사진 소비(재분석하려면 다시 고른다).
 
         if (result.foods.length === 0) {
           notifyDialog('음식을 찾지 못했어요', '다른 사진으로 다시 시도하거나 직접 추가해주세요.');
@@ -311,19 +349,33 @@ export default function MealComposeScreen() {
     [appendDrafts]
   );
 
-  // photoUri 파라미터로 넘어온 사진(기록 탭 런처)을 마운트 시 1회 자동 분석한다.
+  // 사진을 고르면 미리보기만 하고, 분석은 '분석' 버튼을 눌러야 시작한다(자동 요청 안 함).
+  const selectPhoto = useCallback((asset: PhotoAsset) => {
+    setPreviewUri(asset.uri);
+    setPendingAsset(asset);
+    setErrorMessage(null);
+    setPlanLimitMessage(null);
+  }, []);
+
+  const runAnalyze = () => {
+    if (pendingAsset !== null && !isAnalyzing) {
+      void analyzePhoto(pendingAsset);
+    }
+  };
+
+  // photoUri 파라미터(기록 탭 런처)로 넘어온 사진은 미리보기만 하고, 분석은 버튼으로 시작한다.
   useEffect(() => {
     if (autoAnalyzedRef.current || typeof params.photoUri !== 'string' || params.photoUri === '') {
       return;
     }
 
     autoAnalyzedRef.current = true;
-    void analyzePhoto({
+    selectPhoto({
       uri: params.photoUri,
       fileName: typeof params.photoName === 'string' ? params.photoName : null,
       mimeType: typeof params.photoMime === 'string' ? params.photoMime : null,
     });
-  }, [analyzePhoto, params.photoMime, params.photoName, params.photoUri]);
+  }, [selectPhoto, params.photoMime, params.photoName, params.photoUri]);
 
   const pickFromCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -341,7 +393,7 @@ export default function MealComposeScreen() {
     });
 
     if (!result.canceled) {
-      await analyzePhoto(toPhotoAsset(result.assets[0]));
+      selectPhoto(toPhotoAsset(result.assets[0]));
     }
   };
 
@@ -362,7 +414,7 @@ export default function MealComposeScreen() {
     });
 
     if (!result.canceled) {
-      await analyzePhoto(toPhotoAsset(result.assets[0]));
+      selectPhoto(toPhotoAsset(result.assets[0]));
     }
   };
 
@@ -554,7 +606,7 @@ export default function MealComposeScreen() {
           <View style={styles.addCard}>
             <Text style={styles.addTitle}>항목 추가</Text>
             <Text style={styles.addHint}>
-              한 끼에 여러 메뉴를 담을 수 있어요. 사진 인식은 사진 1장당 1건이 차감돼요.
+              한 끼에 여러 메뉴를 담을 수 있어요. 사진은 고른 뒤 분석 버튼을 눌러야 인식되고, 인식 1건당 1건이 차감돼요.
             </Text>
 
             {visionUsage !== null ? (
@@ -577,6 +629,20 @@ export default function MealComposeScreen() {
                 onPress={() => void pickFromLibrary()}
               />
             </View>
+
+            {pendingAsset ? (
+              <Pressable
+                disabled={isAnalyzing}
+                onPress={runAnalyze}
+                style={({ pressed }) => [
+                  styles.analyzeButton,
+                  isAnalyzing && styles.analyzeButtonDisabled,
+                  pressed && !isAnalyzing && styles.pressed,
+                ]}>
+                <MaterialIcons color="#ffffff" name="restaurant-menu" size={18} />
+                <Text style={styles.analyzeButtonText}>이 사진 분석하기</Text>
+              </Pressable>
+            ) : null}
 
             {isAnalyzing ? (
               <View style={styles.analyzingRow}>
@@ -658,8 +724,10 @@ export default function MealComposeScreen() {
                 <DraftCard
                   key={draft.key}
                   draft={draft}
+                  isLookingUp={lookupKey === draft.key}
                   onChangeKcal={(text) => updateDraft(draft.key, { kcalText: text })}
                   onChangeLabel={(text) => updateDraft(draft.key, { food_label: text })}
+                  onLookupKcal={() => void lookupDraftKcal(draft.key)}
                   onRemove={() => removeDraft(draft.key)}
                   onSelectServing={(ratio) => setDraftServing(draft.key, ratio)}
                   total={draftKcal(draft)}
@@ -770,15 +838,19 @@ function AddActionButton({
 function DraftCard({
   draft,
   total,
+  isLookingUp,
   onChangeLabel,
   onChangeKcal,
+  onLookupKcal,
   onSelectServing,
   onRemove,
 }: {
   draft: Draft;
   total: number | null;
+  isLookingUp: boolean;
   onChangeLabel: (text: string) => void;
   onChangeKcal: (text: string) => void;
+  onLookupKcal: () => void;
   onSelectServing: (ratio: number) => void;
   onRemove: () => void;
 }) {
@@ -788,7 +860,8 @@ function DraftCard({
         <TextInput
           maxLength={100}
           onChangeText={onChangeLabel}
-          placeholder="음식 이름"
+          onEndEditing={onLookupKcal}
+          placeholder="음식 이름 (입력하면 칼로리 자동)"
           placeholderTextColor="#b0b8c1"
           style={styles.draftNameInput}
           value={draft.food_label}
@@ -825,7 +898,11 @@ function DraftCard({
           <Text style={styles.draftKcalUnit}>kcal/인분</Text>
         </View>
         <Text style={styles.draftTotal}>
-          {total !== null ? `${total.toLocaleString()} kcal` : '칼로리 입력'}
+          {isLookingUp
+            ? '칼로리 찾는 중…'
+            : total !== null
+              ? `${total.toLocaleString()} kcal`
+              : '칼로리 입력'}
         </Text>
       </View>
     </View>
@@ -900,6 +977,23 @@ const styles = StyleSheet.create({
   addTitle: {
     color: '#191f28',
     fontSize: 16,
+    fontWeight: '800',
+  },
+  analyzeButton: {
+    alignItems: 'center',
+    backgroundColor: '#3182f6',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 6,
+    justifyContent: 'center',
+    paddingVertical: 13,
+  },
+  analyzeButtonDisabled: {
+    backgroundColor: '#b4c7e7',
+  },
+  analyzeButtonText: {
+    color: '#ffffff',
+    fontSize: 15,
     fontWeight: '800',
   },
   analyzingRow: {
