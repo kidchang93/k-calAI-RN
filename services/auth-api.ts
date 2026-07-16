@@ -2,6 +2,7 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 
+import { PRIVACY_POLICY, TERMS } from '@/constants/legal';
 import { apiUrl } from '@/services/api-base';
 import { apiFetch, readErrorMessage } from '@/services/http';
 
@@ -186,6 +187,13 @@ export async function signupWithKakao(
       link_code: linkCode,
       agreed_terms: terms.agreed_terms,
       agreed_privacy: terms.agreed_privacy,
+      // **이 앱이 화면에 그린 문서**의 버전을 보낸다. 서버가 현재 버전과 대조해 다르면 400 이다
+      // (약관이 개정됐는데 이 앱이 옛 문서를 띄우고 있다는 뜻 → 업데이트 안내가 내려온다).
+      //
+      // 상수를 호출부에서 받지 않고 여기서 legal.ts 를 직접 읽는 이유: 사용자가 보는 문서와
+      // 보내는 버전이 같은 원본에서 나와야 갈리지 않는다. 화면이 값을 조립하면 실수 여지가 생긴다.
+      terms_version: TERMS.version,
+      privacy_version: PRIVACY_POLICY.version,
       plan_code: terms.plan_code ?? null,
     }),
   });
