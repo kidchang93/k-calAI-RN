@@ -76,7 +76,7 @@ export default function RecordScreen() {
         <View style={styles.introCard}>
           <Text style={styles.introTitle}>한 끼에 여러 메뉴도 담을 수 있어요</Text>
           <Text style={styles.introText}>
-            사진을 찍으면 반찬까지 자동으로 인식해 목록으로 담아드려요. 검색이나 직접 입력으로 메뉴를
+            사진을 고른 뒤 분석을 누르면 음식을 인식해 담아드려요. 검색이나 직접 입력으로 메뉴를
             더 추가할 수도 있어요.
           </Text>
         </View>
