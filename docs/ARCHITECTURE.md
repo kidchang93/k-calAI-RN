@@ -10,7 +10,7 @@ k-calAI-RN/
 │   ├── (tabs)/
 │   │   ├── _layout.tsx         # 하단 탭 (홈 / 기록 / 추이 / 내 정보) + 온보딩 게이트
 │   │   ├── home.tsx            # 홈 탭 - 오늘 요약 (그룹 진입점)
-│   │   ├── index.tsx           # 기록 탭 - 사진 입력 → 예측 → 끼니 저장
+│   │   ├── index.tsx           # 기록 탭 - '오늘 기록 만들기' 런처 (사진/검색·직접입력 → compose로 진입)
 │   │   ├── trends.tsx          # 추이 탭 - 주/월 섭취 kcal 바 차트 + 요약 + 체중 변화
 │   │   ├── account.tsx         # 내 정보 탭 (프로필·목표 요약, 체중·질병·알러지·반려동물 진입점, 로그아웃·회원 탈퇴)
 │   ├── onboarding/             # 온보딩 스택 (consent → body → …)
@@ -35,9 +35,10 @@ k-calAI-RN/
 │   │   ├── conditions.tsx      # 질병 정보 수정 (GET/PUT /api/me/conditions, 칩 + 메타 폴백)
 │   │   └── allergies.tsx       # 알러지 정보 수정 (GET/PUT /api/me/allergies, severity 보존)
 │   ├── plan.tsx                # 요금제 (내 정보에서 진입). 내 플랜·오늘 인식 사용량·3종 비교·변경
-│   ├── meals/                  # 끼니 기록 목록 (홈 끼니 카드에서 진입)
+│   ├── meals/                  # 끼니 기록 목록·구성 (홈 끼니 카드·캘린더·기록 탭에서 진입)
 │   │   ├── _layout.tsx         # 인증 가드
-│   │   └── index.tsx           # 날짜별 기록 목록 + 삭제 + 인라인 수정(끼니 종류·이름·kcal)
+│   │   ├── index.tsx           # 날짜별 기록 목록 + 삭제 + 인라인 수정 + '기록 추가'·'끼니에 항목 추가' 진입점
+│   │   └── compose.tsx         # 끼니 구성 — 한 끼니에 다중 항목(사진 foods[]/DB검색/직접입력), 신규·append(meal_id) 저장
 │   └── recommendations/        # 식단 추천 스택 (홈에서 진입)
 │       ├── _layout.tsx         # 인증 가드
 │       └── index.tsx           # 끼니 선택 + 오늘 추천 목록
@@ -114,7 +115,8 @@ expo-router의 파일 기반 라우팅입니다. `app/` 하위 파일이 곧 경
 | `app/me/weights.tsx` | `/me/weights` | 체중 기록 입력 + 최근 목록 |
 | `app/me/conditions.tsx` | `/me/conditions` | 질병 정보 수정 (내 정보 탭에서 진입) |
 | `app/me/allergies.tsx` | `/me/allergies` | 알러지 정보 수정 (내 정보 탭에서 진입, 기존 severity 보존) |
-| `app/meals/index.tsx` | `/meals?date=YYYY-MM-DD` | 날짜별 끼니 기록 목록 + 삭제 + 인라인 수정 (홈 끼니 카드에서 진입) |
+| `app/meals/index.tsx` | `/meals?date=YYYY-MM-DD` | 날짜별 끼니 기록 목록 + 삭제 + 인라인 수정 (홈 끼니 카드·캘린더에서 진입, 날짜 파라미터 유지) |
+| `app/meals/compose.tsx` | `/meals/compose?date=&meal_type=&meal_id=&photoUri=…` | 끼니 구성(다중 항목). `meal_id` 있으면 append 모드(PUT 전체 교체), 없으면 신규(POST + `logged_at` 앵커). 기록 탭·캘린더·기록 목록에서 진입 |
 | `app/plan.tsx` | `/plan` | 요금제 (내 정보에서 진입, 402 배너의 업그레이드 버튼 목적지). 레이아웃 없는 단일 라우트라 화면 자신이 `<Stack.Screen options={{ headerShown: false }} />` + `<Redirect>` 가드를 건다 |
 
 `groups/`·`pets/`·`recommendations/`·`me/`·`meals/` 스택은 루트 레이아웃에 등록하지 않고 (expo-router 자동 등록) 각 `_layout.tsx`가
@@ -213,43 +215,50 @@ useAuthSession()      → useState(스냅샷) + useEffect로 listener 등록 →
 
 **웹:** `platform=web`으로 열면 서버가 같은 오리진의 `/auth?…`로 되돌립니다. 팝업이 결과를 부모 창에 넘기도록 `app/auth.tsx`가 마운트 시 `completeKakaoAuthSession()`(`WebBrowser.maybeCompleteAuthSession()`)을 호출합니다 (네이티브 no-op).
 
-### 식단 분석 (`app/(tabs)/index.tsx`)
+### 식단 분석 · 끼니 구성 (2026-07-16, 다중 항목)
+
+기록 탭(`app/(tabs)/index.tsx`)은 **런처**다. 사진을 고르거나 '검색·직접 입력'을 누르면 오늘 날짜로
+**끼니 구성 화면**(`app/meals/compose.tsx`)에 진입한다. 실제 분석·구성·저장은 compose 한 곳에 있다 —
+과거 날짜(캘린더)·기존 끼니에 항목 추가(기록 목록)와 같은 로직을 공유한다.
 
 ```
-pickFromCamera() / pickFromLibrary()
-  └─ ImagePicker 권한 요청 → 거부 시 Alert
-  └─ launchCameraAsync / launchImageLibraryAsync (aspect 4:3, quality 0.86)
-  └─ setPhoto(result.assets[0])   + 하위 상태 전부 초기화
+기록 탭 (런처)
+  └─ pickFromCamera/Library → router.push('/meals/compose',
+        { date: 오늘, photoUri, photoName?, photoMime? })
+  └─ '검색·직접 입력으로 추가' → router.push('/meals/compose', { date: 오늘 })
 
-analyzePhoto()
-  └─ uploadFoodPhoto({ uri, fileName, mimeType })
-       ├─ web:    fetch(uri) → blob → FormData.append('file', blob, name)
-       └─ native: FormData.append('file', { uri, name, type } as unknown as Blob)
-       └─ POST CALORIE_API_URL
-            ← { predictions: [{ label, score }] }
-            (Array.isArray 검증 후 label/score 강제 캐스팅)
-  └─ setPredictions(result.sort((a,b) => b.score - a.score))
-
-selectPrediction(prediction)             # 라벨 확정 → 기록 확정 카드
-  └─ estimateNutrition(prediction.label)
-       └─ POST {HEALTH_API_URL}/nutrition/estimate  { food_label }
-            ← { food_label, kcal_per_serving, serving_desc, carbs_g, protein_g, fat_g, source }
-            (식약처 DB 유사도 검색 — 응답 food_label이 요청 라벨과 다를 수 있다.
-             미매칭이면 404 → NutritionNotFoundError)
-  └─ setNutrition(...)                   # 매칭 이름이 다르면 화면에 표시하고 그 이름으로 저장
-       # 404면 에러 배너 없이 kcal 수동 입력(TextInput)으로 유도, 그 외 실패는 배너 + 재시도
-  └─ checkFoodWarnings([선택 라벨, 매칭 DB명])   # 라벨 확정 시 백그라운드 (로딩 표시 없음)
-       └─ POST {HEALTH_API_URL}/nutrition/warnings
-            ← { warnings: [...] }        # 있으면 확정 카드에 경고 배너 — 저장은 막지 않는다
-            # 401/403/네트워크 오류는 조용히 스킵. estimate와 같은 시퀀스 경합 차단
-
-saveMeal()                               # 끼니(meal_type) + 섭취량(serving_ratio) 선택 후
-  └─ createMeal({ meal_type, items: [{ food_label, serving_ratio, kcal, source: 'ai', confidence }] })
-       └─ POST {HEALTH_API_URL}/meals
-  └─ reset() → router.navigate('/home')  # 홈은 useFocusEffect로 summary를 재조회
+app/meals/compose.tsx   params: date, meal_type?, meal_id?(=append), photoUri?
+  ├─ (append) getMeals(date) → meal_id의 기존 항목 로드 (전체 교체 PUT에 그대로 다시 보냄)
+  ├─ (photoUri 있으면) 마운트 시 1회 자동 분석
+  │
+  ├─ analyzePhoto(asset)                       # 사진당 쿼터 1건
+  │    └─ uploadFoodPhoto → POST /api/predict
+  │         ← { foods: [{ label, score, portion_g }], vision_used, vision_limit }
+  │            (foods 없으면 predictions를 foods로 수용 — 전환기 대비)
+  │    └─ 각 food → estimateNutrition(food.label)   # 쿼터 0, 병렬. 일부 실패해도 나머지 살림
+  │         성공 → 초안(source:'ai', kcalText=matched kcal_per_serving)
+  │         실패(404/503) → 초안(kcal 비움 → 직접 입력 유도)
+  │
+  ├─ addBySearch(name)                         # 쿼터 0
+  │    └─ estimateNutrition(name) → 초안(source:'manual')
+  │         404 → 입력 이름으로 빈 kcal 초안 + 안내
+  ├─ addManual()                               # 빈 초안(source:'manual') → 인라인 입력
+  │
+  ├─ 각 초안: 이름·1인분 kcal·섭취량(chips) 개별 수정 / 삭제. 항목 kcal = round(perServing × ratio)
+  ├─ checkFoodWarnings(현재 초안 라벨들)         # 추가·삭제 시 백그라운드, 실패는 조용히 스킵
+  │
+  └─ saveMeal()
+       신규:  createMeal({ meal_type, logged_at: `${date}T12:00:00Z`, items })  # UTC 정오 앵커
+       append: updateMeal(meal_id, { meal_type: 기존, items: [기존…, 신규…] })  # logged_at 생략
+       └─ router.back()   # 이전 화면(캘린더·기록 목록·기록 탭)이 useFocusEffect로 재조회
 ```
 
-> 레거시 `requestCalorieDetail`(`/api/gpt-predict`)은 2026-07-12에 제거됐습니다 (서버 라우트도 삭제). 칼로리·영양은 `/api/nutrition/estimate`(식약처 DB)를 씁니다.
+**`logged_at` UTC 앵커:** 서버는 끼니 하루를 **UTC 자정**으로 나눈다(`GET /api/meals?date=`도 UTC 날짜로 필터).
+캘린더 셀 `D`에 추가한 끼니가 그 셀에서 다시 보이려면 `logged_at`의 UTC 날짜가 `D`여야 하므로,
+`services/health-api.ts`의 `dayAnchorLoggedAt(date)`가 `D`의 **정오(UTC)**로 앵커한다(타임존 무관 고정).
+
+> 레거시 `requestCalorieDetail`(`/api/gpt-predict`)은 2026-07-12에 제거됐습니다. 칼로리·영양은
+> `/api/nutrition/estimate`(식약처 DB)를 씁니다. `/api/predict` 응답은 2026-07-16에 `predictions`→`foods`로 바뀌었습니다.
 
 ## 오류 처리 흐름
 
@@ -288,7 +297,7 @@ readErrorMessage(response)
 
 | 앱 함수 | 경로 | 요청 | 응답 |
 |---------|------|------|------|
-| `uploadFoodPhoto` | `POST /api/predict` | `multipart/form-data`, `file` | `{ predictions: [{ label, score }], vision_used, vision_limit }` — 라벨은 **한국어**. 사용량 2종은 오늘 기준이며, 값이 없는 응답도 기록을 막지 않도록 `number \| null`로 좁혀 받는다. 일일 쿼터 초과 시 **402**(`PlanLimitError`) |
+| `uploadFoodPhoto` | `POST /api/predict` | `multipart/form-data`, `file` | `{ foods: [{ label, score, portion_g }], vision_used, vision_limit }` — 사진 속 **서로 다른 음식들**(후보 나열이 아님), 라벨은 **한국어**, 최대 10. `portion_g`·사용량 2종은 `number \| null`로 좁혀 받고, `foods` 없으면 `predictions`를 foods로 수용(전환기). 쿼터는 **사진당 1건**, 초과 시 **402**(`PlanLimitError`) |
 | `startKakaoLogin` | `GET /api/auth/kakao/start?platform=native\|web` | — (브라우저가 연다) | 302 → 카카오 → 서버 콜백 → 딥링크 `kcalairn://auth?code=…&is_new=…` 또는 `?error=…`. 앱은 `expo-web-browser`만 쓴다 (네이티브 카카오 SDK 없음) |
 | `loginWithKakao` | `POST /api/auth/kakao/login` | `{ link_code }` | `{ access_token, token_type, expires_at, user }`. **404 = 미가입**(`KakaoNotRegisteredError`), **400 = 연동 코드 만료·소비**(`KakaoLinkExpiredError`) |
 | `signupWithKakao` | `POST /api/auth/kakao/signup` | `{ link_code, agreed_terms, agreed_privacy, plan_code \| null }` | 같은 `AuthTokenResponse`. 동의 누락 422, `false` 400. `plan_code` 생략 시 서버가 무료(lite) 부여. 연동 코드 TTL 10분 초과 시 400 |

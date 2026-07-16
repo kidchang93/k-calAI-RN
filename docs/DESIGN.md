@@ -18,20 +18,20 @@
 | 세션을 Context 대신 모듈 싱글톤 + 리스너로 관리 | `services/auth-session.ts` | Provider 중첩 없이 어느 라우트에서든 바로 구독 |
 | 인증 가드를 `<Redirect>` 선언형으로 구현 | `app/(tabs)/_layout.tsx`, `app/auth.tsx` | 루트 레이아웃의 `useEffect` + `router.replace()`는 네비게이터 마운트 전에 실행되어 `assertIsReady()` 예외를 던짐 |
 | 기본 API URL에 `Platform.OS === 'android'` 분기 | `services/*.ts` | 에뮬레이터의 `10.0.2.2` 호스트 매핑 |
-| 사진 선택 시 하위 상태를 전부 초기화 | `app/(tabs)/index.tsx:58` | 이전 예측/칼로리 결과가 새 사진에 남지 않게 함 |
+| 끼니 구성은 사진마다 초기화가 아니라 **항목을 누적** | `app/meals/compose.tsx` | 한 끼에 반찬 여러 장을 이어 담아야 한다. 사진·검색·직접입력을 섞어 초안 목록에 쌓고 한 번에 저장 |
 | 그룹 진입점은 홈, 반려동물 진입점은 내 정보 | `app/(tabs)/home.tsx`, `app/(tabs)/account.tsx` | 매일 보는 곳이라야 모임이 굴러간다 (기획 목업 확정) |
 | 탭 밖 스택(그룹·펫)은 네이티브 헤더 대신 `BackButton` | `components/back-button.tsx` | 중첩 Stack 헤더의 뒤로가기 귀속 문제를 피하고 기존 화면 골격(headerShown: false) 유지 |
 | 목록 화면은 `useFocusEffect`로 포커스마다 재조회 | `app/groups/index.tsx`, `app/pets/index.tsx`, 상세 화면들 | 생성·수정 화면에서 돌아왔을 때 갱신 (홈 화면 패턴) |
 | 펫 단건 조회는 목록에서 찾는다 | `app/pets/[id]/index.tsx` | 서버에 `GET /api/pets/{id}` 단건 API가 없음 (DATA_MODEL.md 9장) |
 | `PetForm`은 서버 타입을 import 하지 않고 구조적 타입 선언 | `components/pet-form.tsx` | `components/ → services/` 의존 금지. `PetFormValue`는 `PetUpsertRequest`와 구조 호환 |
 | 초대코드 공유는 RN `Share` 시트 | `app/groups/[id].tsx` | 추가 의존성 없이 OS 공유. 취소·미지원(web)은 오류로 취급하지 않음 |
-| 예측 목록을 `score` 내림차순 정렬 후 표시 | `app/(tabs)/index.tsx:105` | 서버 정렬을 신뢰하지 않음 |
+| predict `foods[]`는 후보가 아니라 **사진 속 서로 다른 음식**이라 전부 초안으로 담는다 | `app/meals/compose.tsx`, `services/calorie-api.ts` | 한 접시의 여러 메뉴를 하나도 버리지 않는다. 각 음식은 개별 항목으로 편집·삭제 (구계약 `predictions`는 전환기 폴백) |
 | 식단 추천 진입점은 홈 (그룹 카드와 같은 행 패턴) | `app/(tabs)/home.tsx`, `app/recommendations/` | 다음 끼니를 정하는 곳은 오늘 요약 옆이다 (기획 목업) |
 | 추천 고지 문구는 서버 `disclaimer`를 그대로 표시 | `app/recommendations/index.tsx` | 앱 하드코딩 문구가 화면마다 어긋나는 것을 막는다 (DATA_MODEL.md 11장) |
 | 추천 403은 `ConsentRequiredError`로 동의 화면 리다이렉트 | `services/recommendation-api.ts` | 질병·알러지를 쓰는 조회라 온보딩 화면들의 403 규약과 동일하게 처리 |
-| estimate 404(DB 미매칭)는 에러 배너가 아니라 수동 입력 유도 | `app/(tabs)/index.tsx`, `NutritionNotFoundError` | 유사도 검색은 결정적이라 재시도가 무의미하다. 서버 detail 문구를 안내문으로 쓰고 기존 kcal 수동 입력 경로로 잇는다 (13장) |
-| estimate 유사도 매칭 이름을 사용자에게 표시하고 그 이름으로 저장 | `app/(tabs)/index.tsx` | 어떤 음식으로 인식됐는지 투명하게 — 화면에 보여준 이름과 기록된 이름을 일치시킨다 |
-| `quality: 0.86`, `aspect: [4,3]`로 업로드 이미지 축소 | `app/(tabs)/index.tsx:53` | 업로드 크기와 지연 절감 |
+| estimate 404(DB 미매칭)는 에러 배너가 아니라 수동 입력 유도 | `app/meals/compose.tsx`, `NutritionNotFoundError` | 유사도 검색은 결정적이라 재시도가 무의미하다. 서버 detail 문구를 안내로 쓰고 kcal 비운 초안으로 잇는다 (13장) |
+| estimate 유사도 매칭 이름을 초안 라벨로 채우고 그 이름으로 저장 | `app/meals/compose.tsx` | 어떤 음식으로 인식됐는지 투명하게 — 화면에 보여준 이름과 기록된 이름을 일치시킨다 |
+| `quality: 0.86`, `aspect: [4,3]`로 업로드 이미지 축소 | `app/(tabs)/index.tsx`, `app/meals/compose.tsx` | 업로드 크기와 지연 절감 |
 | 홈 목표 CTA는 내 정보 탭이 아니라 목표 수정 화면(`/me/goal`)으로 직행 | `app/(tabs)/home.tsx` | 탭에 내려놓고 다시 찾게 하지 않는다 — 막다른 길 제거 |
 | 홈 끼니 카드 탭 → 해당 날짜 기록 목록(`/meals?date=`) | `app/(tabs)/home.tsx`, `app/meals/index.tsx` | 합계만 보이고 개별 기록을 지울 수 없던 문제 해소. 삭제 후 홈 복귀 시 `useFocusEffect`가 합계 재조회 |
 | 로그아웃은 서버 폐기 실패에도 로컬 세션을 지운다 | `app/(tabs)/account.tsx` | 오프라인에서도 기기에서 로그아웃할 수 있어야 한다 |
@@ -45,8 +45,8 @@
 | 추이의 `target_kcal: null`은 목표 관련 표기를 전부 생략한다 (0으로 취급 금지) | `app/(tabs)/trends.tsx` | 0으로 치면 모든 날이 "초과"가 되고 달성일 계산이 왜곡된다 — summary(홈)와 동일 규칙. 기준선·범례·달성일 셀을 아예 그리지 않는다 |
 | 목표 달성일은 기록한 날(meal_count > 0) 중에서만 센다 | `app/(tabs)/trends.tsx` | 기록 없는 날(0 kcal)을 "달성"으로 세면 안 기록할수록 달성률이 오른다 |
 | 체중 추이는 trends API가 아니라 기존 `getWeights()` 전체를 기간으로 필터 | `app/(tabs)/trends.tsx` | 서버가 체중을 trends 응답에 넣지 않기로 확정 (DATA_MODEL.md 15장). 기간 내 기록 없으면 `/me/weights` 진입 안내 |
-| 기록 확정 카드의 알러지·질병 경고는 **비차단** — 저장 버튼 동작 불변 | `app/(tabs)/index.tsx`, `checkFoodWarnings` | 기획이 "기록할 때 경고"로 확정 (HEALTHCARE_EXPANSION 12장). 차단하면 기록 자체를 포기한다 |
-| 경고 조회 실패(401/403/네트워크)는 조용히 스킵 — 배너·에러 UI·스피너 없음 | `app/(tabs)/index.tsx` `runWarningCheck` | 경고는 부가 기능이라 실패가 기록 흐름을 방해하면 안 된다. 백그라운드 조회 + estimate와 같은 시퀀스 경합 차단(라벨 바뀌면 늦은 응답 무시) |
+| 끼니 구성의 알러지·질병 경고는 **비차단** — 저장 버튼 동작 불변 | `app/meals/compose.tsx`, `checkFoodWarnings` | 기획이 "기록할 때 경고"로 확정 (HEALTHCARE_EXPANSION 12장). 차단하면 기록 자체를 포기한다 |
+| 경고 조회 실패(401/403/네트워크)는 조용히 스킵 — 배너·에러 UI·스피너 없음 | `app/meals/compose.tsx` `runWarningCheck` | 경고는 부가 기능이라 실패가 기록 흐름을 방해하면 안 된다. 항목 추가·삭제 시 백그라운드 조회 + 시퀀스 경합 차단(늦은 응답 무시) |
 | 끼니 수정은 별도 화면 없이 목록 카드 **인라인 편집** (끼니 종류·항목 이름·kcal만) | `app/meals/index.tsx`, `updateMeal` | 재촬영 없는 간단 수정이 목적. PUT은 전체 교체라 `serving_ratio`·`source`·`confidence`는 보존해 다시 보내고, `logged_at`은 생략해 기록 시각을 유지한다 (DATA_MODEL.md 4장) |
 | 그룹 소유자 판별은 상세 응답 `owner_id` ↔ 세션 `user.id` 비교 | `app/groups/[id].tsx` | 상세 응답에 "내 역할" 필드가 없다. 목록 `role`은 상세 화면에 없으므로 기존 필드 조합으로 판별. 펫 해제 버튼은 `isOwner \|\| 내 펫(myPets 포함 여부)` |
 | 그룹 나가기·삭제·멤버 제거·펫 해제 실패는 서버 한국어 `detail`을 Alert로 그대로 표시 | `app/groups/[id].tsx` | 400/403/404 detail이 사용자용 한국어 문장으로 확정된 계약 (DATA_MODEL.md 17장). 성공 시 나가기·삭제는 `router.back()` — 목록이 `useFocusEffect`로 재조회 |
@@ -58,7 +58,11 @@
 | 가입 화면의 요금제는 `GET /api/plans`로 그리고, 실패 시 번들 폴백(`FALLBACK_PLANS`) | `app/auth.tsx` | 메타 옵션과 같은 규칙 — 네트워크 오류로 **가입 자체가 막히면 안 된다**. 기본 선택은 Lite(무료)로, 서버의 `plan_code` 미지정 기본값과 일치시킨다 |
 | 동의·요금제는 **가입 바디에만** 싣는다 (로그인 바디는 `{ link_code }` 하나) | `services/auth-api.ts` | 서버가 `kakao/login`과 `kakao/signup`을 분리했다. 기존 회원에게는 동의·요금제 UI를 렌더하지도 않는다 |
 | 유료 플랜 변경 버튼 옆에 "결제 연동 준비 중 — 지금은 즉시 적용됩니다" 명시 | `app/plan.tsx` | 서버가 결제 검증 없이 플랜을 바꾼다. 결제가 없다는 사실을 UI가 숨기면 사용자는 결제한 줄 안다 |
-| 오늘 남은 인식 건수는 `predict` 응답의 `vision_used`/`vision_limit`로 표시 (별도 조회 없음) | `app/(tabs)/index.tsx` | 서버가 응답에 담아 준다. 기록 흐름에 조회를 하나 더 얹지 않는다 — 값이 없으면 표시를 생략한다 |
+| 오늘 남은 인식 건수는 `predict` 응답의 `vision_used`/`vision_limit`로 표시 (별도 조회 없음) | `app/meals/compose.tsx` | 서버가 응답에 담아 준다. 기록 흐름에 조회를 하나 더 얹지 않는다 — 값이 없으면 표시를 생략한다. 쿼터는 **사진당 1건**(음식 개수 무관)이라 그 문구도 함께 안내 |
+| 기록 탭을 분석 화면이 아니라 **런처**로, 끼니 구성은 `compose` 한 곳으로 단일화 | `app/(tabs)/index.tsx`, `app/meals/compose.tsx` | 오늘·과거·기존 끼니 추가가 같은 다중 항목 로직을 쓴다. 화면이 서비스에 의존하는 구성 로직을 두 곳에 복제하지 않는다 (`components/`는 `services/` 의존 금지). 사진은 URI 파라미터로 넘겨 compose가 마운트 시 자동 분석 |
+| 신규 끼니 `logged_at`을 그 날짜의 **UTC 정오**로 앵커 | `app/meals/compose.tsx`, `services/health-api.ts` `dayAnchorLoggedAt` | 서버는 끼니 하루를 UTC 자정으로 나눈다. 캘린더 셀 D에 추가한 끼니가 그 셀에서 다시 보이려면 `logged_at`의 UTC 날짜가 D여야 한다 — 정오 앵커면 타임존 무관하게 D로 고정 |
+| append(기존 끼니에 항목 추가)는 기존 항목을 그대로 보존해 PUT 전체 교체 | `app/meals/compose.tsx`, `updateMeal` | PUT은 전체 교체다. `getMeals(date)`로 기존 항목을 읽어 편집 없이 다시 싣고 신규만 더한다. `logged_at` 생략으로 기존 시각 유지 (DATA_MODEL.md 4장) |
+| 캘린더·기록 목록에 **빈 날짜에도** 추가 진입점 노출, 선택 날짜를 파라미터로 전달 | `app/(tabs)/trends.tsx`, `app/meals/index.tsx` | 과거 빈 날짜가 막다른 길이던 문제 해소. `router.push('/meals')`가 날짜를 버려 오늘로 폴백되던 버그도 함께 수정 |
 
 ## 선택지 데이터 규칙 (2026-07-09 확정)
 
