@@ -30,6 +30,8 @@ export default function PlanScreen() {
   const [checkoutPlanCode, setCheckoutPlanCode] = useState<string | null>(null);
   const [isCanceling, setIsCanceling] = useState(false);
   const [isCancelConfirmVisible, setIsCancelConfirmVisible] = useState(false);
+  // 유료 기간이 남은 채 다른 유료 플랜을 사려는 경우에만 세운다 (아래 changeCostNotice).
+  const [changeConfirmPlan, setChangeConfirmPlan] = useState<Plan | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const isAuthenticated = authState.status === 'authenticated';
@@ -101,6 +103,24 @@ export default function PlanScreen() {
     }
   };
 
+  // 유료 기간이 남아 있는데 다른 유료 플랜을 사면 **남은 기간이 사라진다** — 서버가 새 기간을
+  // '오늘부터 한 달'로 재설정하기 때문이다(billing_service._activate_subscription). 전액
+  // 재청구는 감수한 결정이지만(서버 DATA_MODEL.md 24장), 그 사실을 모르고 누르게 두지는 않는다.
+  // 결제창은 확인을 거친 뒤에만 띄운다 — 결제창이 뜬 뒤에는 되돌릴 안내를 넣을 자리가 없다.
+  const requestSubscribe = (plan: Plan) => {
+    if (changeCostNotice(subscription, plan) === null) {
+      void subscribe(plan.code);
+      return;
+    }
+
+    setChangeConfirmPlan(plan);
+  };
+
+  const confirmChangePlan = (plan: Plan) => {
+    setChangeConfirmPlan(null);
+    void subscribe(plan.code);
+  };
+
   const cancelSubscription = async () => {
     setIsCanceling(true);
     setErrorMessage(null);
@@ -121,15 +141,18 @@ export default function PlanScreen() {
       ? 0
       : Math.max(0, Math.min(100, (usage.used / usage.limit) * 100));
   const isPaidSubscriber = subscription !== null && subscription.plan.price_krw > 0;
-  // 이미 해지 예약된 구독은 다시 해지할 것이 없다. past_due(갱신 실패)는 해지할 수 있게 둔다 —
-  // 재시도를 멈추고 싶은 사용자를 막지 않는다.
+  // 해지할 것이 있는가 = **다음 청구가 예정돼 있는가**. 실효 플랜(plan.price_krw)으로 판정하면
+  // 안 된다 — 갱신에 실패하면 서버는 기간을 줄이지 않은 채 past_due로 두고 next_billing_at으로
+  // 최대 3일 재청구하는데(billing_service._mark_past_due), 그 사이 기간이 지나면 plan은 lite로
+  // 해석돼 내려온다. 실효 플랜으로 판정하면 그 창에서 **카드가 계속 긁히는 동안 해지 버튼이
+  // 사라진다**. 서버 cancel_billing은 저장된 plan_code로 판정하므로 이때도 정상 동작한다.
+  // 이미 해지 예약된 구독은 다시 해지할 것이 없다.
   const canCancel =
-    isPaidSubscriber &&
     subscription !== null &&
+    subscription.next_billing_at !== null &&
     !subscription.cancel_at_period_end &&
     subscription.status !== 'canceled';
   const status = subscription === null ? null : subscriptionStatus(subscription);
-  const periodEndText = formatDay(subscription?.current_period_end ?? null);
   const isBusy = checkoutPlanCode !== null || isCanceling || isLoading;
 
   return (
@@ -203,11 +226,7 @@ export default function PlanScreen() {
                 isCancelConfirmVisible ? (
                   <View style={styles.confirmBox}>
                     <Text style={styles.confirmTitle}>자동결제를 해지할까요?</Text>
-                    <Text style={styles.confirmText}>
-                      {periodEndText === null
-                        ? '남은 유료 기간에는 계속 이용할 수 있어요. 그 이후에는 무료 요금제로 전환돼요.'
-                        : `${periodEndText}까지는 계속 이용할 수 있어요. 그 이후에는 무료 요금제로 전환돼요.`}
-                    </Text>
+                    <Text style={styles.confirmText}>{cancelConfirmText(subscription)}</Text>
                     <View style={styles.confirmActions}>
                       <Pressable
                         disabled={isCanceling}
@@ -247,12 +266,16 @@ export default function PlanScreen() {
             <Text style={styles.sectionTitle}>요금제 비교</Text>
             {plans.map((plan) => (
               <PlanCompareCard
+                changeNotice={changeCostNotice(subscription, plan)}
+                isConfirmVisible={changeConfirmPlan?.code === plan.code}
                 isCurrent={subscription?.plan.code === plan.code}
                 isDisabled={isBusy}
                 isPaidSubscriber={isPaidSubscriber}
                 isSubscribing={checkoutPlanCode === plan.code}
                 key={plan.code}
-                onSubscribe={() => void subscribe(plan.code)}
+                onConfirmChange={() => confirmChangePlan(plan)}
+                onDismissChange={() => setChangeConfirmPlan(null)}
+                onSubscribe={() => requestSubscribe(plan)}
                 plan={plan}
               />
             ))}
@@ -264,17 +287,25 @@ export default function PlanScreen() {
 }
 
 function PlanCompareCard({
+  changeNotice,
+  isConfirmVisible,
   isCurrent,
   isDisabled,
   isPaidSubscriber,
   isSubscribing,
+  onConfirmChange,
+  onDismissChange,
   onSubscribe,
   plan,
 }: {
+  changeNotice: ReturnType<typeof changeCostNotice>;
+  isConfirmVisible: boolean;
   isCurrent: boolean;
   isDisabled: boolean;
   isPaidSubscriber: boolean;
   isSubscribing: boolean;
+  onConfirmChange: () => void;
+  onDismissChange: () => void;
   onSubscribe: () => void;
   plan: Plan;
 }) {
@@ -304,25 +335,67 @@ function PlanCompareCard({
           {/* 네이티브에는 결제 버튼을 그리지 않는다 — 토스 결제창은 브라우저 전용이고,
               앱 마켓 정책상 디지털 상품은 인앱결제를 붙여야 한다(예정). */}
           {isBillingSupported() ? (
-            <>
-              <Pressable
-                disabled={isDisabled}
-                onPress={onSubscribe}
-                style={({ pressed }) => [
-                  styles.selectButton,
-                  isDisabled && styles.selectButtonDisabled,
-                  pressed && !isDisabled && styles.pressed,
-                ]}>
-                {isSubscribing ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <Text style={styles.selectButtonText}>구독하기</Text>
-                )}
-              </Pressable>
-              <Text style={styles.paymentNote}>
-                카드를 등록하면 매월 자동으로 결제돼요. 언제든 해지할 수 있어요.
-              </Text>
-            </>
+            isConfirmVisible && changeNotice !== null ? (
+              /* 해지 확인과 같은 화면 안 2단계 확인이다 — Alert.alert는 react-native-web에서
+                 no-op이라 결제 주 무대인 웹에서 그냥 통과해 버린다. */
+              <View style={styles.confirmBox}>
+                {/* 조사를 라벨에 붙이지 않는다 — plan.label은 영어('Pro'·'Premium')라 받침을
+                    코드로 판정할 수 없다("Pro으로"가 된다). '요금제'를 끼우면 항상 맞다. */}
+                <Text style={styles.confirmTitle}>{`${plan.label} 요금제로 바꿀까요?`}</Text>
+                <Text style={styles.confirmText}>
+                  {`${changeNotice.currentLabel} 이용 기간이 ${changeNotice.periodEnd}까지 ${changeNotice.remainingDays}일 남아 있어요. 지금 바꾸면 남은 기간은 사라지고 환불되지 않아요.`}
+                </Text>
+                <Text style={styles.confirmText}>
+                  {`${plan.price_krw.toLocaleString()}원이 바로 결제되고, 이용 기간은 오늘부터 다시 한 달이 돼요.`}
+                </Text>
+                <View style={styles.confirmActions}>
+                  <Pressable
+                    disabled={isDisabled}
+                    onPress={onDismissChange}
+                    style={({ pressed }) => [styles.keepButton, pressed && styles.pressed]}>
+                    <Text style={styles.keepButtonText}>유지하기</Text>
+                  </Pressable>
+                  <Pressable
+                    disabled={isDisabled}
+                    onPress={onConfirmChange}
+                    style={({ pressed }) => [
+                      styles.confirmChangeButton,
+                      isDisabled && styles.selectButtonDisabled,
+                      pressed && !isDisabled && styles.pressed,
+                    ]}>
+                    {isSubscribing ? (
+                      <ActivityIndicator color="#ffffff" />
+                    ) : (
+                      <Text style={styles.confirmChangeButtonText}>바꾸기</Text>
+                    )}
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <>
+                <Pressable
+                  disabled={isDisabled}
+                  onPress={onSubscribe}
+                  style={({ pressed }) => [
+                    styles.selectButton,
+                    isDisabled && styles.selectButtonDisabled,
+                    pressed && !isDisabled && styles.pressed,
+                  ]}>
+                  {isSubscribing ? (
+                    <ActivityIndicator color="#ffffff" />
+                  ) : (
+                    <Text style={styles.selectButtonText}>
+                      {changeNotice === null ? '구독하기' : '이 요금제로 바꾸기'}
+                    </Text>
+                  )}
+                </Pressable>
+                <Text style={styles.paymentNote}>
+                  {changeNotice === null
+                    ? '카드를 등록하면 매월 자동으로 결제돼요. 언제든 해지할 수 있어요.'
+                    : `바꾸면 ${changeNotice.currentLabel}의 남은 ${changeNotice.remainingDays}일이 사라지고 전액이 다시 결제돼요.`}
+                </Text>
+              </>
+            )
           ) : (
             <View style={styles.noticeBox}>
               <MaterialIcons color="#6b7684" name="desktop-windows" size={16} />
@@ -359,11 +432,43 @@ function subscriptionStatus(subscription: MySubscription): {
   text: string;
   tone: 'normal' | 'alert';
 } | null {
+  const periodEnd = formatDay(subscription.current_period_end);
+
+  // 갱신 실패는 **실효 플랜보다 먼저** 판정한다. 기간이 지나 plan이 lite로 내려오는 동안에도
+  // 재청구는 계속되므로(최대 3일), 무료라고 여기서 빠져나가면 카드가 긁히는 사실 자체가
+  // 화면에서 사라진다. past_due는 유료 구독에만 붙는 상태다.
+  if (subscription.status === 'past_due') {
+    // 재시도 예정이 없다 = 마감됐다. 더는 청구하지 않고 무료로 내려앉은 상태다.
+    if (subscription.next_billing_at === null) {
+      return {
+        icon: 'error-outline',
+        text: '결제에 실패해 무료 요금제로 전환됐어요. 다시 구독할 수 있어요.',
+        tone: 'alert',
+      };
+    }
+
+    // 실효 플랜이 무료 = 유료 기간이 이미 끝났다. "○일까지 이용"이 과거가 되므로 쓰지 않는다.
+    if (subscription.plan.price_krw <= 0) {
+      return {
+        icon: 'error-outline',
+        text: '결제에 실패해 다시 시도하고 있어요. 카드를 확인하거나 자동결제를 해지해주세요.',
+        tone: 'alert',
+      };
+    }
+
+    return {
+      icon: 'error-outline',
+      text:
+        periodEnd === null
+          ? '결제에 실패해 다시 시도하고 있어요. 카드 상태를 확인해주세요.'
+          : `결제에 실패해 다시 시도하고 있어요 — ${periodEnd}까지 이용할 수 있어요.`,
+      tone: 'alert',
+    };
+  }
+
   if (subscription.plan.price_krw <= 0) {
     return null;
   }
-
-  const periodEnd = formatDay(subscription.current_period_end);
 
   if (subscription.cancel_at_period_end || subscription.status === 'canceled') {
     return {
@@ -372,17 +477,6 @@ function subscriptionStatus(subscription: MySubscription): {
         periodEnd === null
           ? '자동결제 해지됨 — 남은 기간까지 이용할 수 있어요.'
           : `자동결제 해지됨 — ${periodEnd}까지 이용할 수 있어요.`,
-      tone: 'alert',
-    };
-  }
-
-  if (subscription.status === 'past_due') {
-    return {
-      icon: 'error-outline',
-      text:
-        periodEnd === null
-          ? '결제에 실패해 다시 시도하고 있어요. 카드 상태를 확인해주세요.'
-          : `결제에 실패해 다시 시도하고 있어요 — ${periodEnd}까지 이용할 수 있어요.`,
       tone: 'alert',
     };
   }
@@ -398,6 +492,69 @@ function subscriptionStatus(subscription: MySubscription): {
   }
 
   return null;
+}
+
+// 플랜을 바꿀 때 사라지는 것과 나가는 돈. 알릴 게 없으면 null(= 확인 없이 바로 결제창).
+//
+// 서버는 기간 중 플랜 변경을 **전액 재청구 + 기간 재설정**으로 처리한다
+// (`_activate_subscription`이 `current_period_end = 오늘 + 1개월`). 그래서 7/1에 Pro를 사고
+// 7/16에 Premium으로 바꾸면 Pro의 남은 16일이 그냥 사라진다 — 일할 환불도, 기간 이어붙이기도
+// 없다. 다운그레이드도 같아서 **더 싼 플랜으로 내려가는데 즉시 전액이 청구된다.**
+//
+// 알릴 조건: 지금 유료를 쓰고 있고(실효 플랜이 유료), 남은 기간이 실제로 있고, 다른 플랜이다.
+// 무료 회원의 첫 구독은 잃을 것이 없으므로 확인을 끼우지 않는다(마찰만 는다).
+function changeCostNotice(
+  subscription: MySubscription | null,
+  target: Plan
+): { remainingDays: number; currentLabel: string; periodEnd: string } | null {
+  if (subscription === null || subscription.plan.price_krw <= 0) {
+    return null;
+  }
+
+  if (subscription.plan.code === target.code) {
+    return null;
+  }
+
+  const remaining = remainingDays(subscription.current_period_end);
+  const periodEnd = formatDay(subscription.current_period_end);
+
+  if (remaining === null || periodEnd === null) {
+    return null;
+  }
+
+  return { remainingDays: remaining, currentLabel: subscription.plan.label, periodEnd };
+}
+
+// 오늘부터 기간 종료일까지 남은 일수(올림). 이미 지났으면 null — 잃을 기간이 없다.
+function remainingDays(periodEndIso: string | null): number | null {
+  if (periodEndIso === null) {
+    return null;
+  }
+
+  const end = new Date(periodEndIso);
+
+  if (Number.isNaN(end.getTime())) {
+    return null;
+  }
+
+  const ms = end.getTime() - Date.now();
+
+  return ms > 0 ? Math.ceil(ms / (24 * 60 * 60 * 1000)) : null;
+}
+
+// 해지 확인 문구. 유료 기간이 남아 있으면 언제까지 쓸 수 있는지 알린다. 갱신 실패로 기간이
+// 이미 지난 상태(실효 플랜이 무료)라면 지킬 기간이 없다 — 그 경우 해지의 의미는 재청구 중단뿐이라
+// "○일까지 이용할 수 있어요"가 지난 날짜를 가리키는 거짓말이 된다.
+function cancelConfirmText(subscription: MySubscription): string {
+  if (subscription.plan.price_krw <= 0) {
+    return '진행 중인 재결제 시도를 멈춰요. 남은 유료 기간이 없어 지금처럼 무료 요금제로 이용하게 돼요.';
+  }
+
+  const periodEnd = formatDay(subscription.current_period_end);
+
+  return periodEnd === null
+    ? '남은 유료 기간에는 계속 이용할 수 있어요. 그 이후에는 무료 요금제로 전환돼요.'
+    : `${periodEnd}까지는 계속 이용할 수 있어요. 그 이후에는 무료 요금제로 전환돼요.`;
 }
 
 function formatPlanPrice(priceKrw: number): string {
@@ -485,6 +642,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#d1d6db',
   },
   confirmCancelButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  // 플랜 변경 확인의 실행 버튼. 해지(빨강)와 달리 파괴적 행동이 아니라 결제라 프라이머리를 쓴다.
+  confirmChangeButton: {
+    alignItems: 'center',
+    backgroundColor: '#3182f6',
+    borderRadius: 8,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 42,
+  },
+  confirmChangeButtonText: {
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '900',
