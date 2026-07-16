@@ -34,7 +34,11 @@ k-calAI-RN/
 │   │   ├── weights.tsx         # 체중 기록 (POST/GET /api/weights)
 │   │   ├── conditions.tsx      # 질병 정보 수정 (GET/PUT /api/me/conditions, 칩 + 메타 폴백)
 │   │   └── allergies.tsx       # 알러지 정보 수정 (GET/PUT /api/me/allergies, severity 보존)
-│   ├── plan.tsx                # 요금제 (내 정보에서 진입). 내 플랜·오늘 인식 사용량·3종 비교·변경
+│   ├── plan.tsx                # 요금제 (내 정보에서 진입). 내 플랜·구독 상태·오늘 인식 사용량·3종 비교·구독하기·자동결제 해지
+│   ├── billing/                # 토스 결제창 착지점 스택 (사용자가 직접 들어오는 곳이 아니다)
+│   │   ├── _layout.tsx         # 인증 가드 (payments 레이아웃과 같은 패턴)
+│   │   ├── success.tsx         # successUrl 착지 → POST /api/billing/confirm (마운트 1회, ref 가드)
+│   │   └── fail.tsx            # failUrl 착지 → 실패·취소 안내 (서버 호출 없음)
 │   ├── payments/               # 결제 내역·영수증 스택 (내 정보에서 진입)
 │   │   ├── _layout.tsx         # 인증 가드 (pets 레이아웃과 같은 패턴)
 │   │   ├── index.tsx           # 결제 내역 목록 (GET /api/payments, 빈 상태·상태 배지)
@@ -56,7 +60,9 @@ k-calAI-RN/
 │   ├── group-api.ts            # 그룹 (9장)
 │   ├── pet-api.ts              # 반려동물·급여 기록 (9장)
 │   ├── recommendation-api.ts   # 식단 추천 (11·13장)
-│   ├── subscription-api.ts     # 요금제·구독 (GET /api/plans 무인증, GET·PUT /api/me/subscription) + FALLBACK_PLANS
+│   ├── subscription-api.ts     # 요금제·구독 (GET /api/plans 무인증, GET·PUT /api/me/subscription) + FALLBACK_PLANS + parseMySubscription(billing-api 재사용)
+│   ├── billing-api.ts          # 자동결제 (POST /api/billing/{checkout,confirm,cancel}) + BillingChargeError(502)·BillingUnavailableError(503)
+│   ├── toss-sdk.ts             # 토스 결제창 SDK 어댑터 — **웹 전용**. script 1회 동적 로드(프라미스 캐시), window 접근을 여기 가둔다
 │   ├── payment-api.ts          # 결제 내역·영수증 (GET /api/payments, GET /api/payments/{id}) + PaymentNotFoundError(404)
 │   ├── http.ts                 # 공통 fetch 래퍼(apiFetch) + readErrorMessage + PlanLimitError(402)
 │   └── api-base.ts             # API 오리진 결정(Expo hostUri→LAN IP 자동, 실기기 도달). apiUrl()
@@ -122,12 +128,14 @@ expo-router의 파일 기반 라우팅입니다. `app/` 하위 파일이 곧 경
 | `app/me/allergies.tsx` | `/me/allergies` | 알러지 정보 수정 (내 정보 탭에서 진입, 기존 severity 보존) |
 | `app/meals/index.tsx` | `/meals?date=YYYY-MM-DD` | 날짜별 끼니 기록 목록 + 삭제 + 인라인 수정 (홈 끼니 카드·캘린더에서 진입, 날짜 파라미터 유지) |
 | `app/meals/compose.tsx` | `/meals/compose?date=&meal_type=&meal_id=&photoUri=…` | 끼니 구성(다중 항목). `meal_id` 있으면 append 모드(PUT 전체 교체), 없으면 신규(POST + `logged_at` 앵커). 기록 탭·캘린더·기록 목록에서 진입 |
-| `app/plan.tsx` | `/plan` | 요금제 (내 정보에서 진입, 402 배너의 업그레이드 버튼 목적지). 레이아웃 없는 단일 라우트라 화면 자신이 `<Stack.Screen options={{ headerShown: false }} />` + `<Redirect>` 가드를 건다 |
+| `app/plan.tsx` | `/plan` | 요금제 (내 정보에서 진입, 402 배너의 업그레이드 버튼 목적지). 레이아웃 없는 단일 라우트라 화면 자신이 `<Stack.Screen options={{ headerShown: false }} />` + `<Redirect>` 가드를 건다. 유료 카드 → `startCheckout` + 토스 결제창(웹), 유료 구독 중 → 화면 내 2단계 확인 후 `cancelBilling()` |
+| `app/billing/success.tsx` | `/billing/success?plan=&authKey=&customerKey=` | 토스 successUrl 착지점. `confirmBilling`을 **마운트 1회**만 호출(ref 가드 — `authKey`는 1회용). `BackButton` 없음, 이동은 전부 `router.replace` (뒤가 토스 결제창이라 되돌아오면 소비된 authKey로 재confirm) |
+| `app/billing/fail.tsx` | `/billing/fail?code=&message=` | 토스 failUrl 착지점. 서버를 부르지 않는다(카드 등록 자체가 없었다). `USER_CANCEL`·`PAY_PROCESS_CANCELED`는 오류가 아니라 취소로 그린다 |
 | `app/payments/index.tsx` | `/payments` | 결제 내역 목록 (내 정보에서 진입, `GET /api/payments`). 포커스마다 재조회, 항목 탭 → `/payments/[id]`. 빈 목록은 빈 상태 카드 |
 | `app/payments/[id].tsx` | `/payments/:id` | 영수증 상세 (`GET /api/payments/{id}`). `router.push({ pathname: '/payments/[id]', params })`. 404는 `PaymentNotFoundError` → '영수증을 찾을 수 없어요' 안내 |
 | `app/updates.tsx` | `/updates` | 업데이트 이력(사용자 공지). `constants/changelog.ts`의 정적 배열을 렌더한다 — 서버·API 없음. 내 정보에서 진입 |
 
-`groups/`·`pets/`·`recommendations/`·`me/`·`meals/`·`payments/` 스택은 루트 레이아웃에 등록하지 않고 (expo-router 자동 등록) 각 `_layout.tsx`가
+`groups/`·`pets/`·`recommendations/`·`me/`·`meals/`·`payments/`·`billing/` 스택은 루트 레이아웃에 등록하지 않고 (expo-router 자동 등록) 각 `_layout.tsx`가
 온보딩 레이아웃과 같은 방식으로 자기 헤더를 숨기고 인증 가드를 겁니다. 화면 상단의 뒤로가기는
 네이티브 헤더 대신 `components/back-button.tsx`를 씁니다 (탭 밖 스택 공통).
 
@@ -175,14 +183,14 @@ currentSession: AuthTokenResponse | null   (모듈 스코프)
 hydrated: boolean                          (복원 완료 여부)
 listeners: Set<() => void>
 
-setAuthSession(s)     → currentSession = s → notify() → SecureStore 저장(비웹)
-clearAuthSession()    → currentSession = null → notify() → SecureStore 삭제(비웹)
-restoreAuthSession()  → SecureStore 읽기 → currentSession 복원 → hydrated = true → notify()
+setAuthSession(s)     → currentSession = s → notify() → 저장(네이티브 SecureStore / 웹 localStorage)
+clearAuthSession()    → currentSession = null → notify() → 저장소 삭제
+restoreAuthSession()  → 저장소 읽기 → currentSession 복원 → hydrated = true → notify()
 useAuthSession()      → useState(스냅샷) + useEffect로 listener 등록 → AuthSessionState 반환
 ```
 
-**영속화: `expo-secure-store`.** `setAuthSession`/`clearAuthSession`이 저장·삭제하고, 앱 시작 시 `restoreAuthSession()`이 복원합니다. 저장 전 `isAuthTokenResponse`로 파싱값을 런타임 검증합니다.
-**웹 폴백:** `expo-secure-store`는 web 미지원이라 `Platform.OS === 'web'`이면 저장을 건너뛰고 메모리만 씁니다(재시작 시 로그아웃). 웹은 정식 지원 대상이 아닙니다.
+**영속화: 네이티브는 `expo-secure-store`, 웹은 `localStorage`** (`auth-session.ts`가 `Platform.OS`로 분기 — `expo-secure-store`가 web을 지원하지 않기 때문입니다). `setAuthSession`/`clearAuthSession`이 저장·삭제하고, 앱 시작 시 `restoreAuthSession()`이 복원합니다. 저장 전 `isAuthTokenResponse`로 파싱값을 런타임 검증합니다.
+**웹도 새로고침하면 로그인이 유지됩니다.** 이것이 토스 결제창(브라우저를 통째로 되돌린다)에서 복귀한 `/billing/success`가 Bearer로 `confirm`을 부를 수 있는 이유입니다 — 메모리 전용이었다면 결제 확인이 401로 끊깁니다.
 **토큰 첨부:** `access_token`은 `services/http.ts`의 `apiFetch`가 세션이 있을 때 `Authorization: Bearer`로 붙입니다. 인증 API(`auth-api.ts`)는 순수 `fetch`를 써 헤더를 붙이지 않습니다.
 
 ## 데이터 흐름
@@ -222,6 +230,36 @@ useAuthSession()      → useState(스냅샷) + useEffect로 listener 등록 →
 연동 코드는 **1회용·TTL 10분**입니다 (서버 `auth_service.LINK_CODE_TTL_MINUTES`). 요금제 목록은 가입 단계에 진입할 때만 `GET /api/plans`(무인증)로 읽고, 실패하면 번들 폴백(`FALLBACK_PLANS`)으로 그립니다 — 네트워크 오류로 가입이 막히면 안 됩니다.
 
 **웹:** `platform=web`으로 열면 서버가 같은 오리진의 `/auth?…`로 되돌립니다. 팝업이 결과를 부모 창에 넘기도록 `app/auth.tsx`가 마운트 시 `completeKakaoAuthSession()`(`WebBrowser.maybeCompleteAuthSession()`)을 호출합니다 (네이티브 no-op).
+
+### 자동결제 (2026-07-16, 토스페이먼츠 빌링) — **웹 전용**
+
+```
+app/plan.tsx  [구독하기]   (isBillingSupported() = Platform.OS === 'web' 일 때만 그린다)
+  └─ startCheckout(planCode)          → POST /api/billing/checkout
+       ← { client_key, customer_key, amount, order_name }   503 → BillingUnavailableError
+  └─ requestBillingAuth({ clientKey, customerKey, successUrl, failUrl })   services/toss-sdk.ts
+       └─ loadTossSdk()  웹에서만 <script src="…/v2/standard"> 1회 주입(프라미스 캐시) → window.TossPayments
+       └─ TossPayments(clientKey).payment({ customerKey }).requestBillingAuth({ method:'CARD', … })
+            ※ 브라우저가 통째로 이동하므로 이 호출은 정상 흐름에서 resolve하지 않는다
+                 성공 → {origin}/billing/success?plan=<code>&authKey=…&customerKey=…
+                 실패 → {origin}/billing/fail?code=…&message=…
+
+app/billing/success.tsx   (billing/_layout.tsx 가드가 세션 복원 뒤에만 마운트시킨다)
+  └─ useEffect + ref 가드 → confirmBilling({ authKey, customerKey, planCode })  # 마운트 1회
+       └─ POST /api/billing/confirm → 카드 등록 + 최초 청구 → MySubscription
+            502 → BillingChargeError      '결제하지 못했어요'  (구독 미활성화)
+            503 → BillingUnavailableError '결제 서비스를 준비 중이에요'
+            그 외 → '결제를 완료하지 못했어요'
+       └─ 실패해도 confirm을 재호출하지 않는다 → router.replace('/plan')로 처음부터
+
+app/billing/fail.tsx      code=USER_CANCEL|PAY_PROCESS_CANCELED → 오류가 아닌 '취소' 톤
+
+app/plan.tsx  [자동결제 해지] → 화면 내 2단계 확인 → cancelBilling() → POST /api/billing/cancel
+```
+
+**세션은 웹에서 `localStorage`에 남는다**(`auth-session.ts`). 결제창이 브라우저를 통째로 되돌려 앱이 새로 시작돼도 `restoreAuthSession()`이 세션을 복원하므로 `confirm`에 Bearer가 붙는다 — `billing/_layout.tsx`가 복원 전(`loading`)에는 Stack을 그리지 않아 자식이 마운트되지 않게 막는 것이 이 흐름의 전제다.
+
+**`Alert.alert`를 해지 확인에 쓰지 않는다.** react-native-web의 구현이 `static alert() {}`(no-op)이라 결제 주 무대인 웹에서 확인이 통째로 사라진다. 화면 안 2단계 확인(`confirmBox`)은 두 플랫폼에서 같게 동작한다.
 
 ### 식단 분석 · 끼니 구성 (2026-07-16, 다중 항목)
 
@@ -310,8 +348,11 @@ readErrorMessage(response)
 | `loginWithKakao` | `POST /api/auth/kakao/login` | `{ link_code }` | `{ access_token, token_type, expires_at, user }`. **404 = 미가입**(`KakaoNotRegisteredError`), **400 = 연동 코드 만료·소비**(`KakaoLinkExpiredError`) |
 | `signupWithKakao` | `POST /api/auth/kakao/signup` | `{ link_code, agreed_terms, agreed_privacy, plan_code \| null }` | 같은 `AuthTokenResponse`. 동의 누락 422, `false` 400. `plan_code` 생략 시 서버가 무료(lite) 부여. 연동 코드 TTL 10분 초과 시 400 |
 | `fetchPlans` | `GET /api/plans` | — | `{ plans: [{ code, label, price_krw, daily_vision_quota, max_group_members, max_pets, max_owned_groups }] }`. **무인증**(가입 화면이 로그인 전에 호출) — 실패 시 `FALLBACK_PLANS`(번들 폴백)로 그린다 |
-| `fetchMySubscription` / `changePlan` | `GET·PUT /api/me/subscription` | PUT: `{ plan_code }` | `{ plan, vision_usage: { used, limit, remaining, resets_at }, started_at }`. **결제 미연동** — PUT은 영수증 검증 없이 즉시 반영된다(화면이 이 사실을 명시) |
-| `getPayments` / `getPayment` | `GET /api/payments`, `GET /api/payments/{id}` | — (Bearer) | `{ payments: [PaymentItem] }`(최신순) / `PaymentItem`. `PaymentItem = { id, order_id, plan_code, plan_label, amount, status, method\|null, approved_at\|null, fail_reason\|null, created_at }`. `status`·`amount`는 서버 참조값이라 유니온으로 굳히지 않고 `string`·유한수로 받는다. 단건 **404** = `PaymentNotFoundError`(재시도 대신 안내). **결제 미연동이라 지금은 빈 목록**이 온다 (서버 병렬 구현 중) |
+| `fetchMySubscription` / `changePlan` | `GET·PUT /api/me/subscription` | PUT: `{ plan_code }` | `{ plan, vision_usage: { used, limit, remaining, resets_at }, started_at, status, current_period_end, next_billing_at, cancel_at_period_end }`. 뒤 4필드는 2026-07-16 **추가**(기존 3필드 불변)라 `parseMySubscription`이 누락 시 무료 회원 기본값(`'active'`/null/false)으로 흘린다 — 신규 필드 때문에 화면 전체가 막히면 안 된다. `plan`은 **실효 플랜**(만료된 유료 구독은 lite). **PUT은 무료 전환 전용** — 유료 플랜은 400이고, 무료 전환은 남은 유료 기간을 포기시키므로 화면은 대신 `cancelBilling`을 쓴다 |
+| `startCheckout` | `POST /api/billing/checkout` | `{ plan_code }` | `{ customer_key, client_key, plan_code, amount, order_name }`. `client_key`는 공개값이고 **이 응답으로만** 받는다(번들에 두지 않는다). `amount`는 표시 전용 — 실제 청구액은 confirm에서 서버가 다시 정한다. **503** = 결제 키 미설정 → `BillingUnavailableError` |
+| `confirmBilling` | `POST /api/billing/confirm` | `{ auth_key, customer_key, plan_code }` — **금액 필드 없음** | `MySubscriptionResponse`. `auth_key`는 **1회용**이라 호출부가 중복을 막는다. **502** = 결제사 청구 실패 → `BillingChargeError`(이때 구독은 활성화되지 않고, 실패는 `payments` 원장에 `failed`로 남는다), **503** → `BillingUnavailableError` |
+| `cancelBilling` | `POST /api/billing/cancel` | — (바디 없음) | `MySubscriptionResponse`. 즉시 무료가 아니라 `current_period_end`까지 유료를 유지한다(`status='canceled'`, `cancel_at_period_end=true`). **400** = 해지할 유료 구독 없음 |
+| `getPayments` / `getPayment` | `GET /api/payments`, `GET /api/payments/{id}` | — (Bearer) | `{ payments: [PaymentItem] }`(최신순) / `PaymentItem`. `PaymentItem = { id, order_id, plan_code, plan_label, amount, status, method\|null, approved_at\|null, fail_reason\|null, created_at }`. `status`·`amount`는 서버 참조값이라 유니온으로 굳히지 않고 `string`·유한수로 받는다. 단건 **404** = `PaymentNotFoundError`(재시도 대신 안내). 자동결제 연동(2026-07-16, 24장) 이후 `confirm`·갱신 배치가 이 원장을 채운다 — 실패한 청구도 `status='failed'` + `fail_reason`(사용자용 한국어)로 남는다. 결제 이력이 없는 회원은 여전히 빈 배열 |
 | `updateMeal` | `PUT /api/meals/{meal_id}` | `createMeal`과 동일 구조 (전체 교체) | `MealLog`. `logged_at` 생략 시 기존 기록 시각 유지, `total_kcal`은 서버가 items 합계로 재계산. 남의 끼니·삭제된 끼니 404 (DATA_MODEL.md 4장) |
 | `deleteAccount` | `DELETE /api/me` | — | `{ message }`. **물리 삭제** — 끼니·체중·펫·소유 그룹 전부 파기, 전 토큰 즉시 무효. 성공 시에만 호출부가 `clearAuthSession()` (DATA_MODEL.md 18장) |
 | `createGroup` / `getGroups` / `joinGroup` | `POST·GET /api/groups`, `POST /api/groups/join` | `{ name, kind }` / — / `{ invite_code }` | `GroupSummary` (생성·목록·참여 동일 형태) |

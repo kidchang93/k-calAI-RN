@@ -57,7 +57,18 @@
 | 요금제 `code`·`resource`를 앱에서 유니온으로 굳히지 않는다 (`string` 유지) | `services/subscription-api.ts`, `services/http.ts` | 요금제는 서버 참조 테이블(`plans`)이 정본이다. 플랜을 추가할 때 앱을 함께 배포해야 하는 결합을 만들지 않는다 (서버 `subscription_schema.py`의 같은 판단) |
 | 가입 화면의 요금제는 `GET /api/plans`로 그리고, 실패 시 번들 폴백(`FALLBACK_PLANS`) | `app/auth.tsx` | 메타 옵션과 같은 규칙 — 네트워크 오류로 **가입 자체가 막히면 안 된다**. 기본 선택은 Lite(무료)로, 서버의 `plan_code` 미지정 기본값과 일치시킨다 |
 | 동의·요금제는 **가입 바디에만** 싣는다 (로그인 바디는 `{ link_code }` 하나) | `services/auth-api.ts` | 서버가 `kakao/login`과 `kakao/signup`을 분리했다. 기존 회원에게는 동의·요금제 UI를 렌더하지도 않는다 |
-| 유료 플랜 변경 버튼 옆에 "결제 연동 준비 중 — 지금은 즉시 적용됩니다" 명시 | `app/plan.tsx` | 서버가 결제 검증 없이 플랜을 바꾼다. 결제가 없다는 사실을 UI가 숨기면 사용자는 결제한 줄 안다 |
+| ~~유료 플랜 변경 버튼 옆에 "결제 연동 준비 중 — 지금은 즉시 적용됩니다" 명시~~ **해소** (2026-07-16) | `app/plan.tsx` | 토스페이먼츠 자동결제가 붙어 유료 전환이 실제 청구를 거친다. 아래 결제 관련 행들이 대체한다 |
+| 유료 전환은 **오직 결제 흐름**. `changePlan`(PUT)을 업그레이드에 쓰지 않는다 | `app/plan.tsx`, `services/subscription-api.ts` | 서버가 유료 플랜 PUT을 400으로 막는다(24장) — 이 경로엔 결제 검증이 없어 열어 두면 누구나 Premium이 된다. `changePlan`은 무료 전환 전용으로만 남긴다 |
+| 유료 구독자의 '그만두기'는 무료 전환(PUT lite)이 아니라 **자동결제 해지**(cancel) | `app/plan.tsx`, `services/billing-api.ts` | PUT lite는 즉시 적용되며 **남은 유료 기간을 포기시킨다** — 이미 낸 돈을 버리는 버튼을 무심코 누르게 두지 않는다. cancel은 기간을 지키고 갱신만 끈다. 그래서 무료 카드에는 버튼 대신 "해지하면 남은 기간 뒤 전환돼요" 안내만 둔다 |
+| 해지 확인을 `Alert.alert`가 아니라 **화면 안 2단계 확인**으로 | `app/plan.tsx` `confirmBox` | react-native-web의 `Alert.alert`는 **no-op**(`static alert() {}`)이다. 결제 주 무대가 웹인데 Alert로 물으면 웹에서 확인이 통째로 사라진다. 인라인 확인은 두 플랫폼에서 같게 동작한다 (회원 탈퇴의 2단계 Alert는 네이티브 전용 흐름이라 그대로 둔다) |
+| 토스 SDK를 npm이 아니라 **웹에서만 script 태그로 동적 로드** | `services/toss-sdk.ts` | SDK가 브라우저 전용(`window`·`document`)이라 번들에 넣으면 네이티브가 DOM 없는 런타임에서 평가한다. `package.json`도 Expo SDK 54가 고정한다 — 의존성을 늘리지 않는 편이 맞다. `window` 접근은 `billingReturnUrl()`로 services 안에 가둔다 (화면은 DOM을 모른다) |
+| 네이티브에는 결제 버튼 대신 "결제는 웹에서 진행해주세요" 안내 | `app/plan.tsx`, `isBillingSupported()` | 토스 결제창은 브라우저 전용이고, 마켓 정책상 디지털 상품은 인앱결제를 붙여야 한다(예정). 누를 수 없는 버튼을 그려 두고 눌렀을 때 실패시키지 않는다 |
+| `confirm`은 마운트 1회(ref 가드), 실패해도 **재호출하지 않는다** | `app/billing/success.tsx` | `authKey`는 1회용이라 두 번째 호출은 반드시 실패한다. 실패 시 '다시 시도'는 confirm 재전송이 아니라 `/plan`에서 결제를 처음부터 — 응답만 유실된 경우(실제로는 성공) `/plan` 재조회가 진짜 상태를 보여줘 스스로 교정된다 |
+| 결제 결과 화면(`/billing/*`)에는 `BackButton`을 두지 않고 이동은 전부 `router.replace` | `app/billing/success.tsx`, `app/billing/fail.tsx` | 뒤가 토스 결제창이다. 되돌아오면 소비된 `authKey`로 confirm을 다시 부른다 — 탭 밖 스택의 BackButton 관례를 여기서만 깬다 |
+| 토스 `USER_CANCEL`·`PAY_PROCESS_CANCELED`는 오류가 아니라 '취소' 톤으로 | `app/billing/fail.tsx` | 카카오 `error=cancelled`와 같은 판단 — 사용자가 스스로 닫은 것을 빨간 오류로 그리면 앱이 고장난 것처럼 보인다. 오류 코드도 취소일 때는 감춘다(노이즈) |
+| 502(청구 실패)·503(결제 미설정)을 `BillingChargeError`·`BillingUnavailableError`로 분리 | `services/billing-api.ts` | "카드가 거절됐다"와 "결제가 아직 준비되지 않았다"는 사용자가 할 수 있는 일이 다르다 — 제목 문구가 갈린다. 402를 `PlanLimitError`로 한 곳에서 좁히는 것과 같은 규칙 |
+| `MySubscription`의 신규 4필드는 누락 시 **무료 회원 기본값**으로 흘린다 (기존 3필드는 필수 검증 유지) | `services/subscription-api.ts` `parseMySubscription` | 2026-07-16에 **추가**된 필드라 구버전 서버 응답엔 없다. 없다고 요금제 화면 전체를 '응답 형식 오류'로 막으면 배포 전환기에 화면이 죽는다 |
+| `status`(active/canceled/past_due)를 유니온으로 굳히지 않고 `string`으로 받는다 | `services/subscription-api.ts` | 요금제 `code`·결제 `status`와 같은 규칙 — 서버가 상태를 늘려도 앱을 함께 배포하지 않아도 되게. 화면은 아는 값만 분기하고 나머지는 기간 표시로 흘린다 |
 | 오늘 남은 인식 건수는 `predict` 응답의 `vision_used`/`vision_limit`로 표시 (별도 조회 없음) | `app/meals/compose.tsx` | 서버가 응답에 담아 준다. 기록 흐름에 조회를 하나 더 얹지 않는다 — 값이 없으면 표시를 생략한다. 쿼터는 **사진당 1건**(음식 개수 무관)이라 그 문구도 함께 안내 |
 | 기록 탭을 분석 화면이 아니라 **런처**로, 끼니 구성은 `compose` 한 곳으로 단일화 | `app/(tabs)/index.tsx`, `app/meals/compose.tsx` | 오늘·과거·기존 끼니 추가가 같은 다중 항목 로직을 쓴다. 화면이 서비스에 의존하는 구성 로직을 두 곳에 복제하지 않는다 (`components/`는 `services/` 의존 금지). 사진은 URI 파라미터로 넘겨 compose가 마운트 시 자동 분석 |
 | 신규 끼니 `logged_at`을 그 날짜의 **UTC 정오**로 앵커 | `app/meals/compose.tsx`, `services/health-api.ts` `dayAnchorLoggedAt` | 서버는 끼니 하루를 UTC 자정으로 나눈다. 캘린더 셀 D에 추가한 끼니가 그 셀에서 다시 보이려면 `logged_at`의 UTC 날짜가 D여야 한다 — 정오 앵커면 타임존 무관하게 D로 고정 |

@@ -3,9 +3,13 @@ import { apiFetch, readErrorMessage } from '@/services/http';
 
 // 요금제·구독 계약 (서버 api/subscription_api.py).
 //   GET  /api/plans            무인증 — 가입 화면이 로그인 전에 가격표를 그린다.
-//   GET  /api/me/subscription  Bearer — 내 요금제 + 오늘 사진 인식 사용량.
-//   PUT  /api/me/subscription  Bearer — 요금제 변경 (결제 미연동이라 지금은 즉시 적용된다).
+//   GET  /api/me/subscription  Bearer — 내 요금제 + 오늘 사진 인식 사용량 + 자동결제 상태.
+//   PUT  /api/me/subscription  Bearer — **무료(lite)로의 다운그레이드만** 허용된다.
 // 서버 필드는 snake_case를 그대로 유지한다 (docs/CODE_STYLE.md).
+//
+// 2026-07-16 자동결제 연동(DATA_MODEL.md 24장)으로 PUT의 의미가 좁아졌다: 유료 플랜을 보내면
+// **400 "결제를 통해 업그레이드해주세요"**다. 유료 전환은 오직 결제 흐름(services/billing-api.ts)이다.
+// 응답의 plan은 **실효 플랜**이라 만료된 유료 구독은 lite로 내려온 것처럼 보인다.
 
 export type Plan = {
   code: string;
@@ -27,9 +31,19 @@ export type VisionUsage = {
 };
 
 export type MySubscription = {
+  // 실효 플랜 — 기간이 만료된 유료 구독은 서버가 lite로 해석해 내려준다 (24장).
   plan: Plan;
   vision_usage: VisionUsage;
   started_at: string;
+  // 'active' | 'canceled'(자동갱신 해지, 기간까지는 유료) | 'past_due'(갱신 실패, 재시도 중).
+  // 요금제 code와 같은 이유로 유니온으로 굳히지 않는다 — 서버가 상태를 늘려도 앱이 깨지지 않아야
+  // 한다. 화면은 아는 값만 분기하고 나머지는 기본 표시로 흘린다.
+  status: string;
+  // 유료 기간 종료 시각(ISO). 해지해도 이 시각까지는 유료다. 무료 회원은 null.
+  current_period_end: string | null;
+  // 다음 자동결제 시각(ISO). 해지·무료 회원은 null.
+  next_billing_at: string | null;
+  cancel_at_period_end: boolean;
 };
 
 export const SUBSCRIPTION_API_URL = apiUrl('/api', process.env.EXPO_PUBLIC_SUBSCRIPTION_API_URL);
@@ -90,7 +104,11 @@ export async function fetchMySubscription(): Promise<MySubscription> {
   return ensure(parseMySubscription(await parseOk(response, '요금제 조회 실패')));
 }
 
-// 결제 연동 전이라 서버가 검증 없이 플랜을 바꾼다. 화면은 이 사실을 사용자에게 숨기지 않는다.
+// **무료(lite) 전환 전용이다.** 유료 플랜을 보내면 서버가 400을 준다 — 이 경로에는 결제 검증이
+// 없어 열어 두면 누구나 Premium이 될 수 있기 때문이다 (24장). 업그레이드는 billing-api.ts를 쓴다.
+//
+// 무료 전환은 즉시 적용되고 **남은 유료 기간을 포기한다.** 그래서 요금제 화면은 유료 구독자에게
+// 이 함수가 아니라 cancelBilling()을 붙인다 — 기간을 지키면서 자동갱신만 끄는 쪽이 정답이다.
 export async function changePlan(planCode: string): Promise<MySubscription> {
   const response = await apiFetch(`${SUBSCRIPTION_API_URL}/me/subscription`, {
     method: 'PUT',
@@ -174,7 +192,9 @@ function parseVisionUsage(value: unknown): VisionUsage | null {
   };
 }
 
-function parseMySubscription(value: unknown): MySubscription | null {
+// billing-api.ts의 confirm·cancel도 같은 MySubscriptionResponse를 받는다 — 파싱을 복제하지 않도록
+// export 한다 (내부 헬퍼 중 유일한 예외).
+export function parseMySubscription(value: unknown): MySubscription | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -186,5 +206,21 @@ function parseMySubscription(value: unknown): MySubscription | null {
     return null;
   }
 
-  return { plan, vision_usage, started_at: value.started_at };
+  // 자동결제 4필드는 2026-07-16에 **추가**된 것이라 구버전 서버 응답에는 아예 없을 수 있다.
+  // 없거나 형식이 어긋나면 무료 회원과 같은 기본값으로 흘린다 — 이 필드들 때문에 요금제 화면
+  // 전체가 '응답 형식 오류'로 막히면 안 된다. 기존 3필드는 그대로 필수 검증을 유지한다.
+  return {
+    plan,
+    vision_usage,
+    started_at: value.started_at,
+    status: typeof value.status === 'string' ? value.status : 'active',
+    current_period_end: toIsoOrNull(value.current_period_end),
+    next_billing_at: toIsoOrNull(value.next_billing_at),
+    cancel_at_period_end: value.cancel_at_period_end === true,
+  };
+}
+
+// 누락·null·타입 불일치를 전부 null로 좁힌다 (nullable ISO 필드 전용).
+function toIsoOrNull(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
 }
