@@ -85,7 +85,7 @@ app/  ──→  components/  ──→  hooks/  ──→  constants/
 | `components/` | 표시 전용 UI | `hooks/`, `constants/` | `app/`, `services/` |
 | `services/` | HTTP, 응답 검증, 세션 | 없음 (RN `Platform`만) | `app/`, `components/` |
 | `hooks/` | 테마·색상 훅 | `constants/` | `app/`, `services/` |
-| `constants/` | 색상·폰트 토큰 | 없음 | 전부 |
+| `constants/` | 정적 데이터·토큰 (`changelog.ts` 업데이트 이력) | 없음 | 전부 |
 
 경로 별칭: `@/*` → 프로젝트 루트 (`tsconfig.json`). 상대 경로 `../../`를 쓰지 않고 `@/services/calorie-api` 형태로 import 합니다.
 
@@ -118,6 +118,7 @@ expo-router의 파일 기반 라우팅입니다. `app/` 하위 파일이 곧 경
 | `app/meals/index.tsx` | `/meals?date=YYYY-MM-DD` | 날짜별 끼니 기록 목록 + 삭제 + 인라인 수정 (홈 끼니 카드·캘린더에서 진입, 날짜 파라미터 유지) |
 | `app/meals/compose.tsx` | `/meals/compose?date=&meal_type=&meal_id=&photoUri=…` | 끼니 구성(다중 항목). `meal_id` 있으면 append 모드(PUT 전체 교체), 없으면 신규(POST + `logged_at` 앵커). 기록 탭·캘린더·기록 목록에서 진입 |
 | `app/plan.tsx` | `/plan` | 요금제 (내 정보에서 진입, 402 배너의 업그레이드 버튼 목적지). 레이아웃 없는 단일 라우트라 화면 자신이 `<Stack.Screen options={{ headerShown: false }} />` + `<Redirect>` 가드를 건다 |
+| `app/updates.tsx` | `/updates` | 업데이트 이력(사용자 공지). `constants/changelog.ts`의 정적 배열을 렌더한다 — 서버·API 없음. 내 정보에서 진입 |
 
 `groups/`·`pets/`·`recommendations/`·`me/`·`meals/` 스택은 루트 레이아웃에 등록하지 않고 (expo-router 자동 등록) 각 `_layout.tsx`가
 온보딩 레이아웃과 같은 방식으로 자기 헤더를 숨기고 인증 가드를 겁니다. 화면 상단의 뒤로가기는

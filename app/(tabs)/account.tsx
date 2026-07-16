@@ -236,6 +236,14 @@ export default function AccountScreen() {
             </Pressable>
 
             <Pressable
+              onPress={() => router.push('/updates')}
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+              <MaterialIcons color="#4e5968" name="campaign" size={20} />
+              <Text style={styles.rowLabel}>업데이트 이력</Text>
+              <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+            </Pressable>
+
+            <Pressable
               disabled={isLoggingOut || isDeletingAccount}
               onPress={confirmLogout}
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
