@@ -67,6 +67,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 | `EXPO_PUBLIC_PET_API_URL` | `/api/pets` | `services/pet-api.ts` |
 | `EXPO_PUBLIC_RECOMMENDATION_API_URL` | `/api/recommendations` | `services/recommendation-api.ts` |
 | `EXPO_PUBLIC_SUBSCRIPTION_API_URL` | `/api` (`/plans`, `/me/subscription`) | `services/subscription-api.ts` |
+| `EXPO_PUBLIC_PAYMENT_API_URL` | `/api/payments` | `services/payment-api.ts` |
 
 기본 오리진(base)은 `services/api-base.ts`가 결정합니다(위 설명). 새 서비스는 `apiUrl('/api/…', process.env.EXPO_PUBLIC_…)` 패턴을 따르세요 — 호스트 분기를 개별 파일에 두지 않습니다.
 
@@ -85,6 +86,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 | 카카오 회원가입 (신규) | `POST` | `/api/auth/kakao/signup` | 동일 | 일치. 바디 `{ link_code, agreed_terms, agreed_privacy, plan_code }` — 동의 2종 필수(false면 400·누락 시 422), `plan_code` 생략 시 lite |
 | 요금제 목록 | `GET` | `/api/plans` | 동일 | 일치 (`subscription-api.ts`. **무인증** — 가입 화면이 로그인 전에 호출. 실패 시 번들 폴백 `FALLBACK_PLANS`) |
 | 내 요금제·사진 인식 사용량 | `GET·PUT` | `/api/me/subscription` | 동일 | 일치 (`subscription-api.ts`, Bearer. PUT은 **결제 미연동 — 검증 없이 즉시 변경**된다. 화면이 이 사실을 문구로 밝힌다) |
+| 결제 내역·영수증 | `GET` | `/api/payments`, `/api/payments/{id}` | 동일 | **서버 병렬 구현 중** (`payment-api.ts`, Bearer. 앱 계약: 목록 `{ payments: [PaymentItem] }` 최신순, 단건 `PaymentItem`·본인 것만·**404**=`PaymentNotFoundError`). 결제 미연동이라 지금은 **빈 목록**. 서버 라우트 확정 시 `curl -sf localhost:8000/openapi.json`로 대조할 것 |
 | 로그아웃(서버 세션 폐기) | `POST` | `/api/auth/logout` | 동일 | 일치 (`auth-api.ts`, 2026-07-11 openapi.json 실측. Bearer 첨부, 실패해도 앱은 로컬 세션 삭제) |
 | 음식 이미지 분류 | `POST` | `/api/predict` | 동일 | 일치 (Gemini 비전, 한국어 라벨). **2026-07-16: 응답이 `predictions`(한 음식의 후보 나열) → `foods`(사진 속 **서로 다른 음식들**, 각 `label`·`score`·`portion_g`, 최대 10)로 바뀜 — 서버 22장.** 쿼터는 **사진당 1건**(음식 개수 무관). 앱(`calorie-api.ts`)은 배포 전환기 대비로 `foods` 없으면 `predictions`를 foods로 받아들인다. 끼니 구성 화면은 분할 로직을 갖췄으나 **현재 기본은 대표 음식 1개만** 초안 항목으로 만든다(`compose.tsx`의 `MULTI_FOOD_SPLIT=false` — 원래대로 한 객체, true면 `foods[]` 전부 분할). 항목은 `/api/nutrition/estimate`(쿼터 0)로 kcal을 채우고, **업로드한 사진은 로컬 URI로 미리보기만**(서버 저장 안 함). 사진은 고른 뒤 **분석 버튼**을 눌러야 predict를 호출한다(자동 요청 안 함 — 쿼터 오용 방지). 직접 입력 항목은 **이름만 쓰면 estimate로 칼로리를 자동 조회**한다(kcal 비어 있을 때만, 쿼터 0). 응답의 **`vision_used`·`vision_limit`**(오늘 사용량, 사진당)로 남은 건수를 표시. (레거시 `/api/gpt-predict`는 2026-07-12 제거) |
 | 프로필·목표·끼니·체중 | — | `/api/me/**`, `/api/meals*`, `/api/weights`, `/api/nutrition/estimate` | 동일 | 일치 (`health-api.ts`. `PUT /api/meals/{meal_id}` 전체 교체 수정 포함 — 2026-07-11 user 15 실측, `logged_at` 생략 시 기존 시각 유지). **2026-07-16: 과거 날짜 끼니 기록 지원.** 끼니 구성 화면(`app/meals/compose.tsx`)이 `POST /api/meals`에 `logged_at`을 실어 과거 날짜에 기록한다 — 서버 끼니 하루 경계가 **UTC 자정**이라, 캘린더 셀 D에서 다시 보이도록 `logged_at`을 `D`의 **UTC 정오**로 앵커한다(`dayAnchorLoggedAt`). append(기존 끼니에 항목 추가)는 `logged_at` 생략 + `PUT`으로 기존+신규 항목 전체를 보낸다 |

@@ -204,6 +204,14 @@ export default function AccountScreen() {
             </Pressable>
 
             <Pressable
+              onPress={() => router.push('/payments')}
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+              <MaterialIcons color="#4e5968" name="receipt-long" size={20} />
+              <Text style={styles.rowLabel}>결제 내역</Text>
+              <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+            </Pressable>
+
+            <Pressable
               onPress={() => router.push('/me/weights')}
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
               <MaterialIcons color="#4e5968" name="monitor-weight" size={20} />

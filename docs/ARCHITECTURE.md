@@ -35,6 +35,10 @@ k-calAI-RN/
 │   │   ├── conditions.tsx      # 질병 정보 수정 (GET/PUT /api/me/conditions, 칩 + 메타 폴백)
 │   │   └── allergies.tsx       # 알러지 정보 수정 (GET/PUT /api/me/allergies, severity 보존)
 │   ├── plan.tsx                # 요금제 (내 정보에서 진입). 내 플랜·오늘 인식 사용량·3종 비교·변경
+│   ├── payments/               # 결제 내역·영수증 스택 (내 정보에서 진입)
+│   │   ├── _layout.tsx         # 인증 가드 (pets 레이아웃과 같은 패턴)
+│   │   ├── index.tsx           # 결제 내역 목록 (GET /api/payments, 빈 상태·상태 배지)
+│   │   └── [id].tsx            # 영수증 상세 (GET /api/payments/{id}, 404 안내)
 │   ├── meals/                  # 끼니 기록 목록·구성 (홈 끼니 카드·캘린더·기록 탭에서 진입)
 │   │   ├── _layout.tsx         # 인증 가드
 │   │   ├── index.tsx           # 날짜별 기록 목록 + 삭제 + 인라인 수정 + '기록 추가'·'끼니에 항목 추가' 진입점
@@ -53,6 +57,7 @@ k-calAI-RN/
 │   ├── pet-api.ts              # 반려동물·급여 기록 (9장)
 │   ├── recommendation-api.ts   # 식단 추천 (11·13장)
 │   ├── subscription-api.ts     # 요금제·구독 (GET /api/plans 무인증, GET·PUT /api/me/subscription) + FALLBACK_PLANS
+│   ├── payment-api.ts          # 결제 내역·영수증 (GET /api/payments, GET /api/payments/{id}) + PaymentNotFoundError(404)
 │   ├── http.ts                 # 공통 fetch 래퍼(apiFetch) + readErrorMessage + PlanLimitError(402)
 │   └── api-base.ts             # API 오리진 결정(Expo hostUri→LAN IP 자동, 실기기 도달). apiUrl()
 ├── components/                 # 재사용 UI
@@ -118,9 +123,11 @@ expo-router의 파일 기반 라우팅입니다. `app/` 하위 파일이 곧 경
 | `app/meals/index.tsx` | `/meals?date=YYYY-MM-DD` | 날짜별 끼니 기록 목록 + 삭제 + 인라인 수정 (홈 끼니 카드·캘린더에서 진입, 날짜 파라미터 유지) |
 | `app/meals/compose.tsx` | `/meals/compose?date=&meal_type=&meal_id=&photoUri=…` | 끼니 구성(다중 항목). `meal_id` 있으면 append 모드(PUT 전체 교체), 없으면 신규(POST + `logged_at` 앵커). 기록 탭·캘린더·기록 목록에서 진입 |
 | `app/plan.tsx` | `/plan` | 요금제 (내 정보에서 진입, 402 배너의 업그레이드 버튼 목적지). 레이아웃 없는 단일 라우트라 화면 자신이 `<Stack.Screen options={{ headerShown: false }} />` + `<Redirect>` 가드를 건다 |
+| `app/payments/index.tsx` | `/payments` | 결제 내역 목록 (내 정보에서 진입, `GET /api/payments`). 포커스마다 재조회, 항목 탭 → `/payments/[id]`. 빈 목록은 빈 상태 카드 |
+| `app/payments/[id].tsx` | `/payments/:id` | 영수증 상세 (`GET /api/payments/{id}`). `router.push({ pathname: '/payments/[id]', params })`. 404는 `PaymentNotFoundError` → '영수증을 찾을 수 없어요' 안내 |
 | `app/updates.tsx` | `/updates` | 업데이트 이력(사용자 공지). `constants/changelog.ts`의 정적 배열을 렌더한다 — 서버·API 없음. 내 정보에서 진입 |
 
-`groups/`·`pets/`·`recommendations/`·`me/`·`meals/` 스택은 루트 레이아웃에 등록하지 않고 (expo-router 자동 등록) 각 `_layout.tsx`가
+`groups/`·`pets/`·`recommendations/`·`me/`·`meals/`·`payments/` 스택은 루트 레이아웃에 등록하지 않고 (expo-router 자동 등록) 각 `_layout.tsx`가
 온보딩 레이아웃과 같은 방식으로 자기 헤더를 숨기고 인증 가드를 겁니다. 화면 상단의 뒤로가기는
 네이티브 헤더 대신 `components/back-button.tsx`를 씁니다 (탭 밖 스택 공통).
 
@@ -304,6 +311,7 @@ readErrorMessage(response)
 | `signupWithKakao` | `POST /api/auth/kakao/signup` | `{ link_code, agreed_terms, agreed_privacy, plan_code \| null }` | 같은 `AuthTokenResponse`. 동의 누락 422, `false` 400. `plan_code` 생략 시 서버가 무료(lite) 부여. 연동 코드 TTL 10분 초과 시 400 |
 | `fetchPlans` | `GET /api/plans` | — | `{ plans: [{ code, label, price_krw, daily_vision_quota, max_group_members, max_pets, max_owned_groups }] }`. **무인증**(가입 화면이 로그인 전에 호출) — 실패 시 `FALLBACK_PLANS`(번들 폴백)로 그린다 |
 | `fetchMySubscription` / `changePlan` | `GET·PUT /api/me/subscription` | PUT: `{ plan_code }` | `{ plan, vision_usage: { used, limit, remaining, resets_at }, started_at }`. **결제 미연동** — PUT은 영수증 검증 없이 즉시 반영된다(화면이 이 사실을 명시) |
+| `getPayments` / `getPayment` | `GET /api/payments`, `GET /api/payments/{id}` | — (Bearer) | `{ payments: [PaymentItem] }`(최신순) / `PaymentItem`. `PaymentItem = { id, order_id, plan_code, plan_label, amount, status, method\|null, approved_at\|null, fail_reason\|null, created_at }`. `status`·`amount`는 서버 참조값이라 유니온으로 굳히지 않고 `string`·유한수로 받는다. 단건 **404** = `PaymentNotFoundError`(재시도 대신 안내). **결제 미연동이라 지금은 빈 목록**이 온다 (서버 병렬 구현 중) |
 | `updateMeal` | `PUT /api/meals/{meal_id}` | `createMeal`과 동일 구조 (전체 교체) | `MealLog`. `logged_at` 생략 시 기존 기록 시각 유지, `total_kcal`은 서버가 items 합계로 재계산. 남의 끼니·삭제된 끼니 404 (DATA_MODEL.md 4장) |
 | `deleteAccount` | `DELETE /api/me` | — | `{ message }`. **물리 삭제** — 끼니·체중·펫·소유 그룹 전부 파기, 전 토큰 즉시 무효. 성공 시에만 호출부가 `clearAuthSession()` (DATA_MODEL.md 18장) |
 | `createGroup` / `getGroups` / `joinGroup` | `POST·GET /api/groups`, `POST /api/groups/join` | `{ name, kind }` / — / `{ invite_code }` | `GroupSummary` (생성·목록·참여 동일 형태) |
