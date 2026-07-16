@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -59,6 +60,10 @@ const SERVING_RATIO_OPTIONS: { value: string; label: string; ratio: number }[] =
 
 // 서버 계약(MealItemInput.kcal)의 상한.
 const MAX_KCAL = 100000;
+
+// 사진 1장에서 인식된 여러 음식을 각각 항목으로 나눌지. 분할 로직(foods[] → 항목 N개)은
+// 구현돼 있으나 지금은 원래대로 '한 객체(대표 음식 1개)'로 담는다. true 로 바꾸면 켜진다.
+const MULTI_FOOD_SPLIT = false;
 
 // 초안 항목. kcalText는 **1인분 기준** kcal(문자열, 편집 가능)이고, 저장·표시 kcal은
 // round(kcalText × serving_ratio)로 파생한다.
@@ -149,6 +154,8 @@ export default function MealComposeScreen() {
   const [mealType, setMealType] = useState<MealType>(initialMealType);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [searchText, setSearchText] = useState('');
+  // 방금 업로드한 사진(로컬 URI). 화면에 보여주기만 하고 서버엔 저장하지 않는다.
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
 
   // append 모드: 기존 끼니 항목은 그대로 보존해 다시 보낸다 (PUT은 전체 교체).
   const [existingItems, setExistingItems] = useState<MealItem[]>([]);
@@ -269,6 +276,7 @@ export default function MealComposeScreen() {
       setIsAnalyzing(true);
       setErrorMessage(null);
       setPlanLimitMessage(null);
+      setPreviewUri(asset.uri);
 
       try {
         const result = await uploadFoodPhoto(asset);
@@ -285,8 +293,10 @@ export default function MealComposeScreen() {
           return;
         }
 
-        // 각 음식마다 식약처 DB로 kcal을 조회한다(쿼터 0). 일부가 실패해도 나머지는 살린다.
-        const added = await Promise.all(result.foods.map(foodToDraft));
+        // 분할 로직은 유지하되 기본은 대표 음식 1개만 담는다(MULTI_FOOD_SPLIT). 각 음식은
+        // 식약처 DB로 kcal을 조회한다(쿼터 0). 일부가 실패해도 나머지는 살린다.
+        const foods = MULTI_FOOD_SPLIT ? result.foods : result.foods.slice(0, 1);
+        const added = await Promise.all(foods.map(foodToDraft));
         appendDrafts(added);
       } catch (error) {
         if (error instanceof PlanLimitError) {
@@ -533,6 +543,13 @@ export default function MealComposeScreen() {
               />
             </View>
           )}
+
+          {previewUri ? (
+            <View style={styles.previewCard}>
+              <Image resizeMode="cover" source={{ uri: previewUri }} style={styles.previewImage} />
+              <Text style={styles.previewCaption}>분석한 사진 · 서버에 저장되지 않아요</Text>
+            </View>
+          ) : null}
 
           <View style={styles.addCard}>
             <Text style={styles.addTitle}>항목 추가</Text>
@@ -1057,6 +1074,23 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.74,
+  },
+  previewCaption: {
+    color: '#8b95a1',
+    fontSize: 12,
+    fontWeight: '700',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  previewCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  previewImage: {
+    aspectRatio: 4 / 3,
+    backgroundColor: '#f2f4f6',
+    width: '100%',
   },
   safeArea: {
     backgroundColor: '#f7f8fa',
