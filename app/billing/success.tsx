@@ -9,7 +9,7 @@ import {
   BillingUnavailableError,
   confirmBilling,
 } from '@/services/billing-api';
-import { MySubscription } from '@/services/subscription-api';
+import { fetchMySubscription, MySubscription } from '@/services/subscription-api';
 
 // 토스 결제창의 successUrl 착지점. 결제창이 `?authKey=…&customerKey=…`를 덧붙여 되돌린다
 // (plan은 우리가 successUrl에 미리 심어 둔 값). 여기서 서버 confirm을 불러 실제 청구가 일어난다.
@@ -50,6 +50,18 @@ export default function BillingSuccessScreen() {
       try {
         setSubscription(await confirmBilling({ authKey, customerKey, planCode }));
       } catch (error) {
+        // ref 가드는 **마운트 안에서만** 산다. 이 화면의 URL은 토스가 브라우저를 통째로 되돌려
+        // 만든 실제 URL이라 새로고침·뒤로가기로 새 마운트가 생기면 가드가 초기화되고, 이미
+        // 소비된 authKey로 confirm이 다시 나가 반드시 실패한다. 그때 첫 confirm은 성공했을 수
+        // 있다 — 오류를 그대로 그리면 결제에 성공한 사람에게 '다시 시도'를 권해 이중 결제로 몬다.
+        // 그래서 실패를 확정하기 전에 서버 상태를 되묻는다.
+        const active = await fetchActivePaidSubscription(planCode);
+
+        if (active !== null) {
+          setSubscription(active);
+          return;
+        }
+
         setFailureKind(toFailureKind(error));
         setErrorMessage(
           error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.'
@@ -180,6 +192,22 @@ function DetailRow({ label, value }: { label: string; value: string }) {
       <Text style={styles.detailValue}>{value}</Text>
     </View>
   );
+}
+
+// confirm이 실패했을 때 "이미 결제가 끝난 상태인가"를 서버에 되묻는다. 요청한 유료 플랜이
+// 실효 플랜으로 내려오면 청구는 이미 성공한 것이다 — 만료된 구독은 서버가 lite로 해석해 주므로
+// (24장) 이 비교는 살아 있는 유료 구독만 통과시킨다.
+//
+// 조회 자체가 실패하면 판단하지 않는다(null) — 원래 confirm 오류를 그대로 보여준다.
+// 진짜 카드 거절이면 구독은 lite로 남아 있어 여기서 걸러지지 않는다(오류 화면이 정상 동작).
+async function fetchActivePaidSubscription(planCode: string): Promise<MySubscription | null> {
+  try {
+    const mine = await fetchMySubscription();
+
+    return mine.plan.code === planCode && mine.plan.price_krw > 0 ? mine : null;
+  } catch {
+    return null;
+  }
 }
 
 // 502(청구 실패)·503(미설정)·그 외를 제목으로 구분한다. 본문은 서버가 준 한국어 detail을 쓴다.
