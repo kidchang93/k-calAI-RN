@@ -1,5 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -53,12 +53,21 @@ type EditItem = {
 };
 
 export default function MealListScreen() {
+  const router = useRouter();
   const params = useLocalSearchParams<{ date?: string }>();
-  // 홈이 넘긴 날짜(YYYY-MM-DD)만 신뢰한다. 형식이 다르면 오늘로 폴백.
+  // 홈·캘린더가 넘긴 날짜(YYYY-MM-DD)만 신뢰한다. 형식이 다르면 오늘로 폴백.
   const date =
     typeof params.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(params.date)
       ? params.date
       : formatDateParam(new Date());
+
+  // 새 끼니: compose(meal_id 없음). 기존 끼니에 항목 더하기: compose append(meal_id·meal_type).
+  const openAddMeal = () => router.push({ pathname: '/meals/compose', params: { date } });
+  const openAppendMeal = (meal: MealLog) =>
+    router.push({
+      pathname: '/meals/compose',
+      params: { date, meal_id: String(meal.id), meal_type: meal.meal_type },
+    });
 
   const [meals, setMeals] = useState<MealLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -207,6 +216,14 @@ export default function MealListScreen() {
             </Text>
           </View>
 
+          {/* 빈 날짜에도 새 끼니를 남길 수 있어야 한다 — 항상 노출한다. */}
+          <Pressable
+            onPress={openAddMeal}
+            style={({ pressed }) => [styles.addMealButton, pressed && styles.pressed]}>
+            <MaterialIcons color="#ffffff" name="add" size={20} />
+            <Text style={styles.addMealButtonText}>기록 추가</Text>
+          </Pressable>
+
           {errorMessage ? (
             <ErrorBanner message={errorMessage} onRetry={() => void loadMeals()} />
           ) : null}
@@ -240,6 +257,14 @@ export default function MealListScreen() {
                       <Text style={styles.mealTime}>{formatTime(meal.logged_at)}</Text>
                     </View>
                     <Text style={styles.mealKcal}>{`${meal.total_kcal.toLocaleString()} kcal`}</Text>
+                    <Pressable
+                      accessibilityLabel="이 끼니에 항목 추가"
+                      disabled={deletingId !== null || isSavingEdit}
+                      hitSlop={8}
+                      onPress={() => openAppendMeal(meal)}
+                      style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
+                      <MaterialIcons color="#3182f6" name="add-circle-outline" size={20} />
+                    </Pressable>
                     <Pressable
                       disabled={deletingId !== null || isSavingEdit}
                       hitSlop={8}
@@ -379,6 +404,20 @@ function formatTime(isoText: string): string {
 }
 
 const styles = StyleSheet.create({
+  addMealButton: {
+    alignItems: 'center',
+    backgroundColor: '#3182f6',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 6,
+    height: 50,
+    justifyContent: 'center',
+  },
+  addMealButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '800',
+  },
   cancelButton: {
     alignItems: 'center',
     backgroundColor: '#f2f4f6',

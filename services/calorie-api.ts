@@ -3,9 +3,12 @@ import { Platform } from 'react-native';
 import { apiUrl } from '@/services/api-base';
 import { apiFetch, readErrorMessage } from '@/services/http';
 
-export type Prediction = {
+// 사진 1장에서 인식된 **서로 다른 음식** 한 건 (한 음식의 후보 나열이 아니다 — 서버 22장).
+// portion_g는 서버가 추정한 대략적 섭취량 힌트로, 없을 수 있어 null로 좁혀 받는다.
+export type FoodDetection = {
   label: string;
   score: number;
+  portion_g: number | null;
 };
 
 export type PhotoAsset = {
@@ -14,10 +17,11 @@ export type PhotoAsset = {
   mimeType?: string | null;
 };
 
-// 서버가 이번 호출까지 반영한 오늘 사용량을 함께 준다 — 화면이 별도 조회 없이 "오늘 2/3건"을 띄운다.
-// 값이 없는 응답(구버전 서버)도 기록 흐름을 막지 않도록 null로 좁혀 받는다.
+// 서버가 이번 호출까지 반영한 오늘 사용량을 함께 준다 — 화면이 별도 조회 없이 "오늘 2/5건"을 띄운다.
+// 쿼터는 사진당 1건이다(음식 개수 무관). 값이 없는 응답(구버전 서버)도 기록 흐름을 막지 않도록
+// null로 좁혀 받는다.
 export type PredictResult = {
-  predictions: Prediction[];
+  foods: FoodDetection[];
   vision_used: number | null;
   vision_limit: number | null;
 };
@@ -53,26 +57,56 @@ export async function uploadFoodPhoto(asset: PhotoAsset): Promise<PredictResult>
   }
 
   const data = (await response.json()) as {
-    predictions?: Prediction[];
+    foods?: unknown;
+    predictions?: unknown;
     vision_used?: unknown;
     vision_limit?: unknown;
   };
 
-  if (!Array.isArray(data.predictions)) {
-    throw new Error('서버 응답에 predictions 배열이 없습니다.');
+  // 신규 계약은 foods. 배포 전환기(구버전 서버가 predictions만 줄 때)에도 기록이 막히지
+  // 않도록 predictions를 foods로 받아들인다 (서버 응답을 신뢰하지 않는다 — DESIGN 원칙 3).
+  const rawFoods = Array.isArray(data.foods)
+    ? data.foods
+    : Array.isArray(data.predictions)
+      ? data.predictions
+      : null;
+
+  if (rawFoods === null) {
+    throw new Error('서버 응답에 foods 배열이 없습니다.');
   }
 
   return {
-    predictions: data.predictions.map((prediction) => ({
-      label: String(prediction.label),
-      score: Number(prediction.score),
-    })),
+    foods: rawFoods.map(toFood).filter((food) => food.label.length > 0),
     vision_used: toCount(data.vision_used),
     vision_limit: toCount(data.vision_limit),
   };
 }
 
-// 0 이상의 유한수만 사용량으로 인정한다. 그 외(누락·문자열·음수)는 null → 화면이 표시를 생략한다.
+// ── 내부 헬퍼 (export 안 함) ────────────────────────────────────────────────
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function toFood(value: unknown): FoodDetection {
+  if (!isRecord(value)) {
+    return { label: '', score: 0, portion_g: null };
+  }
+
+  return {
+    label: typeof value.label === 'string' ? value.label : '',
+    score: toScore(value.score),
+    portion_g: toCount(value.portion_g),
+  };
+}
+
+function toScore(value: unknown): number {
+  const parsed = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+}
+
+// 0 이상의 유한수만 사용량·섭취량으로 인정한다. 그 외(누락·문자열·음수)는 null.
 function toCount(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
 }

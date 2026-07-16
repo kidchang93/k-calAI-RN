@@ -34,14 +34,14 @@ export type MySubscription = {
 
 export const SUBSCRIPTION_API_URL = apiUrl('/api', process.env.EXPO_PUBLIC_SUBSCRIPTION_API_URL);
 
-// 네트워크 실패 시 가입 화면이 요금제 없이 막히면 안 된다 — 서버 시드(alembic 0014)와 같은 값의
-// 번들 폴백. 정본은 언제나 서버의 참조 테이블(plans)이다 (선택지 데이터 규칙, DESIGN.md).
+// 네트워크 실패 시 가입 화면이 요금제 없이 막히면 안 된다 — 서버 시드(리비전 0016, Lite 3→5)와
+// 같은 값의 번들 폴백. 정본은 언제나 서버의 참조 테이블(plans)이다 (선택지 데이터 규칙, DESIGN.md).
 export const FALLBACK_PLANS: Plan[] = [
   {
     code: 'lite',
     label: 'Lite',
     price_krw: 0,
-    daily_vision_quota: 3,
+    daily_vision_quota: 5,
     max_group_members: 1,
     max_pets: 1,
     max_owned_groups: 1,

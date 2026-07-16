@@ -179,6 +179,14 @@ export function formatDateParam(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+// 캘린더 셀 D(YYYY-MM-DD)에 추가한 끼니가 그 셀에서 다시 보이려면, 저장하는 logged_at의
+// UTC 날짜가 D와 같아야 한다 — 서버는 끼니 하루를 UTC 자정으로 나누고(GET /api/meals?date=D도
+// UTC 날짜 D로 필터), 추이 캘린더도 UTC 날짜로 버킷팅한다. 정오(UTC)로 앵커하면 어느 타임존에서
+// 저장해도 UTC 날짜가 항상 D로 고정된다 (자정 근처 경계 밀림 방지).
+export function dayAnchorLoggedAt(date: string): string {
+  return `${date}T12:00:00.000Z`;
+}
+
 // 오늘을 끝으로 하는 최근 N일(오늘 포함) 범위. 리포트 탭의 주(7)/월(30) 조회에 쓴다.
 export function recentDateRange(days: number): { start_date: string; end_date: string } {
   const end = new Date();

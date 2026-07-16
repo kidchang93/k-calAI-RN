@@ -257,7 +257,16 @@ export default function TrendsScreen() {
                 date={selectedDate}
                 isLoading={isLoadingMeals}
                 meals={selectedMeals}
-                onPressManage={() => router.push('/meals')}
+                onPressAdd={() => {
+                  if (selectedDate) {
+                    router.push({ pathname: '/meals/compose', params: { date: selectedDate } });
+                  }
+                }}
+                onPressManage={() => {
+                  if (selectedDate) {
+                    router.push({ pathname: '/meals', params: { date: selectedDate } });
+                  }
+                }}
               />
 
               {/* 체중은 두 모드 모두에 둔다 — 한쪽에만 있으면 "있는지 없는지" 모르게 된다.
@@ -345,11 +354,13 @@ function DayDetail({
   meals,
   isLoading,
   onPressManage,
+  onPressAdd,
 }: {
   date: string | null;
   meals: MealLog[] | null;
   isLoading: boolean;
   onPressManage: () => void;
+  onPressAdd: () => void;
 }) {
   if (date === null) {
     return (
@@ -360,47 +371,55 @@ function DayDetail({
     );
   }
 
+  const hasMeals = meals !== null && meals.length > 0;
   const totalKcal = (meals ?? []).reduce((acc, meal) => acc + meal.total_kcal, 0);
 
   return (
     <View style={styles.dayCard}>
       <View style={styles.dayHeadRow}>
         <Text style={styles.dayTitle}>{formatFullDate(date)}</Text>
-        {meals !== null && meals.length > 0 ? (
-          <Text style={styles.dayTotal}>{`${totalKcal.toLocaleString()} kcal`}</Text>
-        ) : null}
+        {hasMeals ? <Text style={styles.dayTotal}>{`${totalKcal.toLocaleString()} kcal`}</Text> : null}
       </View>
 
       {isLoading ? (
         <View style={styles.dayLoadingBox}>
           <ActivityIndicator color="#3182f6" />
         </View>
-      ) : meals === null || meals.length === 0 ? (
-        <Text style={styles.dayEmptyText}>이 날은 기록이 없어요.</Text>
+      ) : !hasMeals ? (
+        <Text style={styles.dayEmptyText}>이 날은 기록이 없어요. 아래에서 추가할 수 있어요.</Text>
       ) : (
-        <>
-          {meals.map((meal) => (
-            <View key={meal.id} style={styles.mealRow}>
-              <View style={styles.mealTypeChip}>
-                <Text style={styles.mealTypeChipText}>{MEAL_TYPE_LABELS[meal.meal_type]}</Text>
-              </View>
-              <View style={styles.mealBody}>
-                <Text style={styles.mealFoods} numberOfLines={2}>
-                  {meal.items.map((item) => item.food_label).join(', ')}
-                </Text>
-              </View>
-              <Text style={styles.mealKcal}>{`${meal.total_kcal.toLocaleString()} kcal`}</Text>
+        (meals ?? []).map((meal) => (
+          <View key={meal.id} style={styles.mealRow}>
+            <View style={styles.mealTypeChip}>
+              <Text style={styles.mealTypeChipText}>{MEAL_TYPE_LABELS[meal.meal_type]}</Text>
             </View>
-          ))}
+            <View style={styles.mealBody}>
+              <Text style={styles.mealFoods} numberOfLines={2}>
+                {meal.items.map((item) => item.food_label).join(', ')}
+              </Text>
+            </View>
+            <Text style={styles.mealKcal}>{`${meal.total_kcal.toLocaleString()} kcal`}</Text>
+          </View>
+        ))
+      )}
 
+      {/* 빈 날짜에도 항상 추가 진입점을 준다 — 막다른 길을 없앤다. 관리는 기록이 있을 때만. */}
+      <View style={styles.dayActionRow}>
+        <Pressable
+          onPress={onPressAdd}
+          style={({ pressed }) => [styles.dayAddButton, pressed && styles.pressed]}>
+          <MaterialIcons color="#ffffff" name="add" size={18} />
+          <Text style={styles.dayAddButtonText}>이 날짜에 기록 추가</Text>
+        </Pressable>
+        {hasMeals ? (
           <Pressable
             onPress={onPressManage}
             style={({ pressed }) => [styles.manageButton, pressed && styles.pressed]}>
             <Text style={styles.manageButtonText}>기록 관리</Text>
             <MaterialIcons color="#3182f6" name="chevron-right" size={18} />
           </Pressable>
-        </>
-      )}
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -706,12 +725,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
   },
+  dayActionRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'space-between',
+    paddingTop: 4,
+  },
+  dayAddButton: {
+    alignItems: 'center',
+    backgroundColor: '#3182f6',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 4,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  dayAddButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '800',
+  },
   manageButton: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 2,
     justifyContent: 'center',
-    paddingTop: 6,
   },
   manageButtonText: {
     color: '#3182f6',
