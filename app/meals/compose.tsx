@@ -65,8 +65,8 @@ const MAX_KCAL = 100000;
 // 구현돼 있으나 지금은 원래대로 '한 객체(대표 음식 1개)'로 담는다. true 로 바꾸면 켜진다.
 const MULTI_FOOD_SPLIT = false;
 
-// 초안 항목. kcalText는 **1인분 기준** kcal(문자열, 편집 가능)이고, 저장·표시 kcal은
-// round(kcalText × serving_ratio)로 파생한다.
+// 초안 항목. kcalText는 **현재 선택한 인분(serving_ratio)의 총 kcal**(문자열, 편집 가능)이다.
+// 인분을 바꾸면 그 비율로 스케일되고(setDraftServing), 저장·표시 kcal = round(kcalText).
 type Draft = {
   key: string;
   food_label: string;
@@ -103,7 +103,8 @@ function nextDraftKey(): string {
   return `draft-${Date.now()}-${draftKeySeq}`;
 }
 
-// 초안 → 저장·표시용 총 kcal. 유효하지 않으면 null (저장 버튼 비활성 조건).
+// 초안 → 저장·표시용 총 kcal. kcalText가 이미 '선택 인분의 총 kcal'이라 × ratio 하지 않는다.
+// 유효하지 않으면 null (저장 버튼 비활성 조건).
 function draftKcal(draft: Draft): number | null {
   const trimmed = draft.kcalText.trim();
 
@@ -111,13 +112,13 @@ function draftKcal(draft: Draft): number | null {
     return null;
   }
 
-  const per = Number(trimmed);
+  const value = Number(trimmed);
 
-  if (!Number.isFinite(per) || per < 0) {
+  if (!Number.isFinite(value) || value < 0) {
     return null;
   }
 
-  return Math.min(MAX_KCAL, Math.max(0, Math.round(per * draft.serving_ratio)));
+  return Math.min(MAX_KCAL, Math.max(0, Math.round(value)));
 }
 
 function isDraftValid(draft: Draft): boolean {
@@ -264,7 +265,21 @@ export default function MealComposeScreen() {
 
   const setDraftServing = (key: string, ratio: number) => {
     setDrafts((prev) =>
-      prev.map((draft) => (draft.key === key ? { ...draft, serving_ratio: ratio } : draft))
+      prev.map((draft) => {
+        if (draft.key !== key || ratio === draft.serving_ratio) {
+          return draft;
+        }
+
+        // kcalText는 '현재 인분의 총 kcal'이라, 인분을 바꾸면 그 비율만큼 스케일한다.
+        const current = Number(draft.kcalText.trim());
+        const canScale =
+          draft.kcalText.trim() !== '' && Number.isFinite(current) && draft.serving_ratio > 0;
+        const kcalText = canScale
+          ? String(Math.round((current * ratio) / draft.serving_ratio))
+          : draft.kcalText;
+
+        return { ...draft, serving_ratio: ratio, kcalText };
+      })
     );
   };
 
@@ -297,7 +312,11 @@ export default function MealComposeScreen() {
       setDrafts((prev) =>
         prev.map((item) =>
           item.key === key
-            ? { ...item, kcalText: String(Math.round(estimate.kcal_per_serving)) }
+            ? {
+                ...item,
+                // kcalText는 현재 인분의 총 kcal이므로 1인분 값에 현재 ratio를 곱한다.
+                kcalText: String(Math.round(estimate.kcal_per_serving * item.serving_ratio)),
+              }
             : item
         )
       );
@@ -730,7 +749,6 @@ export default function MealComposeScreen() {
                   onLookupKcal={() => void lookupDraftKcal(draft.key)}
                   onRemove={() => removeDraft(draft.key)}
                   onSelectServing={(ratio) => setDraftServing(draft.key, ratio)}
-                  total={draftKcal(draft)}
                 />
               ))}
             </View>
@@ -837,7 +855,6 @@ function AddActionButton({
 
 function DraftCard({
   draft,
-  total,
   isLookingUp,
   onChangeLabel,
   onChangeKcal,
@@ -846,7 +863,6 @@ function DraftCard({
   onRemove,
 }: {
   draft: Draft;
-  total: number | null;
   isLookingUp: boolean;
   onChangeLabel: (text: string) => void;
   onChangeKcal: (text: string) => void;
@@ -890,20 +906,14 @@ function DraftCard({
             keyboardType="number-pad"
             maxLength={6}
             onChangeText={onChangeKcal}
-            placeholder="1인분 kcal"
+            placeholder="칼로리"
             placeholderTextColor="#b0b8c1"
             style={styles.draftKcalInput}
             value={draft.kcalText}
           />
-          <Text style={styles.draftKcalUnit}>kcal/인분</Text>
+          <Text style={styles.draftKcalUnit}>kcal</Text>
         </View>
-        <Text style={styles.draftTotal}>
-          {isLookingUp
-            ? '칼로리 찾는 중…'
-            : total !== null
-              ? `${total.toLocaleString()} kcal`
-              : '칼로리 입력'}
-        </Text>
+        {isLookingUp ? <Text style={styles.draftLookup}>칼로리 찾는 중…</Text> : null}
       </View>
     </View>
   );
@@ -1064,6 +1074,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  draftLookup: {
+    color: '#8b95a1',
+    fontSize: 13,
+    fontWeight: '700',
+  },
   draftNameInput: {
     backgroundColor: '#ffffff',
     borderColor: '#e5e8eb',
@@ -1088,11 +1103,6 @@ const styles = StyleSheet.create({
   },
   draftSection: {
     gap: 10,
-  },
-  draftTotal: {
-    color: '#191f28',
-    fontSize: 16,
-    fontWeight: '900',
   },
   emptyDraftBox: {
     alignItems: 'center',
