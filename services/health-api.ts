@@ -71,6 +71,8 @@ export type NutritionEstimate = {
   carbs_g: number | null;
   protein_g: number | null;
   fat_g: number | null;
+  // 1인분이 몇 g인지 — g↔인분 환산 계수. 원물 등 1회 제공량 미상이면 null (g 입력 불가).
+  serving_size_g: number | null;
   source: string;
 };
 
@@ -574,6 +576,7 @@ function parseNutritionEstimate(value: unknown): NutritionEstimate | null {
   const carbs_g = toNullableNumber(value.carbs_g);
   const protein_g = toNullableNumber(value.protein_g);
   const fat_g = toNullableNumber(value.fat_g);
+  const serving_size_g = toNullableNumber(value.serving_size_g);
 
   if (
     typeof value.food_label !== 'string' ||
@@ -582,6 +585,7 @@ function parseNutritionEstimate(value: unknown): NutritionEstimate | null {
     carbs_g === undefined ||
     protein_g === undefined ||
     fat_g === undefined ||
+    serving_size_g === undefined ||
     typeof value.source !== 'string'
   ) {
     return null;
@@ -594,6 +598,7 @@ function parseNutritionEstimate(value: unknown): NutritionEstimate | null {
     carbs_g,
     protein_g,
     fat_g,
+    serving_size_g,
     source: value.source,
   };
 }
