@@ -257,6 +257,8 @@ const styles = StyleSheet.create({
   gramInput: {
     color: '#191f28',
     flex: 1,
+    // flex 항목의 기본 min-width는 내용 크기라, 좁은 폭에서 input이 안 줄고 옆의 'g'·+버튼을 밀어낸다.
+    minWidth: 0,
     fontSize: 15,
     fontWeight: '700',
     paddingVertical: 10,
