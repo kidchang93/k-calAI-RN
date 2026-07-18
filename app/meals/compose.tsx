@@ -18,7 +18,7 @@ import { BackButton } from '@/components/back-button';
 import { ChipGroup } from '@/components/chip-group';
 import { ErrorBanner } from '@/components/error-banner';
 import { PlanLimitBanner } from '@/components/plan-limit-banner';
-import { Segmented } from '@/components/segmented';
+import { QuantityEditor, QuantityValue } from '@/components/quantity-editor';
 import { FoodDetection, PhotoAsset, uploadFoodPhoto } from '@/services/calorie-api';
 import { notifyDialog } from '@/services/dialog';
 import {
@@ -52,24 +52,6 @@ const MEAL_TYPE_LABELS: Record<MealType, string> = {
   snack: '간식',
 };
 
-const SERVING_RATIO_OPTIONS: { value: string; label: string; ratio: number }[] = [
-  { value: '0.5', label: '0.5인분', ratio: 0.5 },
-  { value: '1', label: '1인분', ratio: 1 },
-  { value: '1.5', label: '1.5인분', ratio: 1.5 },
-  { value: '2', label: '2인분', ratio: 2 },
-];
-
-// 양을 인분으로 고를지, g으로 직접 입력할지. g은 serving_size_g(1인분=몇 g)로 인분 비율로 환산한다.
-type DraftUnit = 'serving' | 'gram';
-
-const UNIT_OPTIONS: { value: DraftUnit; label: string }[] = [
-  { value: 'serving', label: '인분' },
-  { value: 'gram', label: 'g' },
-];
-
-// g 모드 증감 스테퍼 폭.
-const GRAM_STEP = 50;
-
 // 서버 계약(MealItemInput.kcal)의 상한.
 const MAX_KCAL = 100000;
 
@@ -77,22 +59,13 @@ const MAX_KCAL = 100000;
 // 구현돼 있으나 지금은 원래대로 '한 객체(대표 음식 1개)'로 담는다. true 로 바꾸면 켜진다.
 const MULTI_FOOD_SPLIT = false;
 
-// 초안 항목. kcalText는 **현재 선택한 인분(serving_ratio)의 총 kcal**(문자열, 편집 가능)이다.
-// 인분을 바꾸면 그 비율로 스케일되고(setDraftServing), 저장·표시 kcal = round(kcalText).
-type Draft = {
+// 초안 항목. 양 편집 상태(food_label·kcalText·serving_ratio·unit·serving_size_g·basePerServing)는
+// QuantityEditor와 공유하는 QuantityValue로, 저장 페이로드에는 serving_ratio + kcal만 나간다.
+type Draft = QuantityValue & {
   key: string;
-  food_label: string;
-  kcalText: string;
-  serving_ratio: number;
   source: MealItemSource;
   confidence: number | null;
   portion_g: number | null;
-  // 1인분이 몇 g(estimate 응답). null이면 g 입력 불가 → 인분 모드 고정.
-  serving_size_g: number | null;
-  // 1인분당 kcal(정수). 인분/g 스케일 시 매번 여기서 절대 계산해 반올림 누적을 막는다. null=기준 미상(직접 입력·estimate 실패)→이전 kcal 기준 누적 폴백.
-  basePerServing: number | null;
-  // UI 전용 — 저장 페이로드에는 나가지 않는다(serving_ratio + kcal만).
-  unit: DraftUnit;
 };
 
 // 현재 시각 기준 끼니 기본값. 사용자가 칩에서 언제든 바꿀 수 있다.
@@ -277,61 +250,10 @@ export default function MealComposeScreen() {
     [runWarningCheck]
   );
 
-  const updateDraft = (key: string, patch: Partial<Pick<Draft, 'food_label' | 'kcalText'>>) => {
-    setDrafts((prev) =>
-      prev.map((draft) => {
-        if (draft.key !== key) {
-          return draft;
-        }
-
-        const next = { ...draft, ...patch };
-
-        // 사용자가 총 kcal을 직접 고치면 그 값은 현재 serving_ratio 기준이므로 1인분 기준으로
-        // 되돌려 basePerServing을 재동기화한다. 이래야 편집 후 양을 바꿔도 편집값이 기준이 된다.
-        if (patch.kcalText !== undefined) {
-          const value = Number(patch.kcalText.trim());
-
-          if (patch.kcalText.trim() !== '' && Number.isFinite(value) && draft.serving_ratio > 0) {
-            next.basePerServing = Math.round(value / draft.serving_ratio);
-          }
-        }
-
-        return next;
-      })
-    );
-  };
-
-  const setDraftServing = (key: string, ratio: number) => {
-    setDrafts((prev) =>
-      prev.map((draft) => {
-        if (draft.key !== key || ratio === draft.serving_ratio) {
-          return draft;
-        }
-
-        // 1인분 기준 kcal(basePerServing)을 알면 매번 거기서 절대 계산한다 — 이전 값 기준 누적
-        // 스케일은 중간 반올림이 쌓인다. 기준을 모르면(직접 입력) 이전 값 기준 누적으로 폴백한다.
-        let kcalText = draft.kcalText;
-
-        if (draft.basePerServing !== null) {
-          kcalText = String(Math.round(draft.basePerServing * ratio));
-        } else {
-          const current = Number(draft.kcalText.trim());
-          const canScale =
-            draft.kcalText.trim() !== '' && Number.isFinite(current) && draft.serving_ratio > 0;
-
-          if (canScale) {
-            kcalText = String(Math.round((current * ratio) / draft.serving_ratio));
-          }
-        }
-
-        return { ...draft, serving_ratio: ratio, kcalText };
-      })
-    );
-  };
-
-  // 인분↔g 토글. serving_ratio는 그대로 두고 표시 단위만 바꾼다(kcal 불변).
-  const setDraftUnit = (key: string, unit: DraftUnit) => {
-    setDrafts((prev) => prev.map((draft) => (draft.key === key ? { ...draft, unit } : draft)));
+  // QuantityEditor가 양 편집(이름·kcal·인분/g·basePerServing 절대계산)을 마친 값을 그대로 병합한다.
+  // key·source·confidence·portion_g는 QuantityValue 밖이라 보존된다.
+  const applyQuantity = (key: string, next: QuantityValue) => {
+    setDrafts((prev) => prev.map((draft) => (draft.key === key ? { ...draft, ...next } : draft)));
   };
 
   const removeDraft = (key: string) => {
@@ -810,16 +732,14 @@ export default function MealComposeScreen() {
           ) : (
             <View style={styles.draftSection}>
               {drafts.map((draft) => (
-                <DraftCard
+                <QuantityEditor
                   key={draft.key}
-                  draft={draft}
+                  value={draft}
                   isLookingUp={lookupKey === draft.key}
-                  onChangeKcal={(text) => updateDraft(draft.key, { kcalText: text })}
-                  onChangeLabel={(text) => updateDraft(draft.key, { food_label: text })}
-                  onLookupKcal={() => void lookupDraftKcal(draft.key)}
+                  portionHint={draft.portion_g}
+                  onChange={(next) => applyQuantity(draft.key, next)}
+                  onLabelBlur={() => void lookupDraftKcal(draft.key)}
                   onRemove={() => removeDraft(draft.key)}
-                  onSelectServing={(ratio) => setDraftServing(draft.key, ratio)}
-                  onSelectUnit={(unit) => setDraftUnit(draft.key, unit)}
                 />
               ))}
             </View>
@@ -928,162 +848,6 @@ function AddActionButton({
       <Text style={styles.addActionLabel}>{label}</Text>
     </Pressable>
   );
-}
-
-function DraftCard({
-  draft,
-  isLookingUp,
-  onChangeLabel,
-  onChangeKcal,
-  onLookupKcal,
-  onSelectServing,
-  onSelectUnit,
-  onRemove,
-}: {
-  draft: Draft;
-  isLookingUp: boolean;
-  onChangeLabel: (text: string) => void;
-  onChangeKcal: (text: string) => void;
-  onLookupKcal: () => void;
-  onSelectServing: (ratio: number) => void;
-  onSelectUnit: (unit: DraftUnit) => void;
-  onRemove: () => void;
-}) {
-  const servingSize = draft.serving_size_g;
-  const gramMode = servingSize !== null && draft.unit === 'gram';
-  // 현재 인분(serving_ratio)에 해당하는 g. serving_size_g 미상이면 null.
-  const derivedGram = servingSize !== null ? Math.round(draft.serving_ratio * servingSize) : null;
-
-  // g 입력은 자유롭게 지우고 쓸 수 있어야 해 로컬 텍스트로 다룬다. 편집 중이 아니면 serving_ratio
-  // 에서 파생한 g을 그대로 보여준다(외부에서 인분을 바꿔도 따라간다).
-  const [gramText, setGramText] = useState('');
-  const [isEditingGram, setIsEditingGram] = useState(false);
-
-  const applyGram = (grams: number) => {
-    if (servingSize === null || servingSize <= 0) {
-      return;
-    }
-
-    const ratio = grams / servingSize;
-
-    // 0·음수·NaN·무한대는 무시한다(setDraftServing의 kcal 스케일을 그대로 재사용).
-    if (!Number.isFinite(ratio) || ratio <= 0) {
-      return;
-    }
-
-    onSelectServing(ratio);
-  };
-
-  const changeGramText = (text: string) => {
-    setGramText(text);
-
-    const grams = Number(text.trim());
-
-    if (text.trim() !== '' && Number.isFinite(grams) && grams > 0) {
-      applyGram(grams);
-    }
-  };
-
-  const stepGram = (delta: number) => {
-    const base = derivedGram ?? servingSize ?? 0;
-    const next = Math.max(GRAM_STEP, base + delta);
-    setGramText(String(next));
-    applyGram(next);
-  };
-
-  const gramValue = isEditingGram ? gramText : derivedGram !== null ? String(derivedGram) : '';
-
-  return (
-    <View style={styles.draftCard}>
-      <View style={styles.draftHeadRow}>
-        <TextInput
-          maxLength={100}
-          onChangeText={onChangeLabel}
-          onEndEditing={onLookupKcal}
-          placeholder="음식 이름 (입력하면 칼로리 자동)"
-          placeholderTextColor="#b0b8c1"
-          style={styles.draftNameInput}
-          value={draft.food_label}
-        />
-        <Pressable
-          hitSlop={8}
-          onPress={onRemove}
-          style={({ pressed }) => [styles.draftRemoveButton, pressed && styles.pressed]}>
-          <MaterialIcons color="#e5484d" name="delete-outline" size={20} />
-        </Pressable>
-      </View>
-
-      {servingSize !== null ? (
-        <Segmented compact onChange={onSelectUnit} options={UNIT_OPTIONS} value={draft.unit} />
-      ) : (
-        <Text style={styles.draftUnitNotice}>1회 제공량 정보가 없어 인분으로 기록해요</Text>
-      )}
-
-      {gramMode ? (
-        <View style={styles.gramRow}>
-          <Pressable
-            onPress={() => stepGram(-GRAM_STEP)}
-            style={({ pressed }) => [styles.gramStepButton, pressed && styles.pressed]}>
-            <MaterialIcons color="#3182f6" name="remove" size={18} />
-          </Pressable>
-          <View style={styles.gramField}>
-            <TextInput
-              keyboardType="number-pad"
-              maxLength={5}
-              onBlur={() => setIsEditingGram(false)}
-              onChangeText={changeGramText}
-              onFocus={() => {
-                setIsEditingGram(true);
-                setGramText(derivedGram !== null ? String(derivedGram) : '');
-              }}
-              placeholder="그램"
-              placeholderTextColor="#b0b8c1"
-              style={styles.gramInput}
-              value={gramValue}
-            />
-            <Text style={styles.gramUnit}>g</Text>
-          </View>
-          <Pressable
-            onPress={() => stepGram(GRAM_STEP)}
-            style={({ pressed }) => [styles.gramStepButton, pressed && styles.pressed]}>
-            <MaterialIcons color="#3182f6" name="add" size={18} />
-          </Pressable>
-        </View>
-      ) : (
-        <ChipGroup
-          options={SERVING_RATIO_OPTIONS}
-          selectedValues={[String(draft.serving_ratio)]}
-          onToggle={(value) => onSelectServing(servingRatioOf(value))}
-        />
-      )}
-
-      {!gramMode && draft.portion_g !== null ? (
-        <Text style={styles.draftPortion}>{`대략 ${Math.round(draft.portion_g)}g 정도로 보여요`}</Text>
-      ) : null}
-
-      <View style={styles.draftKcalRow}>
-        <View style={styles.draftKcalField}>
-          <TextInput
-            keyboardType="number-pad"
-            maxLength={6}
-            onChangeText={onChangeKcal}
-            placeholder="칼로리"
-            placeholderTextColor="#b0b8c1"
-            style={styles.draftKcalInput}
-            value={draft.kcalText}
-          />
-          <Text style={styles.draftKcalUnit}>kcal</Text>
-        </View>
-        {isLookingUp ? <Text style={styles.draftLookup}>칼로리 찾는 중…</Text> : null}
-      </View>
-    </View>
-  );
-}
-
-function servingRatioOf(value: string): number {
-  const option = SERVING_RATIO_OPTIONS.find((item) => item.value === value);
-
-  return option ? option.ratio : 1;
 }
 
 // 경고 1건 → 1줄. allergy는 "계란 알러지: …", condition은 "당뇨 주의: …" (DATA_MODEL.md 16장).
@@ -1196,79 +960,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
   },
-  draftCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    gap: 10,
-    padding: 16,
-  },
-  draftHeadRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  draftKcalField: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderColor: '#e5e8eb',
-    borderRadius: 8,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 4,
-    paddingHorizontal: 12,
-  },
-  draftKcalInput: {
-    color: '#191f28',
-    fontSize: 15,
-    fontWeight: '700',
-    minWidth: 56,
-    paddingVertical: 10,
-    textAlign: 'right',
-  },
-  draftKcalRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  draftKcalUnit: {
-    color: '#8b95a1',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  draftLookup: {
-    color: '#8b95a1',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  draftNameInput: {
-    backgroundColor: '#ffffff',
-    borderColor: '#e5e8eb',
-    borderRadius: 8,
-    borderWidth: 1,
-    color: '#191f28',
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '700',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  draftPortion: {
-    color: '#8b95a1',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  draftRemoveButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 24,
-  },
   draftSection: {
     gap: 10,
-  },
-  draftUnitNotice: {
-    color: '#8b95a1',
-    fontSize: 12,
-    fontWeight: '700',
   },
   emptyDraftBox: {
     alignItems: 'center',
@@ -1326,44 +1019,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 12,
     padding: 16,
-  },
-  gramField: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderColor: '#e5e8eb',
-    borderRadius: 8,
-    borderWidth: 1,
-    flex: 1,
-    flexDirection: 'row',
-    gap: 4,
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  gramInput: {
-    color: '#191f28',
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '700',
-    paddingVertical: 10,
-    textAlign: 'right',
-  },
-  gramRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  gramStepButton: {
-    alignItems: 'center',
-    backgroundColor: '#f5f9ff',
-    borderRadius: 8,
-    height: 42,
-    justifyContent: 'center',
-    width: 46,
-  },
-  gramUnit: {
-    color: '#8b95a1',
-    fontSize: 12,
-    fontWeight: '700',
   },
   header: {
     gap: 4,

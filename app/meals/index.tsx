@@ -1,22 +1,17 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/back-button';
+import { ChipGroup } from '@/components/chip-group';
 import { ErrorBanner } from '@/components/error-banner';
+import { QuantityEditor, QuantityValue } from '@/components/quantity-editor';
 import { confirmDialog } from '@/services/dialog';
 import {
   deleteMeal,
+  estimateNutrition,
   formatDateParam,
   getMeals,
   MealItemSource,
@@ -41,13 +36,16 @@ const MEAL_TYPE_ICONS: Record<MealType, keyof typeof MaterialIcons.glyphMap> = {
 
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
-// 인라인 수정 폼의 항목. serving_ratio·source·confidence는 그대로 보존하고
-// 이름·kcal만 고친다 (PUT은 전체 교체라 보존 필드도 함께 보내야 한다).
-type EditItem = {
+const MEAL_TYPE_OPTIONS: { value: MealType; label: string }[] = MEAL_TYPES.map((value) => ({
+  value,
+  label: MEAL_TYPE_LABELS[value],
+}));
+
+// 인라인 수정 폼의 항목. 양 편집 상태(food_label·kcalText·serving_ratio·unit·serving_size_g·
+// basePerServing)는 끼니 구성과 같은 QuantityEditor를 쓰도록 QuantityValue로 담는다. source·
+// confidence는 QuantityValue 밖이라 그대로 보존해 다시 보낸다 (PUT은 전체 교체).
+type EditItem = QuantityValue & {
   key: number;
-  food_label: string;
-  kcalText: string;
-  serving_ratio: number;
   source: MealItemSource;
   confidence: number | null;
 };
@@ -78,6 +76,11 @@ export default function MealListScreen() {
   const [editMealType, setEditMealType] = useState<MealType>('breakfast');
   const [editItems, setEditItems] = useState<EditItem[]>([]);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  // estimate 재조회 중인 항목 key(로딩 표시용). 저장된 항목엔 serving_size_g·basePerServing이
+  // 없어 수정 진입 때 이름으로 다시 조회해 인분/g 조정을 연다.
+  const [editLookupKeys, setEditLookupKeys] = useState<number[]>([]);
+  // 수정 세션 시퀀스 — 다른 끼니로 편집을 바꾸거나 취소하면 늦게 온 estimate 응답을 무시한다.
+  const editSeqRef = useRef(0);
 
   const loadMeals = useCallback(async () => {
     setIsLoading(true);
@@ -103,27 +106,82 @@ export default function MealListScreen() {
   );
 
   const startEdit = (meal: MealLog) => {
+    const seq = ++editSeqRef.current;
+
     setEditingMealId(meal.id);
     setEditMealType(meal.meal_type);
-    setEditItems(
-      meal.items.map((item) => ({
-        key: item.id,
-        food_label: item.food_label,
-        kcalText: String(item.kcal),
-        serving_ratio: item.serving_ratio,
-        source: item.source,
-        confidence: item.confidence,
-      }))
-    );
+
+    // 저장값엔 serving_size_g·basePerServing이 없다 → 인분 모드 폴백으로 먼저 그리고,
+    // 각 이름을 estimate로 재조회해 채워지면 인분/g 조정이 열린다.
+    const items: EditItem[] = meal.items.map((item) => ({
+      key: item.id,
+      food_label: item.food_label,
+      kcalText: String(item.kcal),
+      serving_ratio: item.serving_ratio,
+      unit: 'serving',
+      serving_size_g: null,
+      basePerServing: null,
+      source: item.source,
+      confidence: item.confidence,
+    }));
+
+    setEditItems(items);
+    setEditLookupKeys(items.filter((item) => item.food_label.trim() !== '').map((item) => item.key));
+    items.forEach((item) => void fillQuantityBase(seq, item.key, item.food_label));
   };
 
   const cancelEdit = () => {
+    editSeqRef.current += 1;
     setEditingMealId(null);
     setEditItems([]);
+    setEditLookupKeys([]);
   };
 
-  const updateEditItem = (key: number, patch: Partial<Pick<EditItem, 'food_label' | 'kcalText'>>) => {
-    setEditItems((prev) => prev.map((item) => (item.key === key ? { ...item, ...patch } : item)));
+  // 저장된 항목 이름으로 estimate를 다시 조회해 serving_size_g·basePerServing을 채운다(쿼터 0).
+  // kcalText는 저장값 그대로 두고(표시 kcal 유지) 양 조정 기준만 확보한다. 404/503/오류면
+  // serving_size_g=null로 남겨 인분 모드로 동작한다.
+  const fillQuantityBase = async (seq: number, key: number, foodLabel: string) => {
+    const name = foodLabel.trim();
+
+    if (name === '') {
+      return;
+    }
+
+    try {
+      const estimate = await estimateNutrition(name);
+
+      if (editSeqRef.current !== seq) {
+        return;
+      }
+
+      setEditItems((prev) =>
+        prev.map((item) =>
+          item.key === key
+            ? {
+                ...item,
+                serving_size_g: estimate.serving_size_g,
+                basePerServing: Math.round(estimate.kcal_per_serving),
+              }
+            : item
+        )
+      );
+    } catch {
+      // 미매칭(404)·일시 장애(503)·오류면 그대로 둔다 — 인분 모드로 기록/수정한다.
+    } finally {
+      setEditLookupKeys((prev) => prev.filter((current) => current !== key));
+    }
+  };
+
+  // QuantityEditor가 양 편집을 마친 값을 병합한다. key·source·confidence는 QuantityValue 밖이라 보존된다.
+  const applyQuantity = (key: number, next: QuantityValue) => {
+    setEditItems((prev) => prev.map((item) => (item.key === key ? { ...item, ...next } : item)));
+  };
+
+  // PUT은 전체 교체라 남은 항목만 다시 보내면 그 항목은 끼니에서 빠진다. 마지막 항목까지 지우면
+  // isEditValid가 false가 돼 저장이 비활성된다(취소로 되돌린다).
+  const removeEditItem = (key: number) => {
+    setEditItems((prev) => prev.filter((item) => item.key !== key));
+    setEditLookupKeys((prev) => prev.filter((current) => current !== key));
   };
 
   const isEditValid =
@@ -156,8 +214,11 @@ export default function MealListScreen() {
           confidence: item.confidence,
         })),
       });
+      // 진행 중인 estimate 재조회가 닫힌 폼에 뒤늦게 반영되지 않도록 세션을 무효화한다.
+      editSeqRef.current += 1;
       setEditingMealId(null);
       setEditItems([]);
+      setEditLookupKeys([]);
       await loadMeals();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
@@ -291,50 +352,21 @@ export default function MealListScreen() {
 
                   {editingMealId === meal.id ? (
                     <View style={styles.editBox}>
-                      <View style={styles.mealTypeRow}>
-                        {MEAL_TYPES.map((type) => (
-                          <Pressable
-                            key={type}
-                            onPress={() => setEditMealType(type)}
-                            style={({ pressed }) => [
-                              styles.mealTypeChip,
-                              editMealType === type && styles.mealTypeChipSelected,
-                              pressed && styles.pressed,
-                            ]}>
-                            <Text
-                              style={[
-                                styles.mealTypeChipText,
-                                editMealType === type && styles.mealTypeChipTextSelected,
-                              ]}>
-                              {MEAL_TYPE_LABELS[type]}
-                            </Text>
-                          </Pressable>
-                        ))}
-                      </View>
+                      <Text style={styles.editSectionLabel}>끼니</Text>
+                      <ChipGroup
+                        options={MEAL_TYPE_OPTIONS}
+                        selectedValues={[editMealType]}
+                        onToggle={(value) => selectEditMealType(value, setEditMealType)}
+                      />
 
                       {editItems.map((item) => (
-                        <View key={item.key} style={styles.editItemRow}>
-                          <TextInput
-                            maxLength={100}
-                            onChangeText={(text) => updateEditItem(item.key, { food_label: text })}
-                            placeholder="음식 이름"
-                            placeholderTextColor="#b0b8c1"
-                            style={styles.editNameInput}
-                            value={item.food_label}
-                          />
-                          <View style={styles.editKcalWrap}>
-                            <TextInput
-                              keyboardType="numeric"
-                              maxLength={5}
-                              onChangeText={(text) => updateEditItem(item.key, { kcalText: text })}
-                              placeholder="0"
-                              placeholderTextColor="#b0b8c1"
-                              style={styles.editKcalInput}
-                              value={item.kcalText}
-                            />
-                            <Text style={styles.editKcalUnit}>kcal</Text>
-                          </View>
-                        </View>
+                        <QuantityEditor
+                          key={item.key}
+                          value={item}
+                          isLookingUp={editLookupKeys.includes(item.key)}
+                          onChange={(next) => applyQuantity(item.key, next)}
+                          onRemove={() => removeEditItem(item.key)}
+                        />
                       ))}
 
                       <View style={styles.editActions}>
@@ -380,6 +412,14 @@ export default function MealListScreen() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function selectEditMealType(value: string, setEditMealType: (value: MealType) => void) {
+  const match = MEAL_TYPES.find((type) => type === value);
+
+  if (match) {
+    setEditMealType(match);
+  }
 }
 
 // YYYY-MM-DD → 'M월 D일 기록'
@@ -448,44 +488,10 @@ const styles = StyleSheet.create({
   editBox: {
     gap: 10,
   },
-  editItemRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  editKcalInput: {
-    color: '#191f28',
-    fontSize: 15,
-    fontWeight: '700',
-    minWidth: 48,
-    paddingVertical: 10,
-    textAlign: 'right',
-  },
-  editKcalUnit: {
-    color: '#8b95a1',
+  editSectionLabel: {
+    color: '#6b7684',
     fontSize: 13,
-    fontWeight: '700',
-  },
-  editKcalWrap: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderColor: '#e5e8eb',
-    borderRadius: 8,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 4,
-    paddingHorizontal: 12,
-  },
-  editNameInput: {
-    backgroundColor: '#ffffff',
-    borderColor: '#e5e8eb',
-    borderRadius: 8,
-    borderWidth: 1,
-    color: '#191f28',
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '700',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    fontWeight: '800',
   },
   header: {
     gap: 4,
@@ -546,32 +552,10 @@ const styles = StyleSheet.create({
     color: '#8b95a1',
     fontSize: 12,
   },
-  mealTypeChip: {
-    alignItems: 'center',
-    backgroundColor: '#f2f4f6',
-    borderRadius: 999,
-    flex: 1,
-    paddingVertical: 8,
-  },
-  mealTypeChipSelected: {
-    backgroundColor: '#edf6ff',
-  },
-  mealTypeChipText: {
-    color: '#6b7684',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  mealTypeChipTextSelected: {
-    color: '#3182f6',
-  },
   mealTypeLabel: {
     color: '#191f28',
     fontSize: 15,
     fontWeight: '800',
-  },
-  mealTypeRow: {
-    flexDirection: 'row',
-    gap: 8,
   },
   pressed: {
     opacity: 0.74,
