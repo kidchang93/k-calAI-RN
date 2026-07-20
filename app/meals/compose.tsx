@@ -851,8 +851,21 @@ function AddActionButton({
 }
 
 // 경고 1건 → 1줄. allergy는 "계란 알러지: …", condition은 "당뇨 주의: …" (DATA_MODEL.md 16장).
+const NUTRIENT_LABELS: Record<NonNullable<FoodWarning['nutrient']>, string> = {
+  sodium: '나트륨',
+  potassium: '칼륨',
+  phosphorus: '인',
+};
+
 function formatWarning(warning: FoodWarning): string {
   const prefix = warning.source === 'allergy' ? `${warning.label} 알러지` : `${warning.label} 주의`;
+
+  // 영양소 축 경고(신장병·고혈압)는 어느 영양소가 높은지 알려준다 — 대한신장학회 지침 분류.
+  if (warning.nutrient !== null) {
+    const nutrientLabel = NUTRIENT_LABELS[warning.nutrient];
+
+    return `${prefix}: '${warning.matched_label}'은(는) ${nutrientLabel}이 높은 편이에요`;
+  }
 
   return `${prefix}: '${warning.matched_label}'에 ${warning.matched_keyword}${subjectParticle(warning.matched_keyword)} 포함될 수 있어요`;
 }

@@ -148,12 +148,16 @@ export type TrendsResponse = {
 // 모르는 값은 recommendation-api.ts의 excluded 처리와 같은 방식으로 응답 전체를 형식 오류로 취급한다.
 export type FoodWarningSource = 'condition' | 'allergy';
 
+// 신장병·고혈압 등 영양 제한 질병 경고면 어느 영양소가 높은지. 키워드 경고·구버전 서버는 null.
+export type FoodWarningNutrient = 'sodium' | 'potassium' | 'phosphorus';
+
 export type FoodWarning = {
   source: FoodWarningSource;
   code: string;
   label: string;
   matched_keyword: string;
   matched_label: string;
+  nutrient: FoodWarningNutrient | null;
 };
 
 export type CreateWeightRequest = {
@@ -758,7 +762,13 @@ function parseFoodWarning(value: unknown): FoodWarning | null {
     label: value.label,
     matched_keyword: value.matched_keyword,
     matched_label: value.matched_label,
+    nutrient: toFoodWarningNutrient(value.nutrient),
   };
+}
+
+// 서버가 sodium|potassium|phosphorus 를 주면 그대로, 그 외/누락(구버전)은 null.
+function toFoodWarningNutrient(value: unknown): FoodWarningNutrient | null {
+  return value === 'sodium' || value === 'potassium' || value === 'phosphorus' ? value : null;
 }
 
 function parseWeightLog(value: unknown): WeightLog | null {
