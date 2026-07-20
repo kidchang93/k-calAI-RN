@@ -25,6 +25,24 @@ export const CHANGE_TYPE_LABELS: Record<ChangeType, string> = {
 // 최신순(위가 최신). 새 릴리즈는 이 배열 맨 앞에 추가한다.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-07-20',
+    title: '신장병 맞춤 식단 · 영양 정보 강화',
+    items: [
+      {
+        type: 'new',
+        text: '추천 메뉴마다 나트륨·칼륨·인·단백질 함량을 함께 보여드려요.',
+      },
+      {
+        type: 'new',
+        text: '신장 질환이 있으면 칼륨·인이 높은 음식을 추천에서 빼고, 칼륨을 줄이는 조리법을 알려드려요. (대한신장학회 지침 참고)',
+      },
+      {
+        type: 'improved',
+        text: '음식을 기록할 때 "칼륨이 높은 편이에요"처럼 어떤 영양소를 주의하면 좋을지 알려드려요.',
+      },
+    ],
+  },
+  {
     date: '2026-07-16',
     title: '지난 날짜 기록 · 한 끼 여러 메뉴',
     items: [
