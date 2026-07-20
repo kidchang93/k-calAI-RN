@@ -192,6 +192,19 @@ export default function RecommendationsScreen() {
                 </View>
               )}
 
+              {/* 질병 기반 식이 도움말 (신장병이면 칼륨 저감 조리법 등). 서버가 문구를 내려보낸다. */}
+              {recommendation.tips.length > 0 ? (
+                <View style={styles.tipsBox}>
+                  <MaterialIcons color="#3182f6" name="lightbulb-outline" size={18} />
+                  <View style={styles.tipsBody}>
+                    <Text style={styles.tipsTitle}>식이 도움말</Text>
+                    {recommendation.tips.map((tip) => (
+                      <Text key={tip} style={styles.tipsText}>{`• ${tip}`}</Text>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+
               {/* 고지 문구는 서버가 내려보낸 문자열을 그대로 표시한다 — 앱 하드코딩 금지. */}
               <Text style={styles.disclaimer}>{recommendation.disclaimer}</Text>
             </>
@@ -203,6 +216,8 @@ export default function RecommendationsScreen() {
 }
 
 function RecommendationCard({ item }: { item: RecommendationItem }) {
+  const nutrients = buildNutrientChips(item);
+
   return (
     <View style={styles.itemCard}>
       <View style={styles.itemTopLine}>
@@ -210,8 +225,43 @@ function RecommendationCard({ item }: { item: RecommendationItem }) {
         <Text style={styles.itemKcal}>{`${item.kcal.toLocaleString()} kcal`}</Text>
       </View>
       <Text style={styles.itemReason}>{item.reason}</Text>
+      {/* 실측 나트륨·칼륨·인·단백질 (신장병 등 질병 사용자용). 값 없는 항목은 숨긴다. */}
+      {nutrients.length > 0 ? (
+        <View style={styles.nutrientRow}>
+          {nutrients.map((chip) => (
+            <View key={chip.label} style={styles.nutrientChip}>
+              <Text style={styles.nutrientLabel}>{chip.label}</Text>
+              <Text style={styles.nutrientValue}>{chip.value}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
+}
+
+// 실측값이 있는 영양소만 칩으로. mg 은 정수 반올림, g 은 소수 첫째 자리.
+function buildNutrientChips(item: RecommendationItem): { label: string; value: string }[] {
+  const chips: { label: string; value: string }[] = [];
+
+  if (item.sodium_mg !== null) {
+    chips.push({ label: '나트륨', value: `${Math.round(item.sodium_mg)}mg` });
+  }
+  if (item.potassium_mg !== null) {
+    chips.push({ label: '칼륨', value: `${Math.round(item.potassium_mg)}mg` });
+  }
+  if (item.phosphorus_mg !== null) {
+    chips.push({ label: '인', value: `${Math.round(item.phosphorus_mg)}mg` });
+  }
+  if (item.protein_g !== null) {
+    chips.push({ label: '단백질', value: `${formatGram(item.protein_g)}g` });
+  }
+
+  return chips;
+}
+
+function formatGram(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
 const styles = StyleSheet.create({
@@ -316,6 +366,30 @@ const styles = StyleSheet.create({
     gap: 12,
     justifyContent: 'space-between',
   },
+  nutrientChip: {
+    alignItems: 'baseline',
+    backgroundColor: '#f2f4f6',
+    borderRadius: 6,
+    flexDirection: 'row',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  nutrientLabel: {
+    color: '#8b95a1',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  nutrientRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  nutrientValue: {
+    color: '#4e5968',
+    fontSize: 12,
+    fontWeight: '800',
+  },
   pressed: {
     opacity: 0.74,
   },
@@ -353,6 +427,28 @@ const styles = StyleSheet.create({
   subtitle: {
     color: '#6b7684',
     fontSize: 14,
+  },
+  tipsBody: {
+    flex: 1,
+    gap: 4,
+  },
+  tipsBox: {
+    alignItems: 'flex-start',
+    backgroundColor: '#f5f9ff',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 8,
+    padding: 14,
+  },
+  tipsText: {
+    color: '#4e5968',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  tipsTitle: {
+    color: '#191f28',
+    fontSize: 14,
+    fontWeight: '800',
   },
   title: {
     color: '#191f28',

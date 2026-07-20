@@ -15,6 +15,13 @@ export type RecommendationItem = {
   name: string;
   kcal: number;
   reason: string;
+  // 1인분 실측 영양값 (식약처/농진청 DB). 미측정·원물은 null.
+  // 신장병 등 질병 사용자가 나트륨·칼륨·인·단백질을 눈으로 확인한다
+  // (kcalAI-model/docs/CKD_NUTRITION.md 3-1). 실측값 표시이지 처방이 아니다.
+  sodium_mg: number | null;
+  potassium_mg: number | null;
+  phosphorus_mg: number | null;
+  protein_g: number | null;
 };
 
 // excluded는 판별 유니온이다. condition/allergen은 추천에 반영된 제외 조건,
@@ -39,6 +46,8 @@ export type DietRecommendation = {
   // 후보가 없으면 빈 배열로 내려온다 — 화면이 빈 상태를 그린다.
   items: RecommendationItem[];
   excluded: ExcludedEntry[];
+  // 질병 기반 식이 안내 (신장병이면 칼륨 저감 조리법 등). 비해당·구버전 서버는 빈 배열.
+  tips: string[];
   cached: boolean;
   disclaimer: string;
 };
@@ -88,6 +97,11 @@ function toMealType(value: unknown): MealType | null {
     : null;
 }
 
+// 실측 영양값은 number 이거나 null/누락(미측정·구버전 서버). 그 외 타입은 null 로 눕힌다.
+function toNullableNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
 function parseRecommendationItem(value: unknown): RecommendationItem | null {
   if (!isRecord(value)) {
     return null;
@@ -105,6 +119,10 @@ function parseRecommendationItem(value: unknown): RecommendationItem | null {
     name: value.name,
     kcal: value.kcal,
     reason: value.reason,
+    sodium_mg: toNullableNumber(value.sodium_mg),
+    potassium_mg: toNullableNumber(value.potassium_mg),
+    phosphorus_mg: toNullableNumber(value.phosphorus_mg),
+    protein_g: toNullableNumber(value.protein_g),
   };
 }
 
@@ -158,6 +176,11 @@ function parseDietRecommendation(value: unknown): DietRecommendation | null {
     return null;
   }
 
+  // tips 는 구버전 서버엔 없다 — 누락·비배열이면 빈 배열로 관대하게 처리한다.
+  const tips = Array.isArray(value.tips)
+    ? value.tips.filter((tip): tip is string => typeof tip === 'string')
+    : [];
+
   const items: RecommendationItem[] = [];
 
   for (const item of value.items) {
@@ -187,6 +210,7 @@ function parseDietRecommendation(value: unknown): DietRecommendation | null {
     rec_date: value.rec_date,
     items,
     excluded,
+    tips,
     cached: value.cached,
     disclaimer: value.disclaimer,
   };
