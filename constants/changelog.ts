@@ -25,6 +25,32 @@ export const CHANGE_TYPE_LABELS: Record<ChangeType, string> = {
 // 최신순(위가 최신). 새 릴리즈는 이 배열 맨 앞에 추가한다.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-07-21',
+    title: '운동 기록 · BMI · 영양 수치 강화',
+    items: [
+      {
+        type: 'new',
+        text: '운동을 기록하고 이번 주에 얼마나 움직였는지 확인할 수 있어요. 권장 운동량까지 얼마나 남았는지도 알려드려요. (보건복지부 신체활동 지침 기준)',
+      },
+      {
+        type: 'new',
+        text: '리포트에서 내 BMI와 나이에 맞는 주당 권장 운동량을 볼 수 있어요. (대한비만학회 기준)',
+      },
+      {
+        type: 'new',
+        text: '내가 먹은 음식의 나트륨·칼륨·인 함량을 기록 화면에서 바로 확인할 수 있어요.',
+      },
+      {
+        type: 'improved',
+        text: '신장 질환이 있으면 추천 메뉴의 칼륨·인이 낮음·보통·높음 중 어디인지 한눈에 보여드려요.',
+      },
+      {
+        type: 'improved',
+        text: '이름만으로는 놓치던 고칼륨 음식도 실제 영양 수치로 찾아 알려드려요.',
+      },
+    ],
+  },
+  {
     date: '2026-07-20',
     title: '신장병 맞춤 식단 · 영양 정보 강화',
     items: [
