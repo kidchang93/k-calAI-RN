@@ -11,6 +11,10 @@ import { ConsentRequiredError } from '@/services/onboarding-api';
 //   403 — 로그인했지만 sensitive_health 동의가 없거나 철회됨 → ConsentRequiredError.
 // disclaimer는 서버가 내려보낸 문구를 그대로 표시한다 — 앱에 하드코딩하지 않는다.
 
+// 수치의 상대 위치. 서버가 지침 이름 분류와 실측 mg 중 엄격한 쪽으로 판정한다
+// (kcalAI-model/docs/CKD_NUTRITION.md 3-4). 절대 기준·목표량이 아니다.
+export type NutrientTier = 'low' | 'mid' | 'high';
+
 export type RecommendationItem = {
   name: string;
   kcal: number;
@@ -22,6 +26,9 @@ export type RecommendationItem = {
   potassium_mg: number | null;
   phosphorus_mg: number | null;
   protein_g: number | null;
+  // 칼륨·인 제한 대상 사용자에게만 채워진다. 그 외 사용자·구버전 서버는 null.
+  potassium_tier: NutrientTier | null;
+  phosphorus_tier: NutrientTier | null;
 };
 
 // excluded는 판별 유니온이다. condition/allergen은 추천에 반영된 제외 조건,
@@ -48,6 +55,8 @@ export type DietRecommendation = {
   excluded: ExcludedEntry[];
   // 질병 기반 식이 안내 (신장병이면 칼륨 저감 조리법 등). 비해당·구버전 서버는 빈 배열.
   tips: string[];
+  // 등급(저/중/고)을 노출할 때 함께 띄우는 고지. 등급이 없으면 null — 앱 하드코딩 금지.
+  tier_notice: string | null;
   cached: boolean;
   disclaimer: string;
 };
@@ -102,6 +111,11 @@ function toNullableNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+// 등급은 서버가 아는 세 값만 받는다. 그 외/누락(비대상·구버전 서버)은 null → 배지를 숨긴다.
+function toNutrientTier(value: unknown): NutrientTier | null {
+  return value === 'low' || value === 'mid' || value === 'high' ? value : null;
+}
+
 function parseRecommendationItem(value: unknown): RecommendationItem | null {
   if (!isRecord(value)) {
     return null;
@@ -123,6 +137,8 @@ function parseRecommendationItem(value: unknown): RecommendationItem | null {
     potassium_mg: toNullableNumber(value.potassium_mg),
     phosphorus_mg: toNullableNumber(value.phosphorus_mg),
     protein_g: toNullableNumber(value.protein_g),
+    potassium_tier: toNutrientTier(value.potassium_tier),
+    phosphorus_tier: toNutrientTier(value.phosphorus_tier),
   };
 }
 
@@ -211,6 +227,7 @@ function parseDietRecommendation(value: unknown): DietRecommendation | null {
     items,
     excluded,
     tips,
+    tier_notice: typeof value.tier_notice === 'string' ? value.tier_notice : null,
     cached: value.cached,
     disclaimer: value.disclaimer,
   };

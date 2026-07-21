@@ -20,6 +20,7 @@ import {
   ExcludedFiltered,
   ExcludedRule,
   getRecommendation,
+  NutrientTier,
   RecommendationItem,
 } from '@/services/recommendation-api';
 
@@ -193,7 +194,7 @@ export default function RecommendationsScreen() {
               )}
 
               {/* 질병 기반 식이 도움말 (신장병이면 칼륨 저감 조리법 등). 서버가 문구를 내려보낸다. */}
-              {recommendation.tips.length > 0 ? (
+              {recommendation.tips.length > 0 || recommendation.tier_notice !== null ? (
                 <View style={styles.tipsBox}>
                   <MaterialIcons color="#3182f6" name="lightbulb-outline" size={18} />
                   <View style={styles.tipsBody}>
@@ -201,6 +202,10 @@ export default function RecommendationsScreen() {
                     {recommendation.tips.map((tip) => (
                       <Text key={tip} style={styles.tipsText}>{`• ${tip}`}</Text>
                     ))}
+                    {/* 등급(낮음·보통·높음)이 절대 기준이 아니라는 고지. 서버 문구를 그대로 쓴다. */}
+                    {recommendation.tier_notice !== null ? (
+                      <Text style={styles.tierNotice}>{recommendation.tier_notice}</Text>
+                    ) : null}
                   </View>
                 </View>
               ) : null}
@@ -214,6 +219,19 @@ export default function RecommendationsScreen() {
     </SafeAreaView>
   );
 }
+
+// 등급 표시 문구. '위험·금지'로 읽히지 않게 상대 표현만 쓴다 (CKD_NUTRITION.md 3-4 노출 원칙).
+const TIER_LABELS: Record<NutrientTier, string> = {
+  low: '낮음',
+  mid: '보통',
+  high: '높음',
+};
+
+type NutrientChip = {
+  label: string;
+  value: string;
+  tier: NutrientTier | null;
+};
 
 function RecommendationCard({ item }: { item: RecommendationItem }) {
   const nutrients = buildNutrientChips(item);
@@ -229,10 +247,7 @@ function RecommendationCard({ item }: { item: RecommendationItem }) {
       {nutrients.length > 0 ? (
         <View style={styles.nutrientRow}>
           {nutrients.map((chip) => (
-            <View key={chip.label} style={styles.nutrientChip}>
-              <Text style={styles.nutrientLabel}>{chip.label}</Text>
-              <Text style={styles.nutrientValue}>{chip.value}</Text>
-            </View>
+            <NutrientPill key={chip.label} chip={chip} />
           ))}
         </View>
       ) : null}
@@ -240,21 +255,53 @@ function RecommendationCard({ item }: { item: RecommendationItem }) {
   );
 }
 
+// 등급이 없으면(비대상 사용자·근거 없음) 기존 회색 칩 그대로 — 숫자만 담담하게 보여준다.
+function NutrientPill({ chip }: { chip: NutrientChip }) {
+  if (chip.tier === null) {
+    return (
+      <View style={styles.nutrientChip}>
+        <Text style={styles.nutrientLabel}>{chip.label}</Text>
+        <Text style={styles.nutrientValue}>{chip.value}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.nutrientChip, TIER_CHIP_STYLES[chip.tier]]}>
+      <Text style={styles.nutrientLabel}>{chip.label}</Text>
+      <Text style={[styles.nutrientValue, TIER_TEXT_STYLES[chip.tier]]}>{chip.value}</Text>
+      <Text style={[styles.nutrientTier, TIER_TEXT_STYLES[chip.tier]]}>
+        {TIER_LABELS[chip.tier]}
+      </Text>
+    </View>
+  );
+}
+
 // 실측값이 있는 영양소만 칩으로. mg 은 정수 반올림, g 은 소수 첫째 자리.
-function buildNutrientChips(item: RecommendationItem): { label: string; value: string }[] {
-  const chips: { label: string; value: string }[] = [];
+// 등급은 서버가 판정한 칼륨·인만 붙는다 — 나트륨·단백질은 1인분 기준 근거가 병기에 따라
+// 갈려 등급을 매기지 않는다 (kcalAI-model/docs/CKD_NUTRITION.md 3-4).
+function buildNutrientChips(item: RecommendationItem): NutrientChip[] {
+  const chips: NutrientChip[] = [];
 
   if (item.sodium_mg !== null) {
-    chips.push({ label: '나트륨', value: `${Math.round(item.sodium_mg)}mg` });
+    chips.push({ label: '나트륨', value: `${Math.round(item.sodium_mg)}mg`, tier: null });
   }
   if (item.potassium_mg !== null) {
-    chips.push({ label: '칼륨', value: `${Math.round(item.potassium_mg)}mg` });
+    chips.push({
+      label: '칼륨',
+      value: `${Math.round(item.potassium_mg)}mg`,
+      tier: item.potassium_tier,
+    });
   }
   if (item.phosphorus_mg !== null) {
-    chips.push({ label: '인', value: `${Math.round(item.phosphorus_mg)}mg` });
+    chips.push({
+      label: '인',
+      value: `${Math.round(item.phosphorus_mg)}mg`,
+      tier: item.phosphorus_tier,
+    });
   }
   if (item.protein_g !== null) {
-    chips.push({ label: '단백질', value: `${formatGram(item.protein_g)}g` });
+    chips.push({ label: '단백질', value: `${formatGram(item.protein_g)}g`, tier: null });
   }
 
   return chips;
@@ -385,6 +432,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 6,
   },
+  nutrientTier: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
   nutrientValue: {
     color: '#4e5968',
     fontSize: 12,
@@ -428,6 +479,30 @@ const styles = StyleSheet.create({
     color: '#6b7684',
     fontSize: 14,
   },
+  tierChipHigh: {
+    backgroundColor: '#fff1e9',
+  },
+  tierChipLow: {
+    backgroundColor: '#e9f8f0',
+  },
+  tierChipMid: {
+    backgroundColor: '#fff6e5',
+  },
+  tierNotice: {
+    color: '#6b7684',
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  tierTextHigh: {
+    color: '#d4571a',
+  },
+  tierTextLow: {
+    color: '#0f8a5f',
+  },
+  tierTextMid: {
+    color: '#b8770c',
+  },
   tipsBody: {
     flex: 1,
     gap: 4,
@@ -456,3 +531,16 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 });
+
+// 등급별 칩 배경·글자색. styles 를 참조하므로 선언 이후에 둔다.
+const TIER_CHIP_STYLES: Record<NutrientTier, object> = {
+  low: styles.tierChipLow,
+  mid: styles.tierChipMid,
+  high: styles.tierChipHigh,
+};
+
+const TIER_TEXT_STYLES: Record<NutrientTier, object> = {
+  low: styles.tierTextLow,
+  mid: styles.tierTextMid,
+  high: styles.tierTextHigh,
+};

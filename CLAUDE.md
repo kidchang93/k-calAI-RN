@@ -100,7 +100,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 | 그룹 | — | `/api/groups`, `/api/groups/join`, `/api/groups/{id}`, `/api/groups/{id}/pets` | 동일 | 일치 (`group-api.ts`, 2026-07-10 로컬 실측). **2026-07-14: `GET /api/groups/{id}`의 `members[].phone_number_masked` → `members[].nickname`**(카카오 닉네임, 없으면 서버가 '이름 미설정') |
 | 그룹 라이프사이클 | `DELETE` | `/api/groups/{id}`, `/api/groups/{id}/members/me`, `/api/groups/{id}/members/{user_id}`, `/api/groups/{id}/pets/{pet_id}` | 동일 | 일치 (`group-api.ts`, 2026-07-11 openapi.json·403/404 비파괴 실측. 파괴적 라우트는 비멤버 404 은닉, detail 한국어 — DATA_MODEL.md 17장) |
 | 반려동물·급여 | — | `/api/pets`, `/api/pets/{id}`, `/api/pets/{id}/feedings` | 동일 | 일치 (`pet-api.ts`, 2026-07-10 로컬 실측. `PetResponse.recommended_kcal`(RER×MER, null 가능)은 2026-07-11 user 15 실측 — 18장) |
-| 식단 추천 | `GET` | `/api/recommendations?meal_type&date` | 동일 | 일치 (`recommendation-api.ts`, 2026-07-10 로컬 실측. Bearer + sensitive_health 동의 필수 — 미동의 403) |
+| 식단 추천 | `GET` | `/api/recommendations?meal_type&date` | 동일 | 일치 (`recommendation-api.ts`, 2026-07-10 로컬 실측. Bearer + sensitive_health 동의 필수 — 미동의 403). **2026-07-21: 신장병 등급 노출.** `items[]`에 `potassium_tier`·`phosphorus_tier`(`low|mid|high|null`), 응답에 `tier_notice`(등급 해석 고지, `string|null`)가 **추가**됐다 — 서버 `docs/CKD_NUTRITION.md` 3-4. 칼륨·인 제한 대상에게만 채워지고 그 외엔 null이라 배지를 숨긴다. 추천 카드는 등급별 색 칩으로 그린다(`낮음`/`보통`/`높음`) |
 | 기록 시 알러지·질병 경고 판정 | `POST` | `/api/nutrition/warnings` | 동일 | 일치 (`health-api.ts`, 2026-07-11 openapi.json·user 15 실측. Bearer + sensitive_health 동의 필수 — 미동의 403. 라벨 1~10개, 해당 없으면 빈 배열) |
 
 **모든 경로가 일치합니다.** 서버의 `ck-local` 브랜치를 `master`에 머지한 뒤(`a03ebdf`) 앱 기본값과 맞아떨어졌습니다. 그 전까지는 분류가 `/predict`였고 칼로리 계산은 미구현이었습니다.
