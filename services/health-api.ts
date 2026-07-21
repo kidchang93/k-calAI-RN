@@ -20,6 +20,31 @@ export type ProfileRequest = {
   activity_level: ActivityLevel;
 };
 
+// BMI 분류 코드 (대한비만학회 2022 — 한국 기준이라 WHO 기준과 다르다).
+export type BmiCategory =
+  | 'underweight'
+  | 'normal'
+  | 'pre_obese'
+  | 'obese_1'
+  | 'obese_2'
+  | 'obese_3';
+
+// 주당 권장 신체활동량 (보건복지부 2023). 개인 처방이 아니라 연령대별 일반 권고다.
+export type ActivityGuide = {
+  moderate_min_minutes: number;
+  moderate_max_minutes: number;
+  vigorous_min_minutes: number;
+  // 65세 이상은 고강도 상한이 낮다 (150 → 100분).
+  vigorous_max_minutes: number;
+  strength_days: number;
+  // 평형성 운동은 65세 이상에만 있는 축 — 성인은 null.
+  balance_days: number | null;
+  is_senior: boolean;
+  tips: string[];
+  source: string;
+  notice: string;
+};
+
 export type ProfileResponse = {
   id: number;
   user_id: number;
@@ -28,6 +53,14 @@ export type ProfileResponse = {
   height_cm: number;
   weight_kg: number;
   activity_level: ActivityLevel;
+  // 서버가 응답 시 계산해 내려준다 — **앱에서 다시 계산하지 않는다**.
+  // 목표 칼로리 산식이 서버·앱 양쪽에 있어 갈릴 위험을 이미 안고 있어서, BMI는 서버를 단일 진실로 둔다
+  // (kcalAI-model/docs/ACTIVITY_GUIDANCE.md 3-1). 구버전 서버면 전부 null.
+  bmi: number | null;
+  bmi_category: BmiCategory | null;
+  bmi_category_label: string | null;
+  bmi_notice: string | null;
+  activity_guide: ActivityGuide | null;
 };
 
 export type GoalRequest = {
@@ -473,6 +506,59 @@ function toMealItemSource(value: unknown): MealItemSource | null {
   return value === 'ai' || value === 'manual' ? value : null;
 }
 
+const BMI_CATEGORIES: BmiCategory[] = [
+  'underweight',
+  'normal',
+  'pre_obese',
+  'obese_1',
+  'obese_2',
+  'obese_3',
+];
+
+function toBmiCategory(value: unknown): BmiCategory | null {
+  return typeof value === 'string' && (BMI_CATEGORIES as string[]).includes(value)
+    ? (value as BmiCategory)
+    : null;
+}
+
+// 하나라도 어긋나면 통째로 null — 반쪽짜리 권고를 그리느니 카드를 숨기는 편이 낫다.
+function parseActivityGuide(value: unknown): ActivityGuide | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const numbers = [
+    value.moderate_min_minutes,
+    value.moderate_max_minutes,
+    value.vigorous_min_minutes,
+    value.vigorous_max_minutes,
+    value.strength_days,
+  ];
+
+  if (
+    numbers.some((entry) => typeof entry !== 'number') ||
+    typeof value.is_senior !== 'boolean' ||
+    typeof value.source !== 'string' ||
+    typeof value.notice !== 'string' ||
+    !Array.isArray(value.tips)
+  ) {
+    return null;
+  }
+
+  return {
+    moderate_min_minutes: value.moderate_min_minutes as number,
+    moderate_max_minutes: value.moderate_max_minutes as number,
+    vigorous_min_minutes: value.vigorous_min_minutes as number,
+    vigorous_max_minutes: value.vigorous_max_minutes as number,
+    strength_days: value.strength_days as number,
+    balance_days: toNullableNumber(value.balance_days) ?? null,
+    is_senior: value.is_senior,
+    tips: value.tips.filter((tip): tip is string => typeof tip === 'string'),
+    source: value.source,
+    notice: value.notice,
+  };
+}
+
 function parseProfileResponse(value: unknown): ProfileResponse | null {
   if (!isRecord(value)) {
     return null;
@@ -503,6 +589,12 @@ function parseProfileResponse(value: unknown): ProfileResponse | null {
     height_cm,
     weight_kg,
     activity_level,
+    // 파생 지표는 구버전 서버엔 없다 — 누락·형식 불일치면 null 로 눕히고 화면이 카드를 숨긴다.
+    bmi: toNullableNumber(value.bmi) ?? null,
+    bmi_category: toBmiCategory(value.bmi_category),
+    bmi_category_label: typeof value.bmi_category_label === 'string' ? value.bmi_category_label : null,
+    bmi_notice: typeof value.bmi_notice === 'string' ? value.bmi_notice : null,
+    activity_guide: parseActivityGuide(value.activity_guide),
   };
 }
 
