@@ -1,5 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ProfileResponse } from '@/services/health-api';
 
@@ -10,6 +11,8 @@ import { ProfileResponse } from '@/services/health-api';
 // 정상만 초록으로 두고 나머지는 전부 중립색으로 담담하게 보여준다.
 
 export function BodyMetrics({ profile }: { profile: ProfileResponse | null }) {
+  const router = useRouter();
+
   if (profile === null) {
     return null;
   }
@@ -85,6 +88,14 @@ export function BodyMetrics({ profile }: { profile: ProfileResponse | null }) {
 
           <Text style={styles.source}>{activity_guide.source}</Text>
           <Text style={styles.notice}>{activity_guide.notice}</Text>
+
+          {/* 권고만 보여주고 끝내지 않는다 — 바로 기록하러 갈 수 있게 잇는다. */}
+          <Pressable
+            onPress={() => router.push('/exercises')}
+            style={({ pressed }) => [styles.recordButton, pressed && styles.pressed]}>
+            <MaterialIcons color="#3182f6" name="add" size={18} />
+            <Text style={styles.recordButtonText}>운동 기록하기</Text>
+          </Pressable>
         </View>
       ) : null}
     </View>
@@ -180,6 +191,24 @@ const styles = StyleSheet.create({
     color: '#8b95a1',
     fontSize: 12,
     lineHeight: 18,
+  },
+  pressed: {
+    opacity: 0.74,
+  },
+  recordButton: {
+    alignItems: 'center',
+    backgroundColor: '#f5f9ff',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 4,
+    justifyContent: 'center',
+    marginTop: 2,
+    paddingVertical: 12,
+  },
+  recordButtonText: {
+    color: '#3182f6',
+    fontSize: 14,
+    fontWeight: '800',
   },
   section: {
     gap: 10,
