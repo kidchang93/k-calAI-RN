@@ -51,11 +51,26 @@ export type ExerciseSummary = {
   strength_days: number;
   total_kcal: number;
   exercise_count: number;
+  // 달성 판정의 기준은 **사용자 목표**다. 목표를 설정하지 않았으면 지침 권장량이 기본값이고
+  // goal_is_default 가 true 다.
+  target_minutes: number;
+  target_strength_days: number;
+  goal_is_default: boolean;
+  // 지침 권장 하한. 목표를 낮게 잡았어도 지침이 뭔지 볼 수 있게 함께 온다.
   recommended_min_minutes: number;
   remaining_minutes: number;
   achieved: boolean;
+  // 목표를 연속으로 달성한 주 수. 진행 중인 주는 이미 달성했을 때만 센다.
+  streak_weeks: number;
   // 고지 문구는 서버가 내려준다 — 앱 하드코딩 금지.
   notice: string;
+};
+
+export type ExerciseGoal = {
+  weekly_minutes: number;
+  weekly_strength_days: number;
+  // 사용자가 정한 값이 아니라 지침 권장량 기본값이면 true.
+  is_default: boolean;
 };
 
 export const EXERCISE_API_URL = apiUrl('/api', process.env.EXPO_PUBLIC_EXERCISE_API_URL);
@@ -111,6 +126,28 @@ export async function deleteExercise(id: number): Promise<void> {
   if (!response.ok) {
     throw new Error((await readErrorMessage(response)) || '운동 기록 삭제 실패');
   }
+}
+
+export async function getExerciseGoal(): Promise<ExerciseGoal> {
+  const response = await apiFetch(`${EXERCISE_API_URL}/me/exercise-goal`);
+
+  return ensureGoal(await parseOk(response, '운동 목표 조회 실패'));
+}
+
+export async function putExerciseGoal(
+  weeklyMinutes: number,
+  weeklyStrengthDays: number
+): Promise<ExerciseGoal> {
+  const response = await apiFetch(`${EXERCISE_API_URL}/me/exercise-goal`, {
+    method: 'PUT',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({
+      weekly_minutes: weeklyMinutes,
+      weekly_strength_days: weeklyStrengthDays,
+    }),
+  });
+
+  return ensureGoal(await parseOk(response, '운동 목표 저장 실패'));
 }
 
 export async function getExerciseSummary(
@@ -199,13 +236,17 @@ function ensureSummary(value: unknown): ExerciseSummary {
     'strength_days',
     'total_kcal',
     'exercise_count',
+    'target_minutes',
+    'target_strength_days',
     'recommended_min_minutes',
     'remaining_minutes',
+    'streak_weeks',
   ] as const;
 
   if (
     numbers.some((key) => typeof value[key] !== 'number') ||
     typeof value.achieved !== 'boolean' ||
+    typeof value.goal_is_default !== 'boolean' ||
     typeof value.start_date !== 'string' ||
     typeof value.end_date !== 'string' ||
     typeof value.notice !== 'string'
@@ -223,9 +264,30 @@ function ensureSummary(value: unknown): ExerciseSummary {
     strength_days: value.strength_days as number,
     total_kcal: value.total_kcal as number,
     exercise_count: value.exercise_count as number,
+    target_minutes: value.target_minutes as number,
+    target_strength_days: value.target_strength_days as number,
+    goal_is_default: value.goal_is_default,
     recommended_min_minutes: value.recommended_min_minutes as number,
     remaining_minutes: value.remaining_minutes as number,
     achieved: value.achieved,
+    streak_weeks: value.streak_weeks as number,
     notice: value.notice,
+  };
+}
+
+function ensureGoal(value: unknown): ExerciseGoal {
+  if (
+    !isRecord(value) ||
+    typeof value.weekly_minutes !== 'number' ||
+    typeof value.weekly_strength_days !== 'number' ||
+    typeof value.is_default !== 'boolean'
+  ) {
+    throw new Error('서버 응답 형식이 올바르지 않습니다.');
+  }
+
+  return {
+    weekly_minutes: value.weekly_minutes,
+    weekly_strength_days: value.weekly_strength_days,
+    is_default: value.is_default,
   };
 }

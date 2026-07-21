@@ -25,6 +25,7 @@ import {
   getExerciseSummary,
   getExerciseTypes,
   Intensity,
+  putExerciseGoal,
 } from '@/services/exercise-api';
 import { formatDateParam, recentDateRange } from '@/services/health-api';
 
@@ -52,6 +53,10 @@ export default function ExercisesScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // 목표 편집. 목표는 기록과 분리돼 있어 여기서 바꿔도 지난 기록은 그대로다.
+  const [isEditingGoal, setIsEditingGoal] = useState(false);
+  const [goalMinutesText, setGoalMinutesText] = useState('');
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -120,6 +125,26 @@ export default function ExercisesScreen() {
     }
   };
 
+  const saveGoal = async () => {
+    const minutes = Number(goalMinutesText.trim());
+
+    if (!Number.isFinite(minutes) || minutes < 0 || minutes > 2000) {
+      setErrorMessage('주간 목표는 0~2000분 사이로 입력해주세요.');
+      return;
+    }
+
+    setErrorMessage(null);
+
+    try {
+      // 근력 일수는 지금 화면에서 바꾸지 않는다 — 현재 값을 그대로 다시 보낸다.
+      await putExerciseGoal(Math.round(minutes), summary?.target_strength_days ?? 2);
+      setIsEditingGoal(false);
+      await loadData();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+    }
+  };
+
   const remove = async (id: number) => {
     setErrorMessage(null);
 
@@ -146,7 +171,20 @@ export default function ExercisesScreen() {
             <ErrorBanner message={errorMessage} onRetry={() => void loadData()} />
           ) : null}
 
-          {summary !== null ? <WeeklySummaryCard summary={summary} /> : null}
+          {summary !== null ? (
+            <WeeklySummaryCard
+              goalMinutesText={goalMinutesText}
+              isEditingGoal={isEditingGoal}
+              onCancelGoal={() => setIsEditingGoal(false)}
+              onChangeGoalMinutes={setGoalMinutesText}
+              onEditGoal={() => {
+                setGoalMinutesText(String(summary.target_minutes));
+                setIsEditingGoal(true);
+              }}
+              onSaveGoal={() => void saveGoal()}
+              summary={summary}
+            />
+          ) : null}
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>운동 추가</Text>
@@ -260,28 +298,52 @@ export default function ExercisesScreen() {
   );
 }
 
-function WeeklySummaryCard({ summary }: { summary: ExerciseSummary }) {
+function WeeklySummaryCard({
+  summary,
+  isEditingGoal,
+  goalMinutesText,
+  onEditGoal,
+  onChangeGoalMinutes,
+  onSaveGoal,
+  onCancelGoal,
+}: {
+  summary: ExerciseSummary;
+  isEditingGoal: boolean;
+  goalMinutesText: string;
+  onEditGoal: () => void;
+  onChangeGoalMinutes: (value: string) => void;
+  onSaveGoal: () => void;
+  onCancelGoal: () => void;
+}) {
   const ratio = Math.min(
     1,
-    summary.recommended_min_minutes === 0
+    summary.target_minutes === 0
       ? 0
-      : summary.equivalent_moderate_minutes / summary.recommended_min_minutes
+      : summary.equivalent_moderate_minutes / summary.target_minutes
   );
 
   return (
     <View style={styles.card}>
       <View style={styles.summaryTop}>
         <Text style={styles.cardTitle}>이번 주 활동량</Text>
-        {summary.achieved ? (
-          <View style={styles.achievedChip}>
-            <Text style={styles.achievedText}>권장량 달성</Text>
-          </View>
-        ) : null}
+        <View style={styles.badgeRow}>
+          {summary.streak_weeks > 0 ? (
+            <View style={styles.streakChip}>
+              <MaterialIcons color="#d4571a" name="local-fire-department" size={14} />
+              <Text style={styles.streakText}>{`${summary.streak_weeks}주 연속`}</Text>
+            </View>
+          ) : null}
+          {summary.achieved ? (
+            <View style={styles.achievedChip}>
+              <Text style={styles.achievedText}>목표 달성</Text>
+            </View>
+          ) : null}
+        </View>
       </View>
 
       <Text style={styles.summaryValue}>
         {`${summary.equivalent_moderate_minutes}`}
-        <Text style={styles.summaryTarget}>{` / ${summary.recommended_min_minutes}분`}</Text>
+        <Text style={styles.summaryTarget}>{` / ${summary.target_minutes}분`}</Text>
       </Text>
 
       <View style={styles.progressTrack}>
@@ -290,13 +352,47 @@ function WeeklySummaryCard({ summary }: { summary: ExerciseSummary }) {
 
       <Text style={styles.summaryDetail}>
         {summary.achieved
-          ? '권장 하한을 채웠어요. 이 상태를 유지해보세요.'
-          : `권장 하한까지 ${summary.remaining_minutes}분 남았어요.`}
+          ? '이번 주 목표를 채웠어요. 이 상태를 유지해보세요.'
+          : `목표까지 ${summary.remaining_minutes}분 남았어요.`}
       </Text>
       <Text style={styles.summaryBreakdown}>
         {`중강도 ${summary.moderate_minutes}분 · 고강도 ${summary.vigorous_minutes}분 · 근력 ${summary.strength_days}일`}
         {summary.total_kcal > 0 ? ` · ${summary.total_kcal.toLocaleString()} kcal` : ''}
       </Text>
+
+      {isEditingGoal ? (
+        <View style={styles.goalEditRow}>
+          <TextInput
+            keyboardType="number-pad"
+            onChangeText={onChangeGoalMinutes}
+            style={styles.goalInput}
+            value={goalMinutesText}
+          />
+          <Text style={styles.goalUnit}>분 / 주</Text>
+          <Pressable
+            onPress={onSaveGoal}
+            style={({ pressed }) => [styles.goalSave, pressed && styles.pressed]}>
+            <Text style={styles.goalSaveText}>저장</Text>
+          </Pressable>
+          <Pressable
+            onPress={onCancelGoal}
+            style={({ pressed }) => [styles.goalCancel, pressed && styles.pressed]}>
+            <Text style={styles.goalCancelText}>취소</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <Pressable
+          onPress={onEditGoal}
+          style={({ pressed }) => [styles.goalRow, pressed && styles.pressed]}>
+          <Text style={styles.goalRowText}>
+            {summary.goal_is_default
+              ? `목표 미설정 — 권장량 ${summary.recommended_min_minutes}분을 기준으로 보고 있어요`
+              : `내 목표 ${summary.target_minutes}분 (권장 ${summary.recommended_min_minutes}분)`}
+          </Text>
+          <MaterialIcons color="#3182f6" name="edit" size={16} />
+        </Pressable>
+      )}
+
       {/* 고강도 환산 규칙은 지침 근거라 화면에 밝힌다. */}
       <Text style={styles.hint}>고강도 1분은 중강도 2분으로 환산해 합산해요.</Text>
       {/* 고지 문구는 서버 문자열을 그대로 쓴다 — 앱 하드코딩 금지. */}
@@ -310,6 +406,81 @@ function intensityLabel(intensity: Intensity): string {
 }
 
 const styles = StyleSheet.create({
+  badgeRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  goalCancel: {
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  goalCancelText: {
+    color: '#8b95a1',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  goalEditRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  goalInput: {
+    backgroundColor: '#f2f4f6',
+    borderRadius: 8,
+    color: '#191f28',
+    fontSize: 15,
+    fontWeight: '800',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    textAlign: 'center',
+    width: 76,
+  },
+  goalRow: {
+    alignItems: 'center',
+    backgroundColor: '#f5f9ff',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 6,
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  goalRowText: {
+    color: '#4e5968',
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  goalSave: {
+    backgroundColor: '#3182f6',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  goalSaveText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  goalUnit: {
+    color: '#6b7684',
+    fontSize: 13,
+  },
+  streakChip: {
+    alignItems: 'center',
+    backgroundColor: '#fff1e9',
+    borderRadius: 6,
+    flexDirection: 'row',
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  streakText: {
+    color: '#d4571a',
+    fontSize: 12,
+    fontWeight: '800',
+  },
   achievedChip: {
     backgroundColor: '#e9f8f0',
     borderRadius: 6,
