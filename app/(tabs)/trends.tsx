@@ -12,8 +12,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BodyMetrics } from '@/components/body-metrics';
+import { WeeklyCoaching } from '@/components/weekly-coaching';
 import { KcalCalendar } from '@/components/kcal-calendar';
 import { Segmented } from '@/components/segmented';
+import { Coaching, getWeeklyCoaching } from '@/services/coaching-api';
 import {
   formatDateParam,
   getMeals,
@@ -89,6 +91,8 @@ export default function TrendsScreen() {
   const [weights, setWeights] = useState<WeightLog[] | null>(null);
   // BMI·권장 활동량은 프로필 응답에 실려 온다 (서버가 계산 — ACTIVITY_GUIDANCE.md 3-1).
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
+  // 주간 조언. 동의가 없으면(403) 조용히 비운다 — 리포트 전체를 막지 않는다.
+  const [coaching, setCoaching] = useState<Coaching | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -109,17 +113,20 @@ export default function TrendsScreen() {
       // 캘린더는 보고 있는 '달' 전체가 조회 범위다. 그래프는 오늘 기준 최근 N일.
       const { start_date, end_date } =
         viewMode === 'calendar' ? monthRange(month) : recentDateRange(PERIOD_DAYS[period]);
-      const [trendsResult, weightsResult, profileResult] = await Promise.all([
+      const [trendsResult, weightsResult, profileResult, coachingResult] = await Promise.all([
         getTrends(start_date, end_date),
         getWeights(),
         // 프로필은 없을 수 있다(온보딩 전) — null 이면 몸 지표 섹션을 그리지 않는다.
         getProfile(),
+        // 조언은 sensitive_health 동의가 필요하다. 없으면 카드만 빠지고 나머지는 그대로 보인다.
+        getWeeklyCoaching().catch(() => null),
       ]);
 
       if (loadSeqRef.current === seq) {
         setTrends(trendsResult);
         setWeights(weightsResult);
         setProfile(profileResult);
+        setCoaching(coachingResult);
       }
     } catch (error) {
       if (loadSeqRef.current !== seq) {
@@ -129,6 +136,7 @@ export default function TrendsScreen() {
       setTrends(null);
       setWeights(null);
       setProfile(null);
+      setCoaching(null);
       setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
       if (loadSeqRef.current === seq) {
@@ -280,6 +288,8 @@ export default function TrendsScreen() {
 
               {/* 체중은 두 모드 모두에 둔다 — 한쪽에만 있으면 "있는지 없는지" 모르게 된다.
                   캘린더 모드에서는 보고 있는 달의 기록을 보여준다. */}
+              <WeeklyCoaching coaching={coaching} />
+
               <BodyMetrics profile={profile} />
 
               <WeightSection
@@ -344,6 +354,8 @@ export default function TrendsScreen() {
                   </View>
                 </>
               )}
+
+              <WeeklyCoaching coaching={coaching} />
 
               <BodyMetrics profile={profile} />
 
