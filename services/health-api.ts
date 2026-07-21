@@ -73,6 +73,11 @@ export type NutritionEstimate = {
   fat_g: number | null;
   // 1인분이 몇 g인지 — g↔인분 환산 계수. 원물 등 1회 제공량 미상이면 null (g 입력 불가).
   serving_size_g: number | null;
+  // 1인분 실측 나트륨·칼륨·인. 미측정·AI 추정 행은 null (kcalAI-model CKD_NUTRITION.md 3-5).
+  // 신장병 사용자가 먹은 음식의 수치를 확인한다. 표시할 땐 선택한 양(serving_ratio)을 곱한다.
+  sodium_mg: number | null;
+  potassium_mg: number | null;
+  phosphorus_mg: number | null;
   source: string;
 };
 
@@ -151,13 +156,21 @@ export type FoodWarningSource = 'condition' | 'allergy';
 // 신장병·고혈압 등 영양 제한 질병 경고면 어느 영양소가 높은지. 키워드 경고·구버전 서버는 null.
 export type FoodWarningNutrient = 'sodium' | 'potassium' | 'phosphorus';
 
+// 수치의 상대 위치. 서버가 지침 분류와 실측 mg 중 엄격한 쪽으로 판정한다
+// (kcalAI-model/docs/CKD_NUTRITION.md 3-4). 나트륨은 등급을 매기지 않아 항상 null 이다.
+export type FoodWarningTier = 'low' | 'mid' | 'high';
+
 export type FoodWarning = {
   source: FoodWarningSource;
   code: string;
   label: string;
+  // 실측 수치만으로 발동한 경고는 걸린 키워드가 없어 빈 문자열이다 (CKD_NUTRITION.md 3-5).
   matched_keyword: string;
   matched_label: string;
   nutrient: FoodWarningNutrient | null;
+  // 그 축의 1인분 실측값·등급. 미측정 음식이면 null 이고 경고는 이름 기반이다.
+  nutrient_mg: number | null;
+  tier: FoodWarningTier | null;
 };
 
 export type CreateWeightRequest = {
@@ -581,6 +594,10 @@ function parseNutritionEstimate(value: unknown): NutritionEstimate | null {
   const protein_g = toNullableNumber(value.protein_g);
   const fat_g = toNullableNumber(value.fat_g);
   const serving_size_g = toNullableNumber(value.serving_size_g);
+  // 실측 3종은 누락(구버전 서버)이면 null 로 떨어진다 — toNullableNumber 가 그렇게 다룬다.
+  const sodium_mg = toNullableNumber(value.sodium_mg);
+  const potassium_mg = toNullableNumber(value.potassium_mg);
+  const phosphorus_mg = toNullableNumber(value.phosphorus_mg);
 
   if (
     typeof value.food_label !== 'string' ||
@@ -590,6 +607,9 @@ function parseNutritionEstimate(value: unknown): NutritionEstimate | null {
     protein_g === undefined ||
     fat_g === undefined ||
     serving_size_g === undefined ||
+    sodium_mg === undefined ||
+    potassium_mg === undefined ||
+    phosphorus_mg === undefined ||
     typeof value.source !== 'string'
   ) {
     return null;
@@ -603,6 +623,9 @@ function parseNutritionEstimate(value: unknown): NutritionEstimate | null {
     protein_g,
     fat_g,
     serving_size_g,
+    sodium_mg,
+    potassium_mg,
+    phosphorus_mg,
     source: value.source,
   };
 }
@@ -763,7 +786,14 @@ function parseFoodWarning(value: unknown): FoodWarning | null {
     matched_keyword: value.matched_keyword,
     matched_label: value.matched_label,
     nutrient: toFoodWarningNutrient(value.nutrient),
+    // 구버전 서버엔 없다 — 관대하게 null 로 두고 앱은 수치 없이 문구만 그린다.
+    nutrient_mg: toNullableNumber(value.nutrient_mg) ?? null,
+    tier: toFoodWarningTier(value.tier),
   };
+}
+
+function toFoodWarningTier(value: unknown): FoodWarningTier | null {
+  return value === 'low' || value === 'mid' || value === 'high' ? value : null;
 }
 
 // 서버가 sodium|potassium|phosphorus 를 주면 그대로, 그 외/누락(구버전)은 null.

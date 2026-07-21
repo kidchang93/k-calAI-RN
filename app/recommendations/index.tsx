@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/back-button';
 import { ChipGroup } from '@/components/chip-group';
+import { NutrientChip, NutrientChips } from '@/components/nutrient-chips';
 import { formatDateParam, MealType } from '@/services/health-api';
 import { ConsentRequiredError } from '@/services/onboarding-api';
 import {
@@ -20,7 +21,6 @@ import {
   ExcludedFiltered,
   ExcludedRule,
   getRecommendation,
-  NutrientTier,
   RecommendationItem,
 } from '@/services/recommendation-api';
 
@@ -220,19 +220,6 @@ export default function RecommendationsScreen() {
   );
 }
 
-// 등급 표시 문구. '위험·금지'로 읽히지 않게 상대 표현만 쓴다 (CKD_NUTRITION.md 3-4 노출 원칙).
-const TIER_LABELS: Record<NutrientTier, string> = {
-  low: '낮음',
-  mid: '보통',
-  high: '높음',
-};
-
-type NutrientChip = {
-  label: string;
-  value: string;
-  tier: NutrientTier | null;
-};
-
 function RecommendationCard({ item }: { item: RecommendationItem }) {
   const nutrients = buildNutrientChips(item);
 
@@ -244,35 +231,7 @@ function RecommendationCard({ item }: { item: RecommendationItem }) {
       </View>
       <Text style={styles.itemReason}>{item.reason}</Text>
       {/* 실측 나트륨·칼륨·인·단백질 (신장병 등 질병 사용자용). 값 없는 항목은 숨긴다. */}
-      {nutrients.length > 0 ? (
-        <View style={styles.nutrientRow}>
-          {nutrients.map((chip) => (
-            <NutrientPill key={chip.label} chip={chip} />
-          ))}
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-// 등급이 없으면(비대상 사용자·근거 없음) 기존 회색 칩 그대로 — 숫자만 담담하게 보여준다.
-function NutrientPill({ chip }: { chip: NutrientChip }) {
-  if (chip.tier === null) {
-    return (
-      <View style={styles.nutrientChip}>
-        <Text style={styles.nutrientLabel}>{chip.label}</Text>
-        <Text style={styles.nutrientValue}>{chip.value}</Text>
-      </View>
-    );
-  }
-
-  return (
-    <View style={[styles.nutrientChip, TIER_CHIP_STYLES[chip.tier]]}>
-      <Text style={styles.nutrientLabel}>{chip.label}</Text>
-      <Text style={[styles.nutrientValue, TIER_TEXT_STYLES[chip.tier]]}>{chip.value}</Text>
-      <Text style={[styles.nutrientTier, TIER_TEXT_STYLES[chip.tier]]}>
-        {TIER_LABELS[chip.tier]}
-      </Text>
+      <NutrientChips chips={nutrients} />
     </View>
   );
 }
@@ -413,34 +372,6 @@ const styles = StyleSheet.create({
     gap: 12,
     justifyContent: 'space-between',
   },
-  nutrientChip: {
-    alignItems: 'baseline',
-    backgroundColor: '#f2f4f6',
-    borderRadius: 6,
-    flexDirection: 'row',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  nutrientLabel: {
-    color: '#8b95a1',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  nutrientRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  nutrientTier: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  nutrientValue: {
-    color: '#4e5968',
-    fontSize: 12,
-    fontWeight: '800',
-  },
   pressed: {
     opacity: 0.74,
   },
@@ -479,29 +410,11 @@ const styles = StyleSheet.create({
     color: '#6b7684',
     fontSize: 14,
   },
-  tierChipHigh: {
-    backgroundColor: '#fff1e9',
-  },
-  tierChipLow: {
-    backgroundColor: '#e9f8f0',
-  },
-  tierChipMid: {
-    backgroundColor: '#fff6e5',
-  },
   tierNotice: {
     color: '#6b7684',
     fontSize: 12,
     lineHeight: 18,
     marginTop: 4,
-  },
-  tierTextHigh: {
-    color: '#d4571a',
-  },
-  tierTextLow: {
-    color: '#0f8a5f',
-  },
-  tierTextMid: {
-    color: '#b8770c',
   },
   tipsBody: {
     flex: 1,
@@ -531,16 +444,3 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 });
-
-// 등급별 칩 배경·글자색. styles 를 참조하므로 선언 이후에 둔다.
-const TIER_CHIP_STYLES: Record<NutrientTier, object> = {
-  low: styles.tierChipLow,
-  mid: styles.tierChipMid,
-  high: styles.tierChipHigh,
-};
-
-const TIER_TEXT_STYLES: Record<NutrientTier, object> = {
-  low: styles.tierTextLow,
-  mid: styles.tierTextMid,
-  high: styles.tierTextHigh,
-};

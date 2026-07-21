@@ -19,6 +19,8 @@ import { ChipGroup } from '@/components/chip-group';
 import { ErrorBanner } from '@/components/error-banner';
 import { PlanLimitBanner } from '@/components/plan-limit-banner';
 import { QuantityEditor, QuantityValue } from '@/components/quantity-editor';
+import { NutrientChip, NutrientChips } from '@/components/nutrient-chips';
+import { NUTRIENT_LABELS, NUTRIENT_TIER_LABELS } from '@/constants/nutrition';
 import { FoodDetection, PhotoAsset, uploadFoodPhoto } from '@/services/calorie-api';
 import { notifyDialog } from '@/services/dialog';
 import {
@@ -27,11 +29,14 @@ import {
   dayAnchorLoggedAt,
   estimateNutrition,
   FoodWarning,
+  FoodWarningNutrient,
+  FoodWarningTier,
   formatDateParam,
   getMeals,
   MealItem,
   MealItemSource,
   MealType,
+  NutritionEstimate,
   NutritionNotFoundError,
   NutritionUnavailableError,
   updateMeal,
@@ -66,7 +71,33 @@ type Draft = QuantityValue & {
   source: MealItemSource;
   confidence: number | null;
   portion_g: number | null;
+  // 1인분 기준 실측 나트륨·칼륨·인 (estimate 응답). 표시할 때 선택한 양을 곱한다.
+  // 미측정·AI 추정 음식이면 null — 그때는 칩을 그리지 않는다.
+  nutrients: DraftNutrients | null;
 };
+
+type DraftNutrients = {
+  sodium_mg: number | null;
+  potassium_mg: number | null;
+  phosphorus_mg: number | null;
+};
+
+// 셋 다 없으면 null 로 접는다 — 빈 칩 줄을 만들지 않기 위해서다.
+function nutrientsOf(estimate: NutritionEstimate): DraftNutrients | null {
+  if (
+    estimate.sodium_mg === null &&
+    estimate.potassium_mg === null &&
+    estimate.phosphorus_mg === null
+  ) {
+    return null;
+  }
+
+  return {
+    sodium_mg: estimate.sodium_mg,
+    potassium_mg: estimate.potassium_mg,
+    phosphorus_mg: estimate.phosphorus_mg,
+  };
+}
 
 // 현재 시각 기준 끼니 기본값. 사용자가 칩에서 언제든 바꿀 수 있다.
 function defaultMealType(): MealType {
@@ -293,6 +324,7 @@ export default function MealComposeScreen() {
                 basePerServing: Math.round(estimate.kcal_per_serving),
                 // 조회로 1회 제공량을 알게 됐으니 g 입력을 열어 준다.
                 serving_size_g: estimate.serving_size_g,
+                nutrients: nutrientsOf(estimate),
               }
             : item
         )
@@ -437,6 +469,7 @@ export default function MealComposeScreen() {
           portion_g: null,
           serving_size_g: estimate.serving_size_g,
           basePerServing: Math.round(estimate.kcal_per_serving),
+          nutrients: nutrientsOf(estimate),
           unit: 'serving',
         },
       ]);
@@ -455,6 +488,7 @@ export default function MealComposeScreen() {
             portion_g: null,
             serving_size_g: null,
             basePerServing: null,
+            nutrients: null,
             unit: 'serving',
           },
         ]);
@@ -483,6 +517,7 @@ export default function MealComposeScreen() {
         portion_g: null,
         serving_size_g: null,
         basePerServing: null,
+        nutrients: null,
         unit: 'serving',
       },
     ]);
@@ -546,6 +581,8 @@ export default function MealComposeScreen() {
   };
 
   const totalKcal = drafts.reduce((sum, draft) => sum + (draftKcal(draft) ?? 0), 0);
+  // 경고에 실린 등급을 (음식, 영양소)로 찾을 수 있게 정리한다 — 칩 색과 경고 문구가 어긋나지 않게.
+  const tierByLabel = buildTierLookup(warnings);
   const existingTotal = existingItems.reduce((sum, item) => sum + item.kcal, 0);
 
   return (
@@ -732,15 +769,18 @@ export default function MealComposeScreen() {
           ) : (
             <View style={styles.draftSection}>
               {drafts.map((draft) => (
-                <QuantityEditor
-                  key={draft.key}
-                  value={draft}
-                  isLookingUp={lookupKey === draft.key}
-                  portionHint={draft.portion_g}
-                  onChange={(next) => applyQuantity(draft.key, next)}
-                  onLabelBlur={() => void lookupDraftKcal(draft.key)}
-                  onRemove={() => removeDraft(draft.key)}
-                />
+                <View key={draft.key} style={styles.draftBlock}>
+                  <QuantityEditor
+                    value={draft}
+                    isLookingUp={lookupKey === draft.key}
+                    portionHint={draft.portion_g}
+                    onChange={(next) => applyQuantity(draft.key, next)}
+                    onLabelBlur={() => void lookupDraftKcal(draft.key)}
+                    onRemove={() => removeDraft(draft.key)}
+                  />
+                  {/* 먹은 음식의 실측 나트륨·칼륨·인. 미측정 음식은 아무것도 그리지 않는다. */}
+                  <NutrientChips chips={draftNutrientChips(draft, tierByLabel)} />
+                </View>
               ))}
             </View>
           )}
@@ -806,6 +846,7 @@ async function foodToDraft(food: FoodDetection): Promise<Draft> {
       portion_g: food.portion_g,
       serving_size_g: estimate.serving_size_g,
       basePerServing: Math.round(estimate.kcal_per_serving),
+      nutrients: nutrientsOf(estimate),
       unit: 'serving',
     };
   } catch {
@@ -819,6 +860,7 @@ async function foodToDraft(food: FoodDetection): Promise<Draft> {
       portion_g: food.portion_g,
       serving_size_g: null,
       basePerServing: null,
+      nutrients: null,
       unit: 'serving',
     };
   }
@@ -850,13 +892,50 @@ function AddActionButton({
   );
 }
 
-// 경고 1건 → 1줄. allergy는 "계란 알러지: …", condition은 "당뇨 주의: …" (DATA_MODEL.md 16장).
-const NUTRIENT_LABELS: Record<NonNullable<FoodWarning['nutrient']>, string> = {
-  sodium: '나트륨',
-  potassium: '칼륨',
-  phosphorus: '인',
-};
+function buildTierLookup(warnings: FoodWarning[]): Map<string, FoodWarningTier> {
+  const lookup = new Map<string, FoodWarningTier>();
 
+  for (const warning of warnings) {
+    if (warning.nutrient !== null && warning.tier !== null) {
+      lookup.set(`${warning.matched_label}:${warning.nutrient}`, warning.tier);
+    }
+  }
+
+  return lookup;
+}
+
+// 초안 → 수치 칩. 값은 **선택한 양**을 곱해 보여준다(kcal 과 같은 규칙).
+// 등급은 음식 자체의 성질이라 1인분 기준 판정을 그대로 쓴다 — 양을 줄여도 고칼륨 식품은
+// 고칼륨이다. 등급은 경고에 실려 온 것만 있으므로, 경고가 없는 음식은 회색 칩이 된다.
+function draftNutrientChips(draft: Draft, tiers: Map<string, FoodWarningTier>): NutrientChip[] {
+  if (draft.nutrients === null) {
+    return [];
+  }
+
+  const axes: [FoodWarningNutrient, number | null][] = [
+    ['sodium', draft.nutrients.sodium_mg],
+    ['potassium', draft.nutrients.potassium_mg],
+    ['phosphorus', draft.nutrients.phosphorus_mg],
+  ];
+
+  const chips: NutrientChip[] = [];
+
+  for (const [nutrient, perServing] of axes) {
+    if (perServing === null) {
+      continue;
+    }
+
+    chips.push({
+      label: NUTRIENT_LABELS[nutrient],
+      value: `${Math.round(perServing * draft.serving_ratio).toLocaleString()}mg`,
+      tier: tiers.get(`${draft.food_label}:${nutrient}`) ?? null,
+    });
+  }
+
+  return chips;
+}
+
+// 경고 1건 → 1줄. allergy는 "계란 알러지: …", condition은 "당뇨 주의: …" (DATA_MODEL.md 16장).
 function formatWarning(warning: FoodWarning): string {
   const prefix = warning.source === 'allergy' ? `${warning.label} 알러지` : `${warning.label} 주의`;
 
@@ -864,7 +943,16 @@ function formatWarning(warning: FoodWarning): string {
   if (warning.nutrient !== null) {
     const nutrientLabel = NUTRIENT_LABELS[warning.nutrient];
 
-    return `${prefix}: '${warning.matched_label}'은(는) ${nutrientLabel}이 높은 편이에요`;
+    // 실측이 있으면 근거 수치를 함께 준다 — '높은 편'만으로는 사용자가 판단할 수 없다.
+    // 1인분 기준값이라 사용자가 고른 양과 다를 수 있어 그 기준을 밝힌다 (CKD_NUTRITION.md 3-5).
+    const measured =
+      warning.nutrient_mg !== null
+        ? ` (1인분 ${Math.round(warning.nutrient_mg).toLocaleString()}mg${
+            warning.tier !== null ? ` · ${NUTRIENT_TIER_LABELS[warning.tier]}` : ''
+          })`
+        : '';
+
+    return `${prefix}: '${warning.matched_label}'은(는) ${nutrientLabel}이 높은 편이에요${measured}`;
   }
 
   return `${prefix}: '${warning.matched_label}'에 ${warning.matched_keyword}${subjectParticle(warning.matched_keyword)} 포함될 수 있어요`;
@@ -972,6 +1060,9 @@ const styles = StyleSheet.create({
     color: '#8b95a1',
     fontSize: 13,
     textAlign: 'center',
+  },
+  draftBlock: {
+    gap: 6,
   },
   draftSection: {
     gap: 10,
