@@ -162,7 +162,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 |---|------|------|
 | 1 | ~~세션이 메모리에만 저장~~ **해결.** 네이티브는 `expo-secure-store`, **웹은 `localStorage`**로 영속화(`restoreAuthSession`으로 복원). 웹도 새로고침하면 로그인이 유지된다 — 토스 결제창에서 복귀한 `/billing/success`가 Bearer로 confirm을 부를 수 있는 근거다. | `services/auth-session.ts` |
 | 2 | ~~서버에 토큰 검증 코드가 없습니다~~ **해소.** 서버가 `api/dependencies.py`의 `get_current_user`로 Bearer 세션을 검증합니다. `apiFetch`가 세션이 있을 때 헤더를 붙이는 동작은 그대로입니다. | `services/http.ts` |
-| 9 | **Expo Go에서는 카카오 로그인이 동작하지 않습니다.** Expo Go의 스킴은 `exp://`인데 서버는 `kcalairn://auth`로만 되돌립니다. **dev client 또는 스탠드얼론 빌드**로 확인하세요 (`docs/LOCAL_BUILD.md`). | `services/auth-api.ts` |
+| 9 | **Expo Go에서는 카카오 로그인이 동작하지 않습니다.** Expo Go의 스킴은 `exp://`인데 서버는 `kcalairn://auth`로만 되돌립니다. **dev client 또는 스탠드얼론 빌드**로 확인하세요 (`docs/LOCAL_BUILD.md`). 게다가 **로컬 서버에 붙이면 카카오 앱의 허용 IP 제한**에도 걸립니다(서버 알려진 문제 12) — 실기기에서 로그인까지 보려면 개발용 카카오 앱을 따로 두거나 운영 서버를 바라보게 해야 합니다. 대부분의 확인은 **웹 + `scripts/dev_login.py` 우회**로 끝납니다 (`docs/DEVICE_TESTING.md`). | `services/auth-api.ts` |
 | 10 | **웹 로그인은 FastAPI가 웹 빌드를 서빙하는 프로덕션 구성에서만 성립합니다.** `expo start --web`(:8081) + 서버(:8000)는 오리진이 갈려 콜백 팝업이 막힙니다. | `services/auth-api.ts` |
 | 3 | 칼로리 프롬프트가 **앱에 하드코딩**되어 있습니다. 서버 템플릿화가 예정 항목입니다. | `services/calorie-api.ts:71` |
 | 4 | ~~`readErrorMessage` 중복 정의~~ **해결.** `services/http.ts` 공통 함수로 통일(배열 `detail` 처리 포함). | `services/http.ts` |
