@@ -9,7 +9,9 @@ import { apiFetch, readErrorMessage } from '@/services/http';
 //   403 — 로그인했지만 sensitive_health 동의가 없거나 철회됨. 401과 다르다.
 //         ConsentRequiredError로 구분해 화면이 동의 화면으로 보낼 수 있게 한다.
 
-export type ConsentKind = 'sensitive_health' | 'terms' | 'privacy';
+// group_activity_share: 그룹 챌린지에서 내 활동량·순위를 **같은 그룹 멤버에게** 보이는 것에 대한 동의.
+// sensitive_health(우리가 수집·이용)와 별개다 — 이건 제3자 노출이라 따로 받는다.
+export type ConsentKind = 'sensitive_health' | 'terms' | 'privacy' | 'group_activity_share';
 export type BloodType = 'A' | 'B' | 'O' | 'AB' | 'unknown';
 export type RhFactor = '+' | '-';
 export type AllergySeverity = 'mild' | 'severe';
@@ -215,7 +217,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function toConsentKind(value: unknown): ConsentKind | null {
-  return value === 'sensitive_health' || value === 'terms' || value === 'privacy' ? value : null;
+  return value === 'sensitive_health' ||
+    value === 'terms' ||
+    value === 'privacy' ||
+    value === 'group_activity_share'
+    ? value
+    : null;
 }
 
 function toBloodType(value: unknown): BloodType | null {

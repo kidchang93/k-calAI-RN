@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/back-button';
+import { GroupChallenges } from '@/components/group-challenges';
 import { ErrorBanner } from '@/components/error-banner';
 import { PlanLimitBanner } from '@/components/plan-limit-banner';
 import { useAuthSession } from '@/services/auth-session';
@@ -328,6 +329,9 @@ export default function GroupDetailScreen() {
                   </View>
                 ))}
               </View>
+
+              {/* 운동 챌린지 — 순위는 활동 공유에 동의한 멤버만 보인다(서버가 판정). */}
+              <GroupChallenges groupId={detail.id} />
 
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>함께하는 반려동물</Text>
