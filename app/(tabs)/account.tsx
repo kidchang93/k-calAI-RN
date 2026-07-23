@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BodyMetrics } from '@/components/body-metrics';
 import { ErrorBanner } from '@/components/error-banner';
 import { logout } from '@/services/auth-api';
 import { clearAuthSession } from '@/services/auth-session';
@@ -191,6 +192,11 @@ export default function AccountScreen() {
                 </View>
                 <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
               </Pressable>
+
+              {/* BMI·권장 활동량은 리포트가 아니라 여기에 둔다 (2026-07-23). 매일 바뀌는 값이
+                  아니라 프로필에 딸린 내 몸 정보이고, 리포트는 "오늘·이번 주 무엇을 했나"에
+                  집중시킨다. 프로필이 없으면 컴포넌트가 스스로 사라진다. */}
+              <BodyMetrics profile={profile} />
             </View>
           )}
 

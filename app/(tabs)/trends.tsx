@@ -11,20 +11,18 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BodyMetrics } from '@/components/body-metrics';
 import { WeeklyCoaching } from '@/components/weekly-coaching';
 import { KcalCalendar } from '@/components/kcal-calendar';
 import { Segmented } from '@/components/segmented';
 import { Coaching, getWeeklyCoaching } from '@/services/coaching-api';
+import { formatFoodLabel } from '@/services/food-label';
 import {
   formatDateParam,
   getMeals,
-  getProfile,
   getTrends,
   getWeights,
   MealLog,
   MealType,
-  ProfileResponse,
   recentDateRange,
   TrendDay,
   TrendsResponse,
@@ -89,8 +87,6 @@ export default function TrendsScreen() {
   const [isLoadingMeals, setIsLoadingMeals] = useState(false);
   const [trends, setTrends] = useState<TrendsResponse | null>(null);
   const [weights, setWeights] = useState<WeightLog[] | null>(null);
-  // BMI·권장 활동량은 프로필 응답에 실려 온다 (서버가 계산 — ACTIVITY_GUIDANCE.md 3-1).
-  const [profile, setProfile] = useState<ProfileResponse | null>(null);
   // 주간 조언. 동의가 없으면(403) 조용히 비운다 — 리포트 전체를 막지 않는다.
   const [coaching, setCoaching] = useState<Coaching | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -113,11 +109,9 @@ export default function TrendsScreen() {
       // 캘린더는 보고 있는 '달' 전체가 조회 범위다. 그래프는 오늘 기준 최근 N일.
       const { start_date, end_date } =
         viewMode === 'calendar' ? monthRange(month) : recentDateRange(PERIOD_DAYS[period]);
-      const [trendsResult, weightsResult, profileResult, coachingResult] = await Promise.all([
+      const [trendsResult, weightsResult, coachingResult] = await Promise.all([
         getTrends(start_date, end_date),
         getWeights(),
-        // 프로필은 없을 수 있다(온보딩 전) — null 이면 몸 지표 섹션을 그리지 않는다.
-        getProfile(),
         // 조언은 sensitive_health 동의가 필요하다. 없으면 카드만 빠지고 나머지는 그대로 보인다.
         getWeeklyCoaching().catch(() => null),
       ]);
@@ -125,7 +119,6 @@ export default function TrendsScreen() {
       if (loadSeqRef.current === seq) {
         setTrends(trendsResult);
         setWeights(weightsResult);
-        setProfile(profileResult);
         setCoaching(coachingResult);
       }
     } catch (error) {
@@ -135,7 +128,6 @@ export default function TrendsScreen() {
 
       setTrends(null);
       setWeights(null);
-      setProfile(null);
       setCoaching(null);
       setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
@@ -249,6 +241,11 @@ export default function TrendsScreen() {
             <Segmented onChange={setViewMode} options={VIEW_OPTIONS} value={viewMode} />
           </View>
 
+          {/* 코칭이 맨 위다 — 리포트에서 유일하게 "그래서 뭘 하면 되는지"를 말하는 카드이고,
+              숫자는 그 근거로 아래에 따라온다. 예전에는 그래프·요약 뒤에 있어 스크롤해야
+              보였다. 조언이 없거나 미동의(403)면 컴포넌트가 스스로 사라진다. */}
+          <WeeklyCoaching coaching={coaching} />
+
           {isLoading ? (
             <View style={styles.stateBox}>
               <ActivityIndicator color="#3182f6" />
@@ -297,10 +294,6 @@ export default function TrendsScreen() {
 
               {/* 체중은 두 모드 모두에 둔다 — 한쪽에만 있으면 "있는지 없는지" 모르게 된다.
                   캘린더 모드에서는 보고 있는 달의 기록을 보여준다. */}
-              <WeeklyCoaching coaching={coaching} />
-
-              <BodyMetrics profile={profile} />
-
               <WeightSection
                 logs={periodWeights}
                 onPressManage={() => router.push('/me/weights')}
@@ -364,10 +357,6 @@ export default function TrendsScreen() {
                 </>
               )}
 
-              <WeeklyCoaching coaching={coaching} />
-
-              <BodyMetrics profile={profile} />
-
               <WeightSection
                 logs={periodWeights}
                 onPressManage={() => router.push('/me/weights')}
@@ -429,7 +418,7 @@ function DayDetail({
             </View>
             <View style={styles.mealBody}>
               <Text style={styles.mealFoods} numberOfLines={2}>
-                {meal.items.map((item) => item.food_label).join(', ')}
+                {meal.items.map((item) => formatFoodLabel(item.food_label)).join(', ')}
               </Text>
             </View>
             <Text style={styles.mealKcal}>{`${meal.total_kcal.toLocaleString()} kcal`}</Text>
