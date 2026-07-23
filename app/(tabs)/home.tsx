@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MealTypeCard } from '@/components/meal-type-card';
 import { ProgressRing } from '@/components/progress-ring';
+import { consumePendingInvite } from '@/services/group-invite';
 import { DaySummary, formatDateParam, getSummary, MealBreakdown, MealType } from '@/services/health-api';
 
 const MEAL_ORDER: {
@@ -45,6 +46,17 @@ export default function HomeScreen() {
       setIsLoading(false);
     }
   }, []);
+
+  // 로그인 전에 열린 초대 링크를 이어받는다. 홈은 인증·온보딩을 모두 통과해야 도달하므로,
+  // 신규 가입자가 가입 → 온보딩을 마친 직후에도 초대받은 그룹으로 이어진다.
+  // 코드는 읽으면서 지워지므로(consume) 홈에 다시 와도 반복되지 않는다.
+  useEffect(() => {
+    const pendingInvite = consumePendingInvite();
+
+    if (pendingInvite) {
+      router.replace({ pathname: '/groups/join', params: { code: pendingInvite } });
+    }
+  }, [router]);
 
   // 마운트 시 1회가 아니라 탭이 포커스될 때마다 다시 읽는다.
   // 기록 탭에서 끼니를 저장하고 돌아왔을 때 합계를 갱신하기 위함이다.

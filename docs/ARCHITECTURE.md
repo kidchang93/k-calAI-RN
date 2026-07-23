@@ -18,8 +18,9 @@ k-calAI-RN/
 │   │   ├── _layout.tsx         # 인증 가드 (온보딩 레이아웃과 같은 패턴)
 │   │   ├── index.tsx           # 내 그룹 목록
 │   │   ├── create.tsx          # 그룹 생성
-│   │   ├── join.tsx            # 초대코드로 참여
-│   │   └── [id].tsx            # 그룹 상세 (멤버·펫·초대코드 공유·내 펫 공유·나가기·삭제·멤버 제거·펫 참여 해제)
+│   │   ├── join.tsx            # 초대코드로 참여 (`?code=`로 프리필)
+│   │   └── [id].tsx            # 그룹 상세 (멤버·펫·초대 링크 공유·내 펫 공유·나가기·삭제·멤버 제거·펫 참여 해제)
+│   ├── invite.tsx              # 초대 링크 착지점 (`/invite?code=`) — **인증 가드 밖**. 미가입자가 열어도 코드가 유실되지 않게 한다
 │   ├── pets/                   # 반려동물 스택 (내 정보에서 진입)
 │   │   ├── _layout.tsx         # 인증 가드
 │   │   ├── index.tsx           # 내 반려동물 목록
@@ -58,6 +59,8 @@ k-calAI-RN/
 │   ├── onboarding-api.ts       # 동의·건강 프로필·질병·알러지 (7장)
 │   ├── meta-api.ts             # 선택지 참조 (10장)
 │   ├── group-api.ts            # 그룹 (9장)
+│   ├── group-invite.ts         # 그룹 초대 링크 생성·공유 문구 + 로그인 전 초대코드 보관(consume 1회). 서버 API 없음
+│   ├── share.ts                # 텍스트 공유 플랫폼 shim — 웹은 Web Share API → 클립보드 폴백 (dialog.ts와 같은 이유)
 │   ├── pet-api.ts              # 반려동물·급여 기록 (9장)
 │   ├── recommendation-api.ts   # 식단 추천 (11·13장)
 │   ├── subscription-api.ts     # 요금제·구독 (GET /api/plans 무인증, GET·PUT /api/me/subscription) + FALLBACK_PLANS + parseMySubscription(billing-api 재사용)
@@ -114,7 +117,8 @@ expo-router의 파일 기반 라우팅입니다. `app/` 하위 파일이 곧 경
 | `app/onboarding/*.tsx` | `/onboarding/…` | 인증 가드 레이아웃 |
 | `app/groups/index.tsx` | `/groups` | 내 그룹 목록 |
 | `app/groups/create.tsx` | `/groups/create` | 그룹 생성 |
-| `app/groups/join.tsx` | `/groups/join` | 초대코드로 참여 |
+| `app/groups/join.tsx` | `/groups/join?code=XXXXXXXX` | 초대코드로 참여. `code`가 있으면 프리필(초대 링크 경유) — **자동 참여는 하지 않는다** |
+| `app/invite.tsx` | `/invite?code=XXXXXXXX` | 초대 링크 착지점. **인증 가드 밖의 단일 라우트**인 것이 존재 이유다 — 초대받는 사람은 대개 미가입자라, 가드가 걸린 `/groups/join`으로 바로 보내면 로그인으로 튕기며 코드가 유실된다. 로그인 상태면 `/groups/join?code=`로 replace, 아니면 코드를 보관(`group-invite.ts`)하고 로그인 유도 |
 | `app/groups/[id].tsx` | `/groups/:id` | 그룹 상세. `router.push({ pathname: '/groups/[id]', params })` |
 | `app/pets/index.tsx` | `/pets` | 내 반려동물 목록 |
 | `app/pets/new.tsx` | `/pets/new` | 등록 |
@@ -230,6 +234,29 @@ useAuthSession()      → useState(스냅샷) + useEffect로 listener 등록 →
 연동 코드는 **1회용·TTL 10분**입니다 (서버 `auth_service.LINK_CODE_TTL_MINUTES`). 요금제 목록은 가입 단계에 진입할 때만 `GET /api/plans`(무인증)로 읽고, 실패하면 번들 폴백(`FALLBACK_PLANS`)으로 그립니다 — 네트워크 오류로 가입이 막히면 안 됩니다.
 
 **웹:** `platform=web`으로 열면 서버가 같은 오리진의 `/auth?…`로 되돌립니다. 팝업이 결과를 부모 창에 넘기도록 `app/auth.tsx`가 마운트 시 `completeKakaoAuthSession()`(`WebBrowser.maybeCompleteAuthSession()`)을 호출합니다 (네이티브 no-op).
+
+### 그룹 초대 링크 (2026-07-22) — **서버 API 추가 없음**
+
+```
+그룹 상세 [링크 공유]                                    app/groups/[id].tsx
+  └─ buildInviteMessage(name, code)                      services/group-invite.ts
+  └─ shareText(message)                                  services/share.ts
+       네이티브 → Share.share
+       웹      → navigator.share → (미지원·거부 시) clipboard.writeText → 'copied' 안내
+
+받는 사람이 링크를 연다   https://api.kcalai.link/invite?code=A7K2MPQ9
+  └─ app/invite.tsx  (인증 가드 밖)
+       로그인됨   → router.replace('/groups/join?code=…')  → 코드 프리필, 사람이 [참여하기]
+       미로그인   → rememberPendingInvite(code) → /auth
+                    카카오 로그인 (+ 신규면 온보딩) → /(tabs)
+                    app/(tabs)/home.tsx 가 consumePendingInvite() → /groups/join?code=…
+```
+
+- **`/invite`가 인증 가드 밖에 있는 것이 이 설계의 핵심**입니다. 초대를 받는 사람은 대개 미가입자라, 가드가 걸린 `/groups/join`으로 바로 보내면 `<Redirect href="/auth" />`가 코드를 버립니다.
+- **자동 참여는 하지 않습니다.** 잘못 눌러 들어간 그룹을 되돌리는 UI가 없어, 마지막 확인은 사람이 합니다.
+- 보관한 코드는 `consumePendingInvite()`가 **읽으면서 지웁니다** — 홈에 올 때마다 참여 화면이 끼어들면 안 됩니다.
+- 링크 오리진은 웹에서 `window.location.origin`(접속한 도메인을 따라감), 네이티브는 운영 도메인 상수입니다(`EXPO_PUBLIC_PUBLIC_WEB_ORIGIN`으로 덮어쓸 수 있음). 웹앱과 API가 같은 오리진이라 링크를 연 사람은 앱 설치 없이 참여합니다.
+- 네이티브 앱 설치자가 링크를 눌러도 **브라우저로 열립니다** — 유니버설 링크(`apple-app-site-association` + `associatedDomains`)는 아직 없습니다.
 
 ### 자동결제 (2026-07-16, 토스페이먼츠 빌링) — **웹 전용**
 
@@ -355,7 +382,7 @@ readErrorMessage(response)
 | `getPayments` / `getPayment` | `GET /api/payments`, `GET /api/payments/{id}` | — (Bearer) | `{ payments: [PaymentItem] }`(최신순) / `PaymentItem`. `PaymentItem = { id, order_id, plan_code, plan_label, amount, status, method\|null, approved_at\|null, fail_reason\|null, created_at }`. `status`·`amount`는 서버 참조값이라 유니온으로 굳히지 않고 `string`·유한수로 받는다. 단건 **404** = `PaymentNotFoundError`(재시도 대신 안내). 자동결제 연동(2026-07-16, 24장) 이후 `confirm`·갱신 배치가 이 원장을 채운다 — 실패한 청구도 `status='failed'` + `fail_reason`(사용자용 한국어)로 남는다. 결제 이력이 없는 회원은 여전히 빈 배열 |
 | `updateMeal` | `PUT /api/meals/{meal_id}` | `createMeal`과 동일 구조 (전체 교체) | `MealLog`. `logged_at` 생략 시 기존 기록 시각 유지, `total_kcal`은 서버가 items 합계로 재계산. 남의 끼니·삭제된 끼니 404 (DATA_MODEL.md 4장) |
 | `deleteAccount` | `DELETE /api/me` | — | `{ message }`. **물리 삭제** — 끼니·체중·펫·소유 그룹 전부 파기, 전 토큰 즉시 무효. 성공 시에만 호출부가 `clearAuthSession()` (DATA_MODEL.md 18장) |
-| `createGroup` / `getGroups` / `joinGroup` | `POST·GET /api/groups`, `POST /api/groups/join` | `{ name, kind }` / — / `{ invite_code }` | `GroupSummary` (생성·목록·참여 동일 형태) |
+| `createGroup` / `getGroups` / `joinGroup` | `POST·GET /api/groups`, `POST /api/groups/join` | `{ name, kind }` / — / `{ invite_code }` | `GroupSummary` (생성·목록·참여 동일 형태). 초대 링크로 들어온 참여도 이 API 하나를 쓴다 — 링크는 코드 전달 수단일 뿐이라 **서버 API가 늘지 않는다** |
 | `getGroupDetail` | `GET /api/groups/{id}` | — | 상세 + `members[]`(**`nickname`** = 카카오 닉네임. 2026-07-14 이전의 `phone_number_masked`를 대체. 닉네임이 없으면 서버가 '이름 미설정'을 준다) + `pets[]` |
 | `attachPetToGroup` | `POST /api/groups/{id}/pets` | `{ pet_id }` | `{ message }` — 그룹 멤버이면서 펫 소유자만 |
 | `leaveGroup` / `deleteGroup` / `removeMember` / `detachPetFromGroup` | `DELETE /api/groups/{id}/members/me`, `DELETE /api/groups/{id}`, `DELETE /api/groups/{id}/members/{user_id}`, `DELETE /api/groups/{id}/pets/{pet_id}` | — | `{ message }`. 소유자 탈퇴 400("그룹 삭제로 진행" 안내), 비소유 삭제·제거 403, 비멤버는 404 (존재 은닉). 펫·급여 기록은 어떤 라우트에서도 삭제되지 않는다 (DATA_MODEL.md 17장) |

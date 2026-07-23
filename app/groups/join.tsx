@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,11 +17,16 @@ import { BackButton } from '@/components/back-button';
 import { ErrorBanner } from '@/components/error-banner';
 import { PlanLimitBanner } from '@/components/plan-limit-banner';
 import { joinGroup } from '@/services/group-api';
+import { readInviteCodeParam } from '@/services/group-invite';
 import { PlanLimitError } from '@/services/http';
 
 export default function GroupJoinScreen() {
   const router = useRouter();
-  const [code, setCode] = useState('');
+  // 초대 링크(`/invite?code=…`)로 들어오면 코드가 채워진 채 시작한다. 참여는 자동으로 하지
+  // 않는다 — 잘못 눌러 들어간 그룹을 되돌릴 화면이 없어서, 확인은 사람이 한 번 한다.
+  const params = useLocalSearchParams<{ code?: string }>();
+  const [code, setCode] = useState(() => readInviteCodeParam(params.code));
+  const isFromInviteLink = readInviteCodeParam(params.code).length > 0;
   const [isJoining, setIsJoining] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // 402(그룹 정원 초과). 정원을 산 사람은 그룹 소유자라, 서버 detail이 "소유자가 업그레이드해야
@@ -66,7 +71,11 @@ export default function GroupJoinScreen() {
 
             <View style={styles.header}>
               <Text style={styles.title}>초대코드로 참여</Text>
-              <Text style={styles.subtitle}>그룹 멤버에게 받은 8자리 코드를 입력해주세요.</Text>
+              <Text style={styles.subtitle}>
+                {isFromInviteLink
+                  ? '초대 링크의 코드를 채워두었어요. 참여하기를 누르면 그룹에 들어갑니다.'
+                  : '그룹 멤버에게 받은 8자리 코드를 입력해주세요.'}
+              </Text>
             </View>
 
             <View style={styles.inputGroup}>

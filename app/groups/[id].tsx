@@ -1,15 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  Share,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/back-button';
@@ -29,8 +21,10 @@ import {
   leaveGroup,
   removeMember,
 } from '@/services/group-api';
+import { buildInviteMessage } from '@/services/group-invite';
 import { PlanLimitError } from '@/services/http';
 import { getPets, PetResponse } from '@/services/pet-api';
+import { shareText } from '@/services/share';
 import { confirmDialog, notifyDialog } from '@/services/dialog';
 
 const GROUP_KIND_LABELS: Record<GroupKind, string> = {
@@ -108,13 +102,16 @@ export default function GroupDetailScreen() {
     }, [loadDetail])
   );
 
+  // 코드만 보내면 받는 사람이 8자를 손으로 옮겨 적어야 한다. 링크를 함께 보내 바로 참여
+  // 화면으로 보낸다. 웹은 공유 시트가 없을 수 있어 클립보드로 내려가므로 결과를 알려준다.
   const shareInviteCode = async (group: GroupDetail) => {
-    try {
-      await Share.share({
-        message: `'${group.name}' 그룹 초대코드: ${group.invite_code}\nk-cal 앱에서 초대코드로 참여해주세요.`,
-      });
-    } catch {
-      // 공유 시트 취소·미지원(web)은 오류로 취급하지 않는다.
+    const message = buildInviteMessage(group.name, group.invite_code);
+    const outcome = await shareText(message);
+
+    if (outcome === 'copied') {
+      notifyDialog('초대 링크를 복사했어요', '메시지에 붙여넣어 보내주세요.');
+    } else if (outcome === 'unavailable') {
+      notifyDialog('초대 링크', message);
     }
   };
 
@@ -299,7 +296,7 @@ export default function GroupDetailScreen() {
                   onPress={() => void shareInviteCode(detail)}
                   style={({ pressed }) => [styles.shareButton, pressed && styles.pressed]}>
                   <MaterialIcons color="#3182f6" name="ios-share" size={18} />
-                  <Text style={styles.shareButtonText}>공유</Text>
+                  <Text style={styles.shareButtonText}>링크 공유</Text>
                 </Pressable>
               </View>
 
