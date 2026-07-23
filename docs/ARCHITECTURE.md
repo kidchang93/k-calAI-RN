@@ -57,8 +57,9 @@ k-calAI-RN/
 │   ├── calorie-api.ts          # 추론/칼로리 API 클라이언트
 │   ├── health-api.ts           # 프로필·목표·끼니·체중 (DATA_MODEL.md 3~5장)
 │   ├── onboarding-api.ts       # 동의·건강 프로필·질병·알러지 (7장)
-│   ├── meta-api.ts             # 선택지 참조 (10장)
+│   ├── meta-api.ts             # 선택지 참조 (10장) — 질병·알러지 + 신장병 병기(ckd_stages)
 │   ├── group-api.ts            # 그룹 (9장)
+│   ├── food-label.ts           # 식약처 라벨 → 화면 표시명. **조회 키는 안 바꾼다**. 언더스코어가 카테고리인지 재료인지 일반 판정이 불가해, 접두사가 뒤에 다시 나올 때만 뗀다
 │   ├── group-invite.ts         # 그룹 초대 링크 생성·공유 문구 + 로그인 전 초대코드 보관(consume 1회). 서버 API 없음
 │   ├── share.ts                # 텍스트 공유 플랫폼 shim — 웹은 Web Share API → 클립보드 폴백 (dialog.ts와 같은 이유)
 │   ├── pet-api.ts              # 반려동물·급여 기록 (9장)
@@ -234,6 +235,31 @@ useAuthSession()      → useState(스냅샷) + useEffect로 listener 등록 →
 연동 코드는 **1회용·TTL 10분**입니다 (서버 `auth_service.LINK_CODE_TTL_MINUTES`). 요금제 목록은 가입 단계에 진입할 때만 `GET /api/plans`(무인증)로 읽고, 실패하면 번들 폴백(`FALLBACK_PLANS`)으로 그립니다 — 네트워크 오류로 가입이 막히면 안 됩니다.
 
 **웹:** `platform=web`으로 열면 서버가 같은 오리진의 `/auth?…`로 되돌립니다. 팝업이 결과를 부모 창에 넘기도록 `app/auth.tsx`가 마운트 시 `completeKakaoAuthSession()`(`WebBrowser.maybeCompleteAuthSession()`)을 호출합니다 (네이티브 no-op).
+
+### 홈의 정보 구조 (2026-07-23 개편)
+
+```
+홈 (app/(tabs)/home.tsx)
+  ├─ 칼로리 링                     SummaryRing        — 목표 미설정이면 대신 목표 CTA
+  ├─ 오늘의 영양                   components/day-nutrients-card.tsx
+  │    질환 축(나트륨·칼륨·인) 하루 누적. summary.nutrients 가 null 이면 통째로 사라진다
+  ├─ 다음 끼니 추천                components/next-meal-card.tsx
+  │    GET /api/recommendations 미리보기 2개. 실패해도 카드는 남고 진입은 열려 있다
+  ├─ 끼니 카드 4개                 MealCards          — 기록 현황(조회)
+  └─ 내 그룹 진입 행
+```
+
+**순서가 곧 판단입니다.** 만성질환자에게는 kcal 보다 나트륨 누적이 중요하므로 링 바로 아래에 두고
+(`kcalAI-model/docs/PRODUCT_STRATEGY.md` §1), "다음에 뭘 먹지"(추천)를 "끼니별로 뭘 먹었나"(조회)보다
+앞에 둡니다. 예전에는 추천이 그룹 진입과 나란한 **회색 리스트 행**이어서, 질환별 제외·등급·조리 팁까지
+담긴 가장 밀도 높은 화면이 가장 눈에 띄지 않았습니다.
+
+리포트 탭은 반대로 덜어냈습니다 — **주간 코칭이 최상단**(유일하게 "그래서 뭘 하면 되는지"를 말하는
+카드)이고, **BMI·권장 활동량은 내 정보 탭으로 옮겼습니다**(`components/body-metrics.tsx`). 매일 바뀌는
+값이 아니라 프로필에 딸린 내 몸 정보이기 때문입니다.
+
+기록 확정 화면의 경고 배너에는 **'다음 끼니에 맞는 메뉴 보기'** 액션이 붙습니다. 경고를 막다른 길로
+두지 않기 위한 것이고, 기록을 막지 않으므로 이미 먹은 것을 지우라는 뜻이 아닙니다(그래서 '다음 끼니').
 
 ### 그룹 초대 링크 (2026-07-22) — **서버 API 추가 없음**
 
