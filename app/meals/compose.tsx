@@ -23,6 +23,7 @@ import { NutrientChip, NutrientChips } from '@/components/nutrient-chips';
 import { NUTRIENT_LABELS, NUTRIENT_TIER_LABELS } from '@/constants/nutrition';
 import { FoodDetection, PhotoAsset, uploadFoodPhoto } from '@/services/calorie-api';
 import { notifyDialog } from '@/services/dialog';
+import { formatFoodLabel } from '@/services/food-label';
 import {
   checkFoodWarnings,
   createMeal,
@@ -43,6 +44,7 @@ import {
   updateMeal,
 } from '@/services/health-api';
 import { PlanLimitError } from '@/services/http';
+import { nextMealType } from '@/services/recommendation-api';
 
 const MEAL_TYPE_OPTIONS: { value: MealType; label: string }[] = [
   { value: 'breakfast', label: '아침' },
@@ -651,7 +653,7 @@ export default function MealComposeScreen() {
               {existingItems.map((item) => (
                 <View key={item.id} style={styles.existingRow}>
                   <Text style={styles.existingLabel} numberOfLines={1}>
-                    {item.food_label}
+                    {formatFoodLabel(item.food_label)}
                   </Text>
                   <Text style={styles.existingKcal}>{`${item.kcal.toLocaleString()} kcal`}</Text>
                 </View>
@@ -789,6 +791,21 @@ export default function MealComposeScreen() {
                 ))}
                 {/* 등급 근거가 지침 컷오프가 아니라 정책값이라는 고지. 서버가 문구를 정한다. */}
                 {warningNotice ? <Text style={styles.warningNotice}>{warningNotice}</Text> : null}
+
+                {/* 경고를 막다른 길로 두지 않는다 — "먹지 마세요" 다음에는 "그럼 뭘 먹지"가
+                    와야 한다. 기록을 막지 않으므로 이건 대안 제시일 뿐이고, 이미 먹은 것을
+                    지우라는 뜻이 아니다(그래서 문구가 '다음 끼니'다). */}
+                <Pressable
+                  onPress={() =>
+                    router.push({
+                      pathname: '/recommendations',
+                      params: { meal_type: nextMealType() },
+                    })
+                  }
+                  style={({ pressed }) => [styles.warningAction, pressed && styles.pressed]}>
+                  <MaterialIcons color="#3182f6" name="restaurant-menu" size={16} />
+                  <Text style={styles.warningActionText}>다음 끼니에 맞는 메뉴 보기</Text>
+                </Pressable>
               </View>
             </View>
           ) : null}
@@ -985,11 +1002,21 @@ function formatWarning(warning: FoodWarning): string {
             warning.tier !== null ? ` · ${NUTRIENT_TIER_LABELS[warning.tier]}` : ''
           })`
         : '';
+    const name = formatFoodLabel(warning.matched_label);
 
-    return `${prefix}: '${warning.matched_label}'은(는) ${nutrientLabel}이 높은 편이에요${measured}`;
+    // **근거에 따라 단정 수위를 나눈다.** 경고는 두 축에서 발동한다(CKD_NUTRITION.md 3-5) —
+    // 실측 등급(tier)과 지침의 이름 분류. 둘을 한 문장으로 뭉치면 "'라면'은 나트륨이 높은
+    // 편이에요 (1인분 290mg)"처럼 **문구와 수치가 서로를 반박**한다(실측 사례). 수치가 낮게
+    // 나오는 이유는 DB 행이 그 음식을 잘 대표하지 못해서일 수도 있어 경고를 없애면 안 되고,
+    // 대신 "지침이 주의 식품으로 분류했다"는 사실 그대로를 말한다.
+    if (warning.tier === 'high' || warning.nutrient_mg === null) {
+      return `${prefix}: '${name}'은(는) ${nutrientLabel}이 높은 편이에요${measured}`;
+    }
+
+    return `${prefix}: '${name}'은(는) 지침에서 ${nutrientLabel} 주의 식품으로 분류돼요${measured}`;
   }
 
-  return `${prefix}: '${warning.matched_label}'에 ${warning.matched_keyword}${subjectParticle(warning.matched_keyword)} 포함될 수 있어요`;
+  return `${prefix}: '${formatFoodLabel(warning.matched_label)}'에 ${warning.matched_keyword}${subjectParticle(warning.matched_keyword)} 포함될 수 있어요`;
 }
 
 // 주격 조사(이/가) — 마지막 글자의 받침 유무로 고른다. 한글이 아니면 병기 폴백.
@@ -1303,6 +1330,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     padding: 14,
+  },
+  warningAction: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#eef4ff',
+    borderRadius: 6,
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  warningActionText: {
+    color: '#3182f6',
+    fontSize: 13,
+    fontWeight: '800',
   },
   warningNotice: {
     color: '#6b7684',

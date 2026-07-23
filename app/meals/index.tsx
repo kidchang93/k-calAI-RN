@@ -8,6 +8,7 @@ import { BackButton } from '@/components/back-button';
 import { ChipGroup } from '@/components/chip-group';
 import { ErrorBanner } from '@/components/error-banner';
 import { QuantityEditor, QuantityValue } from '@/components/quantity-editor';
+import { formatFoodLabel } from '@/services/food-label';
 import { confirmDialog } from '@/services/dialog';
 import {
   deleteMeal,
@@ -395,7 +396,7 @@ export default function MealListScreen() {
                   ) : (
                     meal.items.map((item) => (
                       <View key={item.id} style={styles.itemRow}>
-                        <Text style={styles.itemLabel}>{item.food_label}</Text>
+                        <Text style={styles.itemLabel}>{formatFoodLabel(item.food_label)}</Text>
                         <Text style={styles.itemMeta}>
                           {`${item.serving_ratio}인분 · ${item.kcal.toLocaleString()} kcal`}
                         </Text>

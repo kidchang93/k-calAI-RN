@@ -1,5 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/back-button';
 import { ChipGroup } from '@/components/chip-group';
 import { NutrientChip, NutrientChips } from '@/components/nutrient-chips';
+import { formatFoodLabel } from '@/services/food-label';
 import { formatDateParam, MealType } from '@/services/health-api';
 import { ConsentRequiredError } from '@/services/onboarding-api';
 import {
@@ -21,6 +22,7 @@ import {
   ExcludedFiltered,
   ExcludedRule,
   getRecommendation,
+  nextMealType,
   RecommendationItem,
 } from '@/services/recommendation-api';
 
@@ -38,29 +40,18 @@ const MEAL_TYPE_LABELS: Record<MealType, string> = {
   snack: '간식',
 };
 
-// 현재 시각 기준 "다음 끼니" 기본값. 기록 탭의 defaultMealType(방금 먹은 끼니)과 달리
-// 앞으로 먹을 끼니를 고른다. 사용자가 칩에서 언제든 바꿀 수 있다.
-function defaultNextMealType(): MealType {
-  const hour = new Date().getHours();
+function paramMealType(value: string | undefined): MealType {
+  const option = MEAL_TYPE_OPTIONS.find((item) => item.value === value);
 
-  if (hour < 9) {
-    return 'breakfast';
-  }
-
-  if (hour < 13) {
-    return 'lunch';
-  }
-
-  if (hour < 19) {
-    return 'dinner';
-  }
-
-  return 'snack';
+  return option ? option.value : nextMealType();
 }
 
 export default function RecommendationsScreen() {
   const router = useRouter();
-  const [mealType, setMealType] = useState<MealType>(() => defaultNextMealType());
+  const params = useLocalSearchParams<{ meal_type?: string }>();
+  // 홈 카드에서 넘어오면 그 카드가 보여준 끼니를 그대로 연다 — 화면이 바뀌면서 메뉴가
+  // 달라지면 "방금 본 것"을 다시 찾아야 한다. 파라미터가 없으면 시각으로 정한다.
+  const [mealType, setMealType] = useState<MealType>(() => paramMealType(params.meal_type));
   const [recommendation, setRecommendation] = useState<DietRecommendation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -226,7 +217,7 @@ function RecommendationCard({ item }: { item: RecommendationItem }) {
   return (
     <View style={styles.itemCard}>
       <View style={styles.itemTopLine}>
-        <Text style={styles.itemName}>{item.name}</Text>
+        <Text style={styles.itemName}>{formatFoodLabel(item.name)}</Text>
         <Text style={styles.itemKcal}>{`${item.kcal.toLocaleString()} kcal`}</Text>
       </View>
       <Text style={styles.itemReason}>{item.reason}</Text>
