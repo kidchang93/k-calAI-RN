@@ -11,10 +11,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DayNutrientsCard } from '@/components/day-nutrients-card';
 import { MealTypeCard } from '@/components/meal-type-card';
+import { NextMealCard } from '@/components/next-meal-card';
 import { ProgressRing } from '@/components/progress-ring';
 import { consumePendingInvite } from '@/services/group-invite';
 import { DaySummary, formatDateParam, getSummary, MealBreakdown, MealType } from '@/services/health-api';
+import {
+  DietRecommendation,
+  getRecommendation,
+  nextMealType,
+} from '@/services/recommendation-api';
 
 const MEAL_ORDER: {
   meal_type: MealType;
@@ -32,6 +39,10 @@ export default function HomeScreen() {
   const [summary, setSummary] = useState<DaySummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // 다음 끼니 추천. 홈에서는 미리보기일 뿐이라 **실패해도 조용히 넘어간다** —
+  // 403(민감정보 미동의)·네트워크 오류로 오늘 요약까지 막히면 안 된다.
+  const [recommendation, setRecommendation] = useState<DietRecommendation | null>(null);
+  const [mealType] = useState<MealType>(() => nextMealType());
 
   const loadSummary = useCallback(async () => {
     setIsLoading(true);
@@ -65,6 +76,26 @@ export default function HomeScreen() {
       void loadSummary();
     }, [loadSummary])
   );
+
+  // 추천은 (사용자, 날짜, 끼니)로 서버에 캐시돼 하루 동안 같은 결과다 — 포커스마다 다시
+  // 부를 이유가 없어 마운트 1회만 읽는다.
+  useEffect(() => {
+    let isCancelled = false;
+
+    getRecommendation(mealType, formatDateParam(new Date()))
+      .then((result) => {
+        if (!isCancelled) {
+          setRecommendation(result);
+        }
+      })
+      .catch(() => {
+        // 미리보기는 있으면 좋은 것이다. 카드는 설명만 담은 채로 남고 진입은 계속 열려 있다.
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [mealType]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -106,27 +137,32 @@ export default function HomeScreen() {
               </Pressable>
             </View>
           ) : (
-            <SummaryContent
-              targetKcal={summary.target_kcal}
-              consumedKcal={summary.consumed_kcal}
-              meals={summary.meals}
-              onPressMeal={() =>
-                router.push({ pathname: '/meals', params: { date: summary.date } })
-              }
-            />
+            <SummaryRing targetKcal={summary.target_kcal} consumedKcal={summary.consumed_kcal} />
           )}
 
-          {/* 식단 추천도 홈에서 진입한다 — 다음 끼니를 정하는 곳은 오늘 요약 옆이다. */}
-          <Pressable
-            onPress={() => router.push('/recommendations')}
-            style={({ pressed }) => [styles.groupRow, pressed && styles.pressed]}>
-            <MaterialIcons color="#3182f6" name="restaurant-menu" size={24} />
-            <View style={styles.groupRowBody}>
-              <Text style={styles.groupRowTitle}>식단 추천</Text>
-              <Text style={styles.groupRowText}>남은 칼로리에 맞춰 골라드려요</Text>
-            </View>
-            <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
-          </Pressable>
+          {/* 질환 축 하루 누적. 질환이 없으면 서버가 null 을 주고 카드는 나타나지 않는다.
+              칼로리 링 **바로 아래**인 것이 핵심이다 — 만성질환자에게는 kcal 보다 이 숫자가
+              중요하다(kcalAI-model/docs/PRODUCT_STRATEGY.md §1). */}
+          {summary !== null ? <DayNutrientsCard nutrients={summary.nutrients} /> : null}
+
+          {/* "다음에 뭘 먹지"가 "끼니별 기록 조회"보다 먼저다. 예전에는 그룹 진입과 나란한
+              회색 행이어서, 가장 쓸모 있는 화면이 가장 눈에 안 띄었다. */}
+          {summary !== null ? (
+            <NextMealCard
+              mealType={mealType}
+              recommendation={recommendation}
+              onPress={() =>
+                router.push({ pathname: '/recommendations', params: { meal_type: mealType } })
+              }
+            />
+          ) : null}
+
+          {summary !== null && summary.target_kcal !== null && summary.target_kcal !== 0 ? (
+            <MealCards
+              meals={summary.meals}
+              onPressMeal={() => router.push({ pathname: '/meals', params: { date: summary.date } })}
+            />
+          ) : null}
 
           {/* 그룹은 내 정보가 아니라 홈에서 진입한다 — 매일 보는 곳이라야 모임이 굴러간다. */}
           <Pressable
@@ -147,46 +183,40 @@ export default function HomeScreen() {
   );
 }
 
-function SummaryContent({
-  targetKcal,
-  consumedKcal,
-  meals,
-  onPressMeal,
-}: {
-  targetKcal: number;
-  consumedKcal: number;
-  meals: MealBreakdown;
-  onPressMeal: () => void;
-}) {
-  const target = targetKcal;
-  const consumed = consumedKcal;
-  const remaining = target - consumed;
+// 링과 끼니 카드를 나눠 둔다 — 사이에 오늘의 영양·다음 끼니 추천이 들어오기 때문이다.
+function SummaryRing({ targetKcal, consumedKcal }: { targetKcal: number; consumedKcal: number }) {
+  const remaining = targetKcal - consumedKcal;
   const isOver = remaining < 0;
 
   return (
-    <>
-      <View style={styles.ringCard}>
-        <ProgressRing progress={target > 0 ? consumed / target : 0} size={220} strokeWidth={18}>
-          <Text style={styles.ringValue}>{Math.abs(remaining).toLocaleString()}</Text>
-          <Text style={styles.ringLabel}>{isOver ? '초과 kcal' : '남은 kcal'}</Text>
-        </ProgressRing>
-        <Text style={styles.ringSummary}>
-          {`오늘 ${consumed.toLocaleString()} / ${target.toLocaleString()} kcal`}
-        </Text>
-      </View>
+    <View style={styles.ringCard}>
+      <ProgressRing
+        progress={targetKcal > 0 ? consumedKcal / targetKcal : 0}
+        size={220}
+        strokeWidth={18}>
+        <Text style={styles.ringValue}>{Math.abs(remaining).toLocaleString()}</Text>
+        <Text style={styles.ringLabel}>{isOver ? '초과 kcal' : '남은 kcal'}</Text>
+      </ProgressRing>
+      <Text style={styles.ringSummary}>
+        {`오늘 ${consumedKcal.toLocaleString()} / ${targetKcal.toLocaleString()} kcal`}
+      </Text>
+    </View>
+  );
+}
 
-      <View style={styles.mealSection}>
-        {MEAL_ORDER.map((meal) => (
-          <MealTypeCard
-            key={meal.meal_type}
-            icon={meal.icon}
-            label={meal.label}
-            kcal={meals[meal.meal_type]}
-            onPress={onPressMeal}
-          />
-        ))}
-      </View>
-    </>
+function MealCards({ meals, onPressMeal }: { meals: MealBreakdown; onPressMeal: () => void }) {
+  return (
+    <View style={styles.mealSection}>
+      {MEAL_ORDER.map((meal) => (
+        <MealTypeCard
+          key={meal.meal_type}
+          icon={meal.icon}
+          label={meal.label}
+          kcal={meals[meal.meal_type]}
+          onPress={onPressMeal}
+        />
+      ))}
+    </View>
   );
 }
 
