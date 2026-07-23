@@ -66,6 +66,27 @@ export const RECOMMENDATION_API_URL = apiUrl(
   process.env.EXPO_PUBLIC_RECOMMENDATION_API_URL,
 );
 
+// 현재 시각 기준 "다음 끼니". 기록 화면의 기본값(방금 먹은 끼니)과 달리 **앞으로 먹을** 끼니다.
+// 홈의 추천 카드와 추천 화면이 같은 끼니를 가리켜야 해서 여기 둔다 — 두 곳이 다르면 홈에서
+// 본 메뉴가 들어가서 사라진다.
+export function nextMealType(now: Date = new Date()): MealType {
+  const hour = now.getHours();
+
+  if (hour < 9) {
+    return 'breakfast';
+  }
+
+  if (hour < 13) {
+    return 'lunch';
+  }
+
+  if (hour < 19) {
+    return 'dinner';
+  }
+
+  return 'snack';
+}
+
 export async function getRecommendation(
   mealType: MealType,
   date: string

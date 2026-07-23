@@ -23,14 +23,20 @@ export type ConsentRecord = {
   revoked_at: string | null;
 };
 
+// 신장병 병기(투석 여부). 나트륨 하루 상한이 여기서 갈린다 — 비투석 2,000 / 투석 3,000
+// (서버 docs/CKD_NUTRITION.md 3-6). 모름은 별도 코드가 아니라 null 이다.
+export type CkdStage = 'nondialysis' | 'hemodialysis' | 'peritoneal';
+
 export type HealthProfile = {
   blood_type: BloodType | null;
   rh: RhFactor | null;
+  ckd_stage: CkdStage | null;
 };
 
 export type HealthProfileRequest = {
   blood_type?: BloodType | null;
   rh?: RhFactor | null;
+  ckd_stage?: CkdStage | null;
 };
 
 // allergen은 자유 문자열이 아니라 GET /api/meta/options의 표준 code다 (DATA_MODEL.md 10장).
@@ -282,7 +288,14 @@ function parseHealthProfile(value: unknown): HealthProfile | null {
     return null;
   }
 
-  return { blood_type, rh };
+  return { blood_type, rh, ckd_stage: toCkdStage(value.ckd_stage) };
+}
+
+// 옛 서버는 이 필드를 주지 않는다 — 모르는 값·누락은 전부 null(모름)로 흘린다.
+function toCkdStage(value: unknown): CkdStage | null {
+  return value === 'nondialysis' || value === 'hemodialysis' || value === 'peritoneal'
+    ? value
+    : null;
 }
 
 function parseAllergyEntry(value: unknown): AllergyEntry | null {

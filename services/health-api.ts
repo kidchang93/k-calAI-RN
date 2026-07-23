@@ -88,6 +88,27 @@ export type MealBreakdown = {
   snack: number;
 };
 
+// 질환 축 하루 누적 (2026-07-23, 서버 DATA_MODEL.md 28장).
+export type DayNutrientAxis = {
+  nutrient: 'sodium' | 'potassium' | 'phosphorus';
+  label: string;
+  consumed_mg: number;
+  // 1일 상한. **나트륨에만 있다** — 칼륨·인은 지침이 혈청 수치 기반 개인화라 상한이 없다
+  // (KDOQI 2020). null이면 게이지를 그리지 않고 수치만 보여준다.
+  limit_mg: number | null;
+  // 상한이 아니라 투석 환자에게 흔히 쓰이는 실무 참고치. **게이지로 쓰지 않는다.**
+  reference_mg: number | null;
+  basis: string | null;
+  // 이 축의 실측을 찾은 항목 수. total_items보다 작으면 합계가 과소평가다 — 화면이 밝힌다.
+  measured_items: number;
+};
+
+export type DayNutrients = {
+  axes: DayNutrientAxis[];
+  total_items: number;
+  notice: string;
+};
+
 export type DaySummary = {
   date: string;
   // 목표 미설정이면 null (0이 아니다). 홈 화면이 "목표를 설정해주세요" CTA를 띄우는 근거.
@@ -95,6 +116,9 @@ export type DaySummary = {
   consumed_kcal: number;
   remaining_kcal: number | null;
   meals: MealBreakdown;
+  // 질환 축 하루 누적. 해당 질환이 없으면 null → 홈은 칼로리만 그린다.
+  // 옛 서버는 이 필드를 주지 않으므로 null로 흘린다(화면이 막히지 않는다).
+  nutrients: DayNutrients | null;
 };
 
 export type NutritionEstimate = {
@@ -686,6 +710,54 @@ function parseDaySummary(value: unknown): DaySummary | null {
     consumed_kcal: value.consumed_kcal,
     remaining_kcal: value.remaining_kcal,
     meals,
+    nutrients: parseDayNutrients(value.nutrients),
+  };
+}
+
+// 질환 축은 부가 정보다 — 형식이 어긋나면 요약 전체를 실패시키지 않고 카드만 접는다.
+function parseDayNutrients(value: unknown): DayNutrients | null {
+  if (!isRecord(value) || !Array.isArray(value.axes) || typeof value.notice !== 'string') {
+    return null;
+  }
+
+  const axes = value.axes
+    .map(parseDayNutrientAxis)
+    .filter((axis): axis is DayNutrientAxis => axis !== null);
+
+  if (axes.length === 0) {
+    return null;
+  }
+
+  return {
+    axes,
+    total_items: typeof value.total_items === 'number' ? value.total_items : 0,
+    notice: value.notice,
+  };
+}
+
+function parseDayNutrientAxis(value: unknown): DayNutrientAxis | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const nutrient = value.nutrient;
+
+  if (
+    (nutrient !== 'sodium' && nutrient !== 'potassium' && nutrient !== 'phosphorus') ||
+    typeof value.label !== 'string' ||
+    typeof value.consumed_mg !== 'number'
+  ) {
+    return null;
+  }
+
+  return {
+    nutrient,
+    label: value.label,
+    consumed_mg: value.consumed_mg,
+    limit_mg: typeof value.limit_mg === 'number' ? value.limit_mg : null,
+    reference_mg: typeof value.reference_mg === 'number' ? value.reference_mg : null,
+    basis: typeof value.basis === 'string' ? value.basis : null,
+    measured_items: typeof value.measured_items === 'number' ? value.measured_items : 0,
   };
 }
 
