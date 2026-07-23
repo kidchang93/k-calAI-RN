@@ -35,6 +35,7 @@ import {
   getMeals,
   MealItem,
   MealItemSource,
+  MealLog,
   MealType,
   NutritionEstimate,
   NutritionNotFoundError,
@@ -60,9 +61,11 @@ const MEAL_TYPE_LABELS: Record<MealType, string> = {
 // 서버 계약(MealItemInput.kcal)의 상한.
 const MAX_KCAL = 100000;
 
-// 사진 1장에서 인식된 여러 음식을 각각 항목으로 나눌지. 분할 로직(foods[] → 항목 N개)은
-// 구현돼 있으나 지금은 원래대로 '한 객체(대표 음식 1개)'로 담는다. true 로 바꾸면 켜진다.
-const MULTI_FOOD_SPLIT = false;
+// 사진 1장에서 인식된 여러 음식을 각각 항목으로 나눈다 (2026-07-22 활성화).
+// 끄면 대표 음식 1개만 담기는데, 한식 한 상(밥·국·반찬)이면 나머지를 손으로 넣어야 해서
+// 기록 시간이 길어진다 — 끼니당 30초를 넘기면 리텐션이 급락한다(docs/PRODUCT_STRATEGY.md §2).
+// 사진 1장의 비전 쿼터는 음식 개수와 무관하게 1건이라(DATA_MODEL 22장) 켜도 쿼터 부담은 같다.
+const MULTI_FOOD_SPLIT = true;
 
 // 초안 항목. 양 편집 상태(food_label·kcalText·serving_ratio·unit·serving_size_g·basePerServing)는
 // QuantityEditor와 공유하는 QuantityValue로, 저장 페이로드에는 serving_ratio + kcal만 나간다.
@@ -197,6 +200,8 @@ export default function MealComposeScreen() {
   const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
   const [visionUsage, setVisionUsage] = useState<{ used: number; limit: number } | null>(null);
   const [warnings, setWarnings] = useState<FoodWarning[]>([]);
+  // 등급 경고와 함께 내려오는 고지문(서버 단일 진실). 등급 근거가 정책값이라는 사실을 숨기지 않는다.
+  const [warningNotice, setWarningNotice] = useState<string | null>(null);
 
   // 사진 자동 분석은 마운트 시 1회만. 라벨이 바뀌면 늦게 온 경고 응답을 무시한다.
   const autoAnalyzedRef = useRef(false);
@@ -252,6 +257,7 @@ export default function MealComposeScreen() {
 
     if (deduped.length === 0) {
       setWarnings([]);
+      setWarningNotice(null);
 
       return;
     }
@@ -259,7 +265,8 @@ export default function MealComposeScreen() {
     checkFoodWarnings(deduped)
       .then((result) => {
         if (warningSeqRef.current === seq) {
-          setWarnings(result);
+          setWarnings(result.warnings);
+          setWarningNotice(result.notice);
         }
       })
       .catch(() => {
@@ -563,12 +570,37 @@ export default function MealComposeScreen() {
           items: [...preserved, ...newItems],
         });
       } else {
-        // 과거 날짜 셀에서도 그 날짜로 보이도록 UTC 정오로 앵커한다 (services/health-api.ts).
-        await createMeal({
-          meal_type: mealType,
-          logged_at: dayAnchorLoggedAt(date),
-          items: newItems,
-        });
+        // **같은 날 같은 끼니가 이미 있으면 새로 만들지 않고 합친다.**
+        // 캘린더·기록 탭의 '추가'는 meal_id 없이 들어오는데(trends.tsx의 onPressAdd), 그때마다
+        // 새 끼니를 만들면 저녁이 두 개로 쪼개진다 — 사용자는 같은 끼니에 항목을 더한 줄 알았는데
+        // 기존 끼니는 그대로여서 "반영이 안 됐다"고 느낀다.
+        // 조회 실패는 무시하고 신규 생성으로 간다(합치기는 편의이지 저장의 전제가 아니다).
+        const sameDayMeals = await getMeals(date).catch(() => [] as MealLog[]);
+        const sameMeal = sameDayMeals.find((meal) => meal.meal_type === mealType);
+
+        if (sameMeal) {
+          // logged_at 생략 → 서버가 기존 기록 시각을 유지한다.
+          await updateMeal(sameMeal.id, {
+            meal_type: mealType,
+            items: [
+              ...sameMeal.items.map((item) => ({
+                food_label: item.food_label,
+                serving_ratio: item.serving_ratio,
+                kcal: item.kcal,
+                source: item.source,
+                confidence: item.confidence,
+              })),
+              ...newItems,
+            ],
+          });
+        } else {
+          // 과거 날짜 셀에서도 그 날짜로 보이도록 UTC 정오로 앵커한다 (services/health-api.ts).
+          await createMeal({
+            meal_type: mealType,
+            logged_at: dayAnchorLoggedAt(date),
+            items: newItems,
+          });
+        }
       }
 
       // 이전 화면(기록관리·캘린더·기록 탭)이 useFocusEffect로 재조회한다.
@@ -755,6 +787,8 @@ export default function MealComposeScreen() {
                     {formatWarning(warning)}
                   </Text>
                 ))}
+                {/* 등급 근거가 지침 컷오프가 아니라 정책값이라는 고지. 서버가 문구를 정한다. */}
+                {warningNotice ? <Text style={styles.warningNotice}>{warningNotice}</Text> : null}
               </View>
             </View>
           ) : null}
@@ -1269,6 +1303,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     padding: 14,
+  },
+  warningNotice: {
+    color: '#6b7684',
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 4,
   },
   warningText: {
     color: '#e5484d',

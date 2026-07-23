@@ -206,6 +206,14 @@ export type FoodWarning = {
   tier: FoodWarningTier | null;
 };
 
+export type FoodWarningsResult = {
+  warnings: FoodWarning[];
+  // 등급(tier)을 노출할 때 서버가 함께 주는 고지문. 등급 경고가 없으면 null.
+  // 1인분 경계는 지침 컷오프가 아니라 1일 상한을 끼니로 나눈 정책값이라, 등급만 보여주고
+  // 이 문구를 빼면 안 된다 (서버 docs/CHRONIC_NUTRITION_SOURCES.md §6 노출 원칙).
+  notice: string | null;
+};
+
 export type CreateWeightRequest = {
   weight_kg: number;
   // 미지정 시 서버가 현재 시각(UTC)으로 저장한다.
@@ -376,7 +384,7 @@ export async function getTrends(startDate: string, endDate: string): Promise<Tre
 // 기록 확정 직전 경고 판정 (DATA_MODEL.md 16장). Bearer + sensitive_health 동의 필수(401/403).
 // 경고는 부가 기능이라 화면이 실패(401/403/네트워크)를 조용히 스킵한다 — 여기서는 규약대로 던지기만 한다.
 // 라벨은 1~10개. 서버가 중복을 제거하고, 해당 없으면 빈 배열을 준다.
-export async function checkFoodWarnings(foodLabels: string[]): Promise<FoodWarning[]> {
+export async function checkFoodWarnings(foodLabels: string[]): Promise<FoodWarningsResult> {
   const response = await apiFetch(`${HEALTH_API_URL}/nutrition/warnings`, {
     method: 'POST',
     headers: JSON_HEADERS,
@@ -389,7 +397,11 @@ export async function checkFoodWarnings(foodLabels: string[]): Promise<FoodWarni
     throw new Error('서버 응답 형식이 올바르지 않습니다.');
   }
 
-  return ensureList(data.warnings, parseFoodWarning);
+  return {
+    warnings: ensureList(data.warnings, parseFoodWarning),
+    // notice 는 2026-07-22 추가된 필드다. 옛 서버가 안 주면 null 로 흘린다(화면이 막히지 않는다).
+    notice: typeof data.notice === 'string' && data.notice !== '' ? data.notice : null,
+  };
 }
 
 export async function createWeight(input: CreateWeightRequest): Promise<WeightLog> {

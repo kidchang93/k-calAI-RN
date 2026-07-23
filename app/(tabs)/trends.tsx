@@ -145,14 +145,6 @@ export default function TrendsScreen() {
     }
   }, [month, period, viewMode]);
 
-  // 마운트 시 1회가 아니라 탭이 포커스될 때마다 다시 읽는다 (홈 화면 패턴).
-  // 기록 탭에서 끼니를 저장하고 돌아왔을 때 그래프를 갱신하기 위함이다.
-  useFocusEffect(
-    useCallback(() => {
-      void loadData();
-    }, [loadData])
-  );
-
   const loadMealsFor = useCallback(async (date: string) => {
     const seq = ++mealsSeqRef.current;
 
@@ -174,6 +166,23 @@ export default function TrendsScreen() {
       }
     }
   }, []);
+
+  // 마운트 시 1회가 아니라 탭이 포커스될 때마다 다시 읽는다 (홈 화면 패턴).
+  // 기록 탭에서 끼니를 저장하고 돌아왔을 때 그래프를 갱신하기 위함이다.
+  //
+  // **선택한 날짜의 끼니 목록도 함께 다시 읽는다.** 예전에는 `loadData()`(격자·요약)만 갱신해서,
+  // 캘린더에서 날짜를 고르고 → 기록관리에서 항목을 추가하고 → 돌아오면 아래 끼니 목록만 옛
+  // 데이터로 남아 "추가한 항목이 반영되지 않은" 것처럼 보였다. `selectedMeals` 는 날짜를 탭할
+  // 때만 채워지기 때문이다.
+  useFocusEffect(
+    useCallback(() => {
+      void loadData();
+
+      if (selectedDate !== null) {
+        void loadMealsFor(selectedDate);
+      }
+    }, [loadData, loadMealsFor, selectedDate])
+  );
 
   const selectDate = (date: string) => {
     setSelectedDate(date);
