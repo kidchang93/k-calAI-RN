@@ -98,14 +98,14 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 | 주/월 추이 집계 · **캘린더** | `GET` | `/api/me/trends?start_date&end_date` | 동일 | 일치 (`health-api.ts`, 2026-07-11 openapi.json·user 15 실측. Bearer 필수, 최대 92일, 초과·역순 400). 추이 탭의 **캘린더 뷰**(2026-07-13, `components/kcal-calendar.tsx`)가 같은 API를 '해당 달 1일~말일' 범위로 재사용한다 — 서버 신규 API 없음. 날짜를 누르면 `GET /api/meals?date=`로 그날 끼니를 읽는다 |
 | 동의·건강 프로필·질병·알러지 | — | `/api/me/consents*`, `/api/me/{health-profile\|conditions\|allergies}` | 동일 | 일치 (`onboarding-api.ts`) |
 | 선택지 참조 | `GET` | `/api/meta/options` | 동일 | 일치 (`meta-api.ts`) |
-| 그룹 | — | `/api/groups`, `/api/groups/join`, `/api/groups/{id}`, `/api/groups/{id}/pets` | 동일 | 일치 (`group-api.ts`, 2026-07-10 로컬 실측). **2026-07-14: `GET /api/groups/{id}`의 `members[].phone_number_masked` → `members[].nickname`**(카카오 닉네임, 없으면 서버가 '이름 미설정') |
+| 그룹 | — | `/api/groups`, `/api/groups/join`, `/api/groups/{id}`, `/api/groups/{id}/pets` | 동일 | 일치 (`group-api.ts`, 2026-07-10 로컬 실측). **2026-07-14: `GET /api/groups/{id}`의 `members[].phone_number_masked` → `members[].nickname`**(카카오 닉네임, 없으면 서버가 '이름 미설정'). **2026-07-22: 초대 링크 공유 — 서버 변경 없음.** 링크(`/invite?code=`)는 코드 전달 수단일 뿐이고 참여는 기존 `POST /api/groups/join` 하나를 쓴다. 착지 라우트 `app/invite.tsx`는 **인증 가드 밖**이며, 미로그인이면 코드를 보관했다가 로그인·온보딩 후 홈에서 이어받는다 (`services/group-invite.ts`, `docs/ARCHITECTURE.md` '그룹 초대 링크') |
 | 그룹 라이프사이클 | `DELETE` | `/api/groups/{id}`, `/api/groups/{id}/members/me`, `/api/groups/{id}/members/{user_id}`, `/api/groups/{id}/pets/{pet_id}` | 동일 | 일치 (`group-api.ts`, 2026-07-11 openapi.json·403/404 비파괴 실측. 파괴적 라우트는 비멤버 404 은닉, detail 한국어 — DATA_MODEL.md 17장) |
 | 반려동물·급여 | — | `/api/pets`, `/api/pets/{id}`, `/api/pets/{id}/feedings` | 동일 | 일치 (`pet-api.ts`, 2026-07-10 로컬 실측. `PetResponse.recommended_kcal`(RER×MER, null 가능)은 2026-07-11 user 15 실측 — 18장) |
 | **운동 기록** | — | `GET /api/exercise-types`, `POST·GET /api/exercises`, `PUT·DELETE /api/exercises/{id}`, `GET /api/me/exercise-summary`, `GET·PUT /api/me/exercise-goal` | 동일 | 일치 (2026-07-21, `exercise-api.ts`, 전부 Bearer. 서버 `docs/DATA_MODEL.md` 25장·`docs/ACTIVITY_GUIDANCE.md` 3-2). **플랫폼 중립 API** — 앱·웹이 같은 레벨이고, 나중의 기기 연동은 `source`가 느는 입력 경로일 뿐이다. 화면은 `app/exercises/index.tsx`(주간 달성률·목표 편집·스트릭 + 추가 + 오늘 목록). **목표를 설정하지 않아도 동작한다** — 지침 권장량(150분)이 기본값이고 `goal_is_default`로 구분한다. kcal 은 **서버가 MET×체중×시간으로 산출**하므로 앱에서 계산하지 않는다(체중 미등록이면 null). 운동 종류 목록·표시명·고지 문구도 서버가 준다 |
 | **그룹 운동 챌린지** | — | `POST·GET /api/groups/{id}/challenges`, `GET·DELETE /api/groups/{id}/challenges/{cid}` | 동일 | 일치 (2026-07-21, `challenge-api.ts`, Bearer. 서버 `docs/DATA_MODEL.md` 26장). ⚠️ **순위는 제3자 노출**이라 `group_activity_share` 동의자만 서버가 담아 준다 — 앱은 판정하지 않고 `i_am_sharing`으로 내 상태만 안다. 화면은 `components/group-challenges.tsx`(그룹 상세에 인라인). 노출은 닉네임·합계 분·달성 여부까지고 개별 기록은 안 보인다 |
 | **주간 조언** | `GET` | `/api/me/coaching` | 동일 | 일치 (2026-07-21, `coaching-api.ts`. Bearer + sensitive_health 동의 필수 — 미동의 **403**). **규칙 기반, LLM 없음** — 문구·판정은 전부 서버가 만들고 앱은 톤(good·tip·caution)에 맞춰 그리기만 한다. 화면은 `components/weekly-coaching.tsx`(리포트 탭 최상단). 403이면 **카드만 빼고** 리포트의 나머지는 그대로 보인다 |
 | 식단 추천 | `GET` | `/api/recommendations?meal_type&date` | 동일 | 일치 (`recommendation-api.ts`, 2026-07-10 로컬 실측. Bearer + sensitive_health 동의 필수 — 미동의 403). **2026-07-21: 신장병 등급 노출.** `items[]`에 `potassium_tier`·`phosphorus_tier`(`low|mid|high|null`), 응답에 `tier_notice`(등급 해석 고지, `string|null`)가 **추가**됐다 — 서버 `docs/CKD_NUTRITION.md` 3-4. 칼륨·인 제한 대상에게만 채워지고 그 외엔 null이라 배지를 숨긴다. 추천 카드는 등급별 색 칩으로 그린다(`낮음`/`보통`/`높음`) |
-| 기록 시 알러지·질병 경고 판정 | `POST` | `/api/nutrition/warnings` | 동일 | 일치 (`health-api.ts`, 2026-07-11 openapi.json·user 15 실측. Bearer + sensitive_health 동의 필수 — 미동의 403. 라벨 1~10개, 해당 없으면 빈 배열). **2026-07-21: `nutrient_mg`·`tier` 추가** — 경고 문구에 근거 수치를 병기하고("1인분 681mg · 높음") 칩 색도 이 등급을 쓴다. 실측만으로 발동한 경고는 `matched_keyword`가 빈 문자열이다 (서버 `docs/CKD_NUTRITION.md` 3-5) |
+| 기록 시 알러지·질병 경고 판정 | `POST` | `/api/nutrition/warnings` | 동일 | 일치 (`health-api.ts`, 2026-07-11 openapi.json·user 15 실측. Bearer + sensitive_health 동의 필수 — 미동의 403. 라벨 1~10개, 해당 없으면 빈 배열). **2026-07-21: `nutrient_mg`·`tier` 추가** — 경고 문구에 근거 수치를 병기하고("1인분 681mg · 높음") 칩 색도 이 등급을 쓴다. 실측만으로 발동한 경고는 `matched_keyword`가 빈 문자열이다 (서버 `docs/CKD_NUTRITION.md` 3-5). **2026-07-22: 고혈압 나트륨 등급 + `notice` 추가.** `checkFoodWarnings`가 `FoodWarning[]`이 아니라 **`{ warnings, notice }`**를 반환한다(계약 변경). `notice`는 등급 근거가 정책값이라는 고지문이고 서버가 문구를 정한다 — 앱이 등급만 그리고 이 문구를 빼면 안 된다. 나트륨 `tier`는 **고혈압·당뇨에만** 내려온다(CKD는 병기별로 상한이 갈려 등급을 매기지 않는다). |
 
 **모든 경로가 일치합니다.** 서버의 `ck-local` 브랜치를 `master`에 머지한 뒤(`a03ebdf`) 앱 기본값과 맞아떨어졌습니다. 그 전까지는 분류가 `/predict`였고 칼로리 계산은 미구현이었습니다.
 
@@ -200,6 +200,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 | 코드 작성 직전 | `docs/CODE_STYLE.md` |
 | 리뷰·머지 전 | `docs/REVIEW.md` |
 | 서브에이전트 실행 | `docs/SUBAGENTS.md` |
+| **누구를 위한 앱인가 · 방향 결정** | **`../kcalAI-model/docs/PRODUCT_STRATEGY.md`** (2026-07-22 결정: 식이요법이 필요한 만성질환군. 새 기능을 붙이기 전에 읽는다 — 사용 0건인 기능이 이미 여럿이다) |
 | 제품 기획·화면 기획·MVP 기준 | `docs/PROJECT_PLANNING.md` |
 
 ---
