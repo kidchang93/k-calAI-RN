@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { KcalCalendar } from '@/components/kcal-calendar';
+import { NutrientTrends } from '@/components/nutrient-trends';
 import { Segmented } from '@/components/segmented';
 import { formatFoodLabel } from '@/services/food-label';
 import {
@@ -345,6 +346,11 @@ export default function TrendsScreen() {
                   </View>
                 </>
               )}
+
+              {/* 질환 축 추이. kcal 그래프 바로 아래에 둔다 — 이 앱의 대상 사용자에게는
+                  칼로리보다 이쪽이 중요하고, 만성질환 관리는 하루가 아니라 추세로 본다.
+                  해당 질환이 없으면 서버가 null 을 주고 컴포넌트가 스스로 사라진다. */}
+              <NutrientTrends trends={trends.nutrients} />
 
               <WeightSection
                 logs={periodWeights}

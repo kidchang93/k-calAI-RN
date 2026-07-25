@@ -199,11 +199,39 @@ export type TrendDay = {
   meal_count: number;
 };
 
+export type NutrientTrendDay = {
+  date: string;
+  consumed_mg: number;
+  measured_items: number;
+  total_items: number;
+};
+
+export type NutrientTrendAxis = {
+  nutrient: 'sodium' | 'potassium' | 'phosphorus';
+  label: string;
+  days: NutrientTrendDay[];
+  // **기록한 날만** 나눈 평균. 기록 없는 날을 0으로 넣으면 "적게 먹었다"로 읽힌다.
+  average_mg: number | null;
+  recorded_days: number;
+  limit_mg: number | null;
+  // 상한이 있을 때만 셀 수 있다(나트륨). 기록 없는 날은 넘었는지 알 수 없어 제외된다.
+  days_over_limit: number | null;
+  reference_mg: number | null;
+  basis: string | null;
+};
+
+export type NutrientTrends = {
+  axes: NutrientTrendAxis[];
+  notice: string;
+};
+
 export type TrendsResponse = {
   start_date: string;
   end_date: string;
   target_kcal: number | null;
   days: TrendDay[];
+  // 질환 축 기간 추이. 해당 질환이 없으면 null (2026-07-25). 옛 서버는 안 주므로 null로 흘린다.
+  nutrients: NutrientTrends | null;
 };
 
 // 기록 직전 알러지·질병 경고 판정 (DATA_MODEL.md 16장). source는 판별 유니온 —
@@ -957,6 +985,75 @@ function parseTrendsResponse(value: unknown): TrendsResponse | null {
     end_date: value.end_date,
     target_kcal,
     days,
+    // 형식이 어긋나면 카드만 접는다 — 리포트 전체를 막지 않는다(옛 서버 호환도 겸한다).
+    nutrients: parseNutrientTrends(value.nutrients),
+  };
+}
+
+function parseNutrientTrends(value: unknown): NutrientTrends | null {
+  if (!isRecord(value) || !Array.isArray(value.axes) || typeof value.notice !== 'string') {
+    return null;
+  }
+
+  const axes: NutrientTrendAxis[] = [];
+
+  for (const item of value.axes) {
+    const parsed = parseNutrientTrendAxis(item);
+
+    if (parsed === null) {
+      return null;
+    }
+
+    axes.push(parsed);
+  }
+
+  return { axes, notice: value.notice };
+}
+
+function parseNutrientTrendAxis(value: unknown): NutrientTrendAxis | null {
+  if (!isRecord(value) || !Array.isArray(value.days)) {
+    return null;
+  }
+
+  const nutrient = value.nutrient;
+
+  if (
+    (nutrient !== 'sodium' && nutrient !== 'potassium' && nutrient !== 'phosphorus') ||
+    typeof value.label !== 'string' ||
+    typeof value.recorded_days !== 'number'
+  ) {
+    return null;
+  }
+
+  const days: NutrientTrendDay[] = [];
+
+  for (const item of value.days) {
+    if (
+      !isRecord(item) ||
+      typeof item.date !== 'string' ||
+      typeof item.consumed_mg !== 'number'
+    ) {
+      return null;
+    }
+
+    days.push({
+      date: item.date,
+      consumed_mg: item.consumed_mg,
+      measured_items: typeof item.measured_items === 'number' ? item.measured_items : 0,
+      total_items: typeof item.total_items === 'number' ? item.total_items : 0,
+    });
+  }
+
+  return {
+    nutrient,
+    label: value.label,
+    days,
+    average_mg: typeof value.average_mg === 'number' ? value.average_mg : null,
+    recorded_days: value.recorded_days,
+    limit_mg: typeof value.limit_mg === 'number' ? value.limit_mg : null,
+    days_over_limit: typeof value.days_over_limit === 'number' ? value.days_over_limit : null,
+    reference_mg: typeof value.reference_mg === 'number' ? value.reference_mg : null,
+    basis: typeof value.basis === 'string' ? value.basis : null,
   };
 }
 
