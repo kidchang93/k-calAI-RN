@@ -998,11 +998,18 @@ function formatWarning(warning: FoodWarning): string {
     // 1인분 기준값이라 사용자가 고른 양과 다를 수 있어 그 기준을 밝힌다 (CKD_NUTRITION.md 3-5).
     const measured =
       warning.nutrient_mg !== null
-        ? ` (1인분 ${Math.round(warning.nutrient_mg).toLocaleString()}mg${
+        ? ` (1인분 ${Math.round(warning.nutrient_mg).toLocaleString()}${warning.nutrient_unit ?? 'mg'}${
             warning.tier !== null ? ` · ${NUTRIENT_TIER_LABELS[warning.tier]}` : ''
           })`
         : '';
     const name = formatFoodLabel(warning.matched_label);
+
+    // **당류는 등급이 없다** — 서버가 이름 축(가당음료·간식)으로만 판정하기 때문이다. 지침 대상이
+    // 총당류가 아니라 첨가당이라 수치로 단정할 수 없다(서버 CHRONIC_NUTRITION_SOURCES.md §2-2).
+    // 그래서 '높은 편'이라 말하지 않고 무엇에 걸렸는지를 그대로 말한다.
+    if (warning.nutrient === 'sugar') {
+      return `${prefix}: '${name}'은(는) 첨가당이 들어간 식품이에요${measured}`;
+    }
 
     // **근거에 따라 단정 수위를 나눈다.** 경고는 두 축에서 발동한다(CKD_NUTRITION.md 3-5) —
     // 실측 등급(tier)과 지침의 이름 분류. 둘을 한 문장으로 뭉치면 "'라면'은 나트륨이 높은

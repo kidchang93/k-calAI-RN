@@ -14,4 +14,5 @@ export const NUTRIENT_LABELS = {
   sodium: '나트륨',
   potassium: '칼륨',
   phosphorus: '인',
+  sugar: '당류',
 } as const;

@@ -211,7 +211,8 @@ export type TrendsResponse = {
 export type FoodWarningSource = 'condition' | 'allergy';
 
 // 신장병·고혈압 등 영양 제한 질병 경고면 어느 영양소가 높은지. 키워드 경고·구버전 서버는 null.
-export type FoodWarningNutrient = 'sodium' | 'potassium' | 'phosphorus';
+// sugar 는 2026-07-25 추가(당뇨 — 첨가당). 다른 축과 달리 **등급(tier)이 없고 단위가 g** 이다.
+export type FoodWarningNutrient = 'sodium' | 'potassium' | 'phosphorus' | 'sugar';
 
 // 수치의 상대 위치. 서버가 지침 분류와 실측 mg 중 엄격한 쪽으로 판정한다
 // (kcalAI-model/docs/CKD_NUTRITION.md 3-4). 나트륨은 등급을 매기지 않아 항상 null 이다.
@@ -227,6 +228,8 @@ export type FoodWarning = {
   nutrient: FoodWarningNutrient | null;
   // 그 축의 1인분 실측값·등급. 미측정 음식이면 null 이고 경고는 이름 기반이다.
   nutrient_mg: number | null;
+  // 위 수치의 단위. **당류만 'g'** 이고 나머지는 'mg' 다. 옛 서버는 안 주므로 null → mg 로 읽는다.
+  nutrient_unit: 'mg' | 'g' | null;
   tier: FoodWarningTier | null;
 };
 
@@ -977,6 +980,7 @@ function parseFoodWarning(value: unknown): FoodWarning | null {
     matched_keyword: value.matched_keyword,
     matched_label: value.matched_label,
     nutrient: toFoodWarningNutrient(value.nutrient),
+    nutrient_unit: value.nutrient_unit === 'g' || value.nutrient_unit === 'mg' ? value.nutrient_unit : null,
     // 구버전 서버엔 없다 — 관대하게 null 로 두고 앱은 수치 없이 문구만 그린다.
     nutrient_mg: toNullableNumber(value.nutrient_mg) ?? null,
     tier: toFoodWarningTier(value.tier),
@@ -987,9 +991,11 @@ function toFoodWarningTier(value: unknown): FoodWarningTier | null {
   return value === 'low' || value === 'mid' || value === 'high' ? value : null;
 }
 
-// 서버가 sodium|potassium|phosphorus 를 주면 그대로, 그 외/누락(구버전)은 null.
+// 서버가 아는 축이면 그대로, 그 외/누락(구버전)은 null.
 function toFoodWarningNutrient(value: unknown): FoodWarningNutrient | null {
-  return value === 'sodium' || value === 'potassium' || value === 'phosphorus' ? value : null;
+  return value === 'sodium' || value === 'potassium' || value === 'phosphorus' || value === 'sugar'
+    ? value
+    : null;
 }
 
 function parseWeightLog(value: unknown): WeightLog | null {
