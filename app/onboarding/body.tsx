@@ -91,12 +91,11 @@ export default function BodyScreen() {
         activity_level: activityLevel,
       });
 
-      // 동의하지 않았으면 혈액형·질병·알러지를 건너뛰고 목표로 직행한다.
-      if (isConsented) {
-        router.push({ pathname: '/onboarding/blood', params: { consented: '1' } });
-      } else {
-        router.push({ pathname: '/onboarding/goal', params: { consented: '0' } });
-      }
+      // 질병·알러지는 이 앞 단계에서 이미 물었다 (2026-07-25 재편). 여기서는 목표로 간다.
+      router.push({
+        pathname: '/onboarding/goal',
+        params: { consented: isConsented ? '1' : '0' },
+      });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
@@ -114,7 +113,7 @@ export default function BodyScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <View style={styles.container}>
-            <OnboardingProgress current={2} total={isConsented ? 6 : 3} />
+            <OnboardingProgress current={isConsented ? 4 : 2} total={isConsented ? 5 : 3} />
 
             <View style={styles.header}>
               <Text style={styles.title}>키와 몸무게를{'\n'}알려주세요</Text>

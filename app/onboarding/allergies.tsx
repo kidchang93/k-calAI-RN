@@ -97,7 +97,7 @@ export default function AllergiesScreen() {
   };
 
   const goNext = () => {
-    router.push({ pathname: '/onboarding/goal', params: { consented: '1' } });
+    router.push({ pathname: '/onboarding/body', params: { consented: '1' } });
   };
 
   const saveAndNext = async () => {
@@ -135,7 +135,7 @@ export default function AllergiesScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.container}>
-          <OnboardingProgress current={5} total={6} />
+          <OnboardingProgress current={3} total={5} />
 
           <View style={styles.header}>
             <Text style={styles.title}>알러지가 있는{'\n'}재료가 있나요?</Text>

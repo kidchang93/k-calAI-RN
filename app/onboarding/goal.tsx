@@ -43,7 +43,8 @@ export default function GoalScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ consented?: string }>();
   const isConsented = params.consented === '1';
-  const stepTotal = isConsented ? 6 : 3;
+  // 동의 시 5단계(동의·질환·알러지·신체·목표), 미동의 시 3단계(동의·신체·목표).
+  const stepTotal = isConsented ? 5 : 3;
 
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);

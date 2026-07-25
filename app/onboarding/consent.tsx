@@ -26,7 +26,11 @@ export default function ConsentScreen() {
 
     try {
       await postConsent('sensitive_health', CONSENT_VERSION);
-      router.push({ pathname: '/onboarding/body', params: { consented: '1' } });
+      // **질환을 가장 먼저 묻는다** (2026-07-25). 이 앱은 식이요법이 필요한 만성질환자를 위한
+      // 것이고, 질환 선택이 온보딩의 중심에 있어야 한다는 것이 방어선이다
+      // (서버 docs/PRODUCT_STRATEGY.md §3). 예전에는 신체·혈액형 뒤 4번째라 일반 다이어트
+      // 앱의 순서였고, 질환이 부가 정보처럼 보였다.
+      router.push({ pathname: '/onboarding/conditions', params: { consented: '1' } });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
@@ -35,7 +39,8 @@ export default function ConsentScreen() {
   };
 
   const continueWithoutConsent = () => {
-    // 동의하지 않으면 혈액형·질병·알러지(2~4단계)를 아예 보여주지 않는다.
+    // 동의하지 않으면 질병·알러지를 아예 보여주지 않는다 — 그러면 이 앱의 핵심 기능
+    // (질환 축 경고·추천)은 동작하지 않고 칼로리 기록만 남는다.
     router.push({ pathname: '/onboarding/body', params: { consented: '0' } });
   };
 
@@ -43,7 +48,7 @@ export default function ConsentScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.container}>
-          <OnboardingProgress current={1} total={6} />
+          <OnboardingProgress current={1} total={5} />
 
           <View style={styles.header}>
             <Text style={styles.title}>건강 정보 수집에{'\n'}동의해주세요</Text>
