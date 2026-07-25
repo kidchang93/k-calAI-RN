@@ -31,6 +31,11 @@ const ACTIVITY_OPTIONS = [
   { value: 'very_active', label: '몸 쓰는 일을 해요' },
 ];
 
+// 만 14세 미만은 가입할 수 없다 — 개인정보 보호법 제22조의2(법정대리인 동의)와, 이 앱의 식이
+// 규칙이 전부 성인 지침에서 왔다는 두 가지 이유다 (서버 docs/LEGAL_COMPLIANCE.md §1).
+// 서버가 같은 기준으로 400 을 주며, 여기 검사는 그 전에 이유를 알려주기 위한 것이다.
+const MIN_SIGNUP_AGE = 14;
+
 export default function BodyScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ consented?: string }>();
@@ -60,6 +65,13 @@ export default function BodyScreen() {
     weight <= 300 &&
     Number.isInteger(birthYear) &&
     birthYear >= 1900 &&
+    birthYear <= currentYear - MIN_SIGNUP_AGE;
+
+  // 태어난 해를 넣었는데 연령 미달이면 그 사실을 먼저 알린다 — 저장 버튼만 꺼두면 왜 안
+  // 되는지 알 수 없다. 최종 판단은 서버가 한다(400).
+  const isUnderage =
+    Number.isInteger(birthYear) &&
+    birthYear > currentYear - MIN_SIGNUP_AGE &&
     birthYear <= currentYear;
 
   const saveAndNext = async () => {
@@ -193,6 +205,15 @@ export default function BodyScreen() {
               <Text style={styles.noteText}>키·몸무게는 언제든 내 정보에서 바꿀 수 있어요.</Text>
             </View>
 
+            {isUnderage ? (
+              <View style={styles.noteBox}>
+                <Text style={styles.underageText}>
+                  만 14세 미만은 가입할 수 없어요. 이 서비스는 성인 진료지침을 기준으로 식단을
+                  안내하고 질병 정보를 다뤄요.
+                </Text>
+              </View>
+            ) : null}
+
             {errorMessage ? (
               <ErrorBanner message={errorMessage} onRetry={() => void saveAndNext()} />
             ) : null}
@@ -263,6 +284,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f9ff',
     borderRadius: 8,
     padding: 16,
+  },
+  underageText: {
+    color: '#d4571a',
+    fontSize: 13,
+    lineHeight: 19,
   },
   noteText: {
     color: '#4e5968',
