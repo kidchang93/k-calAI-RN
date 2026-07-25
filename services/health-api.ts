@@ -267,7 +267,22 @@ export function formatDateParam(date: Date): string {
 // UTC 날짜가 D와 같아야 한다 — 서버는 끼니 하루를 UTC 자정으로 나누고(GET /api/meals?date=D도
 // UTC 날짜 D로 필터), 추이 캘린더도 UTC 날짜로 버킷팅한다. 정오(UTC)로 앵커하면 어느 타임존에서
 // 저장해도 UTC 날짜가 항상 D로 고정된다 (자정 근처 경계 밀림 방지).
+//
+// **지금 먹은 끼니에는 지금 시각을 쓴다** — 앵커는 과거 날짜를 위한 장치인데(서버
+// `docs/DATA_MODEL.md` 4장도 "과거 날짜는 UTC 정오 앵커"로 적고 있다) 오늘 기록까지 정오로
+// 눌러 두 가지가 깨져 있었다. (1) 아침에 먹은 것도 목록에 21:00(KST)으로 뜬다. (2) 하루의
+// 끼니가 전부 같은 시각이 되어 시각 정렬이 무의미해지고, 항목을 더한 끼니가 목록 맨 뒤로
+// 밀린다 — 사용자에겐 "방금 추가한 게 안 보인다"로 읽힌다.
+//
+// 단 지금 시각의 UTC 날짜가 D와 어긋나면(KST 새벽·심야) 앵커로 되돌아간다. 표시 시각의
+// 정확도보다 **그 날짜 칸에서 사라지지 않는 것**이 우선이다.
 export function dayAnchorLoggedAt(date: string): string {
+  const now = new Date();
+
+  if (formatDateParam(now) === date && now.toISOString().slice(0, 10) === date) {
+    return now.toISOString();
+  }
+
   return `${date}T12:00:00.000Z`;
 }
 

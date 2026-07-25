@@ -90,8 +90,11 @@ export default function MealListScreen() {
     try {
       const result = await getMeals(date);
 
-      // 서버 정렬을 신뢰하지 않는다 — 먹은 시각 순으로 보여준다.
-      setMeals([...result].sort((a, b) => a.logged_at.localeCompare(b.logged_at)));
+      // 서버 정렬을 신뢰하지 않는다 — 먹은 시각 순으로 보여준다. 시각이 같으면(과거 날짜는
+      // UTC 정오로 앵커된다) id 순 — 이 동점 처리가 없으면 항목을 더한 끼니가 맨 뒤로 밀린다.
+      setMeals(
+        [...result].sort((a, b) => a.logged_at.localeCompare(b.logged_at) || a.id - b.id)
+      );
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
     } finally {

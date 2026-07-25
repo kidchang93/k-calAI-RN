@@ -25,6 +25,20 @@ export const CHANGE_TYPE_LABELS: Record<ChangeType, string> = {
 // 최신순(위가 최신). 새 릴리즈는 이 배열 맨 앞에 추가한다.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-07-25',
+    title: '기록한 끼니가 제자리에 보여요',
+    items: [
+      {
+        type: 'fixed',
+        text: '이미 적어둔 끼니에 메뉴를 더하면 그 끼니가 목록 맨 아래로 내려가던 문제를 고쳤어요. 방금 추가한 기록이 사라진 것처럼 보일 수 있었는데, 이제 원래 자리에 그대로 있습니다.',
+      },
+      {
+        type: 'fixed',
+        text: '오늘 기록한 끼니의 시각이 실제로 드신 시각으로 남아요. 지금까지는 아침에 적어도 저녁 9시로 표시돼서 하루 순서가 뒤섞여 보였어요.',
+      },
+    ],
+  },
+  {
     date: '2026-07-23',
     title: '오늘의 영양 · 투석 여부 기준 · 추천을 홈에서 바로',
     items: [
