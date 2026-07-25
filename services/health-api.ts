@@ -235,6 +235,10 @@ export type FoodWarning = {
 
 export type FoodWarningsResult = {
   warnings: FoodWarning[];
+  // **판정하지 못한 음식 이름.** 경고가 없는 것과 안전한 것은 다르다 — 실측이 없고 지침
+  // 키워드에도 없으면 경고가 한 건도 안 나가는데, 화면에서는 그게 "괜찮다"로 읽힌다.
+  // 근거가 없다는 사실 자체를 사용자에게 돌려준다 (서버 PRODUCT_STRATEGY.md §0-1).
+  unmeasured: string[];
   // 등급(tier)을 노출할 때 서버가 함께 주는 고지문. 등급 경고가 없으면 null.
   // 1인분 경계는 지침 컷오프가 아니라 1일 상한을 끼니로 나눈 정책값이라, 등급만 보여주고
   // 이 문구를 빼면 안 된다 (서버 docs/CHRONIC_NUTRITION_SOURCES.md §6 노출 원칙).
@@ -443,6 +447,10 @@ export async function checkFoodWarnings(foodLabels: string[]): Promise<FoodWarni
     warnings: ensureList(data.warnings, parseFoodWarning),
     // notice 는 2026-07-22 추가된 필드다. 옛 서버가 안 주면 null 로 흘린다(화면이 막히지 않는다).
     notice: typeof data.notice === 'string' && data.notice !== '' ? data.notice : null,
+    // unmeasured 는 2026-07-25 추가. 옛 서버가 안 주면 빈 배열이라 화면이 그대로 동작한다.
+    unmeasured: Array.isArray(data.unmeasured)
+      ? data.unmeasured.filter((label): label is string => typeof label === 'string')
+      : [],
   };
 }
 

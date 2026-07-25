@@ -204,6 +204,9 @@ export default function MealComposeScreen() {
   const [warnings, setWarnings] = useState<FoodWarning[]>([]);
   // 등급 경고와 함께 내려오는 고지문(서버 단일 진실). 등급 근거가 정책값이라는 사실을 숨기지 않는다.
   const [warningNotice, setWarningNotice] = useState<string | null>(null);
+  // 질환 축을 판정하지 못한 음식. 경고가 없는 것과 안전한 것은 다르다 — 침묵을 안전으로
+  // 읽지 않도록 그 사실을 그대로 보여준다 (서버 PRODUCT_STRATEGY.md §0-1).
+  const [unmeasured, setUnmeasured] = useState<string[]>([]);
 
   // 사진 자동 분석은 마운트 시 1회만. 라벨이 바뀌면 늦게 온 경고 응답을 무시한다.
   const autoAnalyzedRef = useRef(false);
@@ -269,6 +272,7 @@ export default function MealComposeScreen() {
         if (warningSeqRef.current === seq) {
           setWarnings(result.warnings);
           setWarningNotice(result.notice);
+          setUnmeasured(result.unmeasured);
         }
       })
       .catch(() => {
@@ -807,6 +811,18 @@ export default function MealComposeScreen() {
                   <Text style={styles.warningActionText}>다음 끼니에 맞는 메뉴 보기</Text>
                 </Pressable>
               </View>
+            </View>
+          ) : null}
+
+          {/* **경고가 없는 것과 안전한 것은 다르다.** 실측이 없는 음식은 판정 자체가 안 되는데,
+              아무 말도 하지 않으면 사용자는 "괜찮다"로 읽는다 — 신장병 환자의 돈까스·보쌈이
+              그랬다. 경고와 다른 톤(주의색이 아닌 회색)으로, 사실만 전한다. */}
+          {unmeasured.length > 0 ? (
+            <View style={styles.unmeasuredBox}>
+              <MaterialIcons color="#8b95a1" name="help-outline" size={18} />
+              <Text style={styles.unmeasuredText}>
+                {`${unmeasured.map(formatFoodLabel).join(', ')}은(는) 영양 정보가 없어 확인하지 못했어요. 안전하다는 뜻은 아니에요.`}
+              </Text>
             </View>
           ) : null}
 
@@ -1353,6 +1369,20 @@ const styles = StyleSheet.create({
     color: '#3182f6',
     fontSize: 13,
     fontWeight: '800',
+  },
+  unmeasuredBox: {
+    alignItems: 'flex-start',
+    backgroundColor: '#f2f4f6',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 8,
+    padding: 14,
+  },
+  unmeasuredText: {
+    color: '#6b7684',
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
   },
   warningNotice: {
     color: '#6b7684',
