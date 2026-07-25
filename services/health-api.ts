@@ -234,6 +234,65 @@ export type TrendsResponse = {
   nutrients: NutrientTrends | null;
 };
 
+
+// ── 진료 지참용 리포트 (2026-07-25) ─────────────────────────────────────────
+// 목표 지표의 첫 항목("진료·영양상담에서 실제로 열어 보였는가", 서버 PRODUCT_STRATEGY §0-2)을
+// 측정 가능하게 만드는 기능이다. 이 앱은 판단을 대신 내리지 않고 **판단할 사람에게 근거를
+// 건넨다** — 그 사람에는 의료진·영양사가 포함된다.
+
+export type ReportMealItem = {
+  food_label: string;
+  serving_ratio: number;
+  kcal: number;
+  // 기록 시점 스냅샷. 실측이 없던 음식은 null이고 화면도 그대로 비워 둔다 — 0으로 바꾸면
+  // "안 먹었다"가 된다.
+  sodium_mg: number | null;
+  potassium_mg: number | null;
+  phosphorus_mg: number | null;
+};
+
+export type ReportMeal = {
+  date: string;
+  logged_at: string;
+  meal_type: MealType;
+  total_kcal: number;
+  items: ReportMealItem[];
+};
+
+export type MedicalReport = {
+  start_date: string;
+  end_date: string;
+  generated_at: string;
+  conditions: string[];
+  ckd_stage_label: string | null;
+  kcal: {
+    target: number | null;
+    average: number | null;
+    recorded_days: number;
+    total_days: number;
+  };
+  nutrients: NutrientTrends | null;
+  meals: ReportMeal[];
+  notice: string;
+};
+
+export async function getMedicalReport(
+  startDate: string,
+  endDate: string
+): Promise<MedicalReport> {
+  const response = await apiFetch(
+    `${HEALTH_API_URL}/me/report?start_date=${startDate}&end_date=${endDate}`
+  );
+
+  const data = await parseOk(response, '리포트 조회 실패');
+
+  if (!isRecord(data) || !Array.isArray(data.meals) || typeof data.notice !== 'string') {
+    throw new Error('서버 응답 형식이 올바르지 않습니다.');
+  }
+
+  return data as unknown as MedicalReport;
+}
+
 // 기록 직전 알러지·질병 경고 판정 (DATA_MODEL.md 16장). source는 판별 유니온 —
 // 모르는 값은 recommendation-api.ts의 excluded 처리와 같은 방식으로 응답 전체를 형식 오류로 취급한다.
 export type FoodWarningSource = 'condition' | 'allergy';

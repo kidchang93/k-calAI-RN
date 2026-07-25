@@ -352,6 +352,17 @@ export default function TrendsScreen() {
                   해당 질환이 없으면 서버가 null 을 주고 컴포넌트가 스스로 사라진다. */}
               <NutrientTrends trends={trends.nutrients} />
 
+              {/* 진료·영양상담에 가져갈 수 있게 한다 — 목표 지표의 첫 항목이 "진료에서 실제로
+                  열어 보였는가"인데(서버 PRODUCT_STRATEGY §0-2) 그걸 가능하게 하는 기능이
+                  없었다. 이 앱은 판단을 대신 내리지 않고 판단할 사람에게 근거를 건넨다. */}
+              <Pressable
+                onPress={() => router.push('/report')}
+                style={({ pressed }) => [styles.reportButton, pressed && styles.pressed]}>
+                <MaterialIcons color="#3182f6" name="description" size={18} />
+                <Text style={styles.reportButtonText}>진료용 기록 정리해서 보기</Text>
+                <MaterialIcons color="#b0b8c1" name="chevron-right" size={18} />
+              </Pressable>
+
               <WeightSection
                 logs={periodWeights}
                 onPressManage={() => router.push('/me/weights')}
@@ -835,6 +846,20 @@ const styles = StyleSheet.create({
     color: '#6b7684',
     fontSize: 12,
     marginRight: 8,
+  },
+  reportButton: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 8,
+    padding: 16,
+  },
+  reportButtonText: {
+    color: '#3182f6',
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '800',
   },
   pressed: {
     opacity: 0.74,
