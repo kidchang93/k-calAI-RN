@@ -270,13 +270,9 @@ export default function AccountScreen() {
               <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
             </Pressable>
 
-            <Pressable
-              onPress={() => router.push('/pets')}
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-              <MaterialIcons color="#4e5968" name="pets" size={20} />
-              <Text style={styles.rowLabel}>내 반려동물</Text>
-              <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
-            </Pressable>
+            {/* 반려동물 진입점은 2026-07-25에 숨겼다 — 이 앱의 목표(식이요법이 필요한
+                사람의 판단 근거)와 연결점이 없고 사용 0건인데 화면·문서 비용을 계속 냈다.
+                **삭제가 아니라 숨김**이라 데이터·API·화면은 그대로 있다 (docs/DESIGN.md). */}
 
             <Pressable
               onPress={() => router.push('/updates')}

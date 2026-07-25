@@ -5,25 +5,18 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/back-button';
-import { GroupChallenges } from '@/components/group-challenges';
 import { ErrorBanner } from '@/components/error-banner';
-import { PlanLimitBanner } from '@/components/plan-limit-banner';
 import { useAuthSession } from '@/services/auth-session';
 import {
-  attachPetToGroup,
   deleteGroup,
-  detachPetFromGroup,
   getGroupDetail,
   GroupDetail,
   GroupKind,
   GroupMemberItem,
-  GroupPetItem,
   leaveGroup,
   removeMember,
 } from '@/services/group-api';
 import { buildInviteMessage } from '@/services/group-invite';
-import { PlanLimitError } from '@/services/http';
-import { getPets, PetResponse } from '@/services/pet-api';
 import { shareText } from '@/services/share';
 import { confirmDialog, notifyDialog } from '@/services/dialog';
 
@@ -39,12 +32,6 @@ const ROLE_LABELS: Record<'owner' | 'member', string> = {
   member: '멤버',
 };
 
-const SPECIES_LABELS: Record<string, string> = {
-  dog: '강아지',
-  cat: '고양이',
-  other: '기타',
-};
-
 export default function GroupDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
@@ -57,16 +44,12 @@ export default function GroupDetailScreen() {
   const myUserId = sessionState.status === 'authenticated' ? sessionState.session.user.id : null;
 
   const [detail, setDetail] = useState<GroupDetail | null>(null);
-  const [myPets, setMyPets] = useState<PetResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [sharingPetId, setSharingPetId] = useState<number | null>(null);
   const [isLeaving, setIsLeaving] = useState(false);
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
   const [removingUserId, setRemovingUserId] = useState<number | null>(null);
-  const [detachingPetId, setDetachingPetId] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // 402(요금제 한도) 전용 — 펫 공유가 그룹 소유자의 정원에 걸렸을 때.
-  const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
 
   const loadDetail = useCallback(async () => {
     if (!isValidId) {
@@ -84,9 +67,7 @@ export default function GroupDetailScreen() {
 
       // 내 반려동물 목록은 공유 진입점 표시에만 쓴다. 실패해도 상세 화면을 막지 않는다.
       try {
-        setMyPets(await getPets());
       } catch {
-        setMyPets([]);
       }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
@@ -112,26 +93,6 @@ export default function GroupDetailScreen() {
       notifyDialog('초대 링크를 복사했어요', '메시지에 붙여넣어 보내주세요.');
     } else if (outcome === 'unavailable') {
       notifyDialog('초대 링크', message);
-    }
-  };
-
-  const sharePet = async (petId: number) => {
-    setSharingPetId(petId);
-    setErrorMessage(null);
-    setPlanLimitMessage(null);
-
-    try {
-      await attachPetToGroup(groupId, petId);
-      await loadDetail();
-    } catch (error) {
-      // 402(그룹의 반려동물 정원 초과) — 한도는 그룹 소유자의 요금제로 판정된다.
-      if (error instanceof PlanLimitError) {
-        setPlanLimitMessage(error.message);
-      } else {
-        setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
-      }
-    } finally {
-      setSharingPetId(null);
     }
   };
 
@@ -219,41 +180,9 @@ export default function GroupDetailScreen() {
     }
   };
 
-  const confirmDetachPet = async (pet: GroupPetItem) => {
-    const confirmed = await confirmDialog({
-      title: '참여 해제',
-      message: `'${pet.name}'의 그룹 참여를 해제할까요? 급여 기록은 지워지지 않아요.`,
-      confirmLabel: '해제',
-      destructive: true,
-    });
-
-    if (confirmed) {
-      await handleDetachPet(pet.pet_id);
-    }
-  };
-
-  const handleDetachPet = async (petId: number) => {
-    setDetachingPetId(petId);
-
-    try {
-      await detachPetFromGroup(groupId, petId);
-      await loadDetail();
-    } catch (error) {
-      alertActionError('참여 해제 실패', error);
-    } finally {
-      setDetachingPetId(null);
-    }
-  };
-
   const isOwner = detail !== null && myUserId !== null && detail.owner_id === myUserId;
   const isActing =
-    isLeaving || isDeletingGroup || removingUserId !== null || detachingPetId !== null;
-
-  // 이미 그룹에 참여한 펫은 공유 후보에서 제외한다.
-  const sharablePets =
-    detail === null
-      ? []
-      : myPets.filter((pet) => !detail.pets.some((groupPet) => groupPet.pet_id === pet.id));
+    isLeaving || isDeletingGroup || removingUserId !== null;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -281,10 +210,6 @@ export default function GroupDetailScreen() {
 
               {errorMessage ? (
                 <ErrorBanner message={errorMessage} onRetry={() => void loadDetail()} />
-              ) : null}
-
-              {planLimitMessage ? (
-                <PlanLimitBanner message={planLimitMessage} onUpgrade={() => router.push('/plan')} />
               ) : null}
 
               <View style={styles.inviteCard}>
@@ -327,68 +252,12 @@ export default function GroupDetailScreen() {
                 ))}
               </View>
 
-              {/* 운동 챌린지 — 순위는 활동 공유에 동의한 멤버만 보인다(서버가 판정). */}
-              <GroupChallenges groupId={detail.id} />
+              {/* 운동 챌린지는 2026-07-25에 숨겼다 — 목표와 연결점이 없고 사용 1건(테스트)뿐.
+                  삭제가 아니라 숨김이라 서버 API·컴포넌트는 남아 있다 (docs/DESIGN.md). */}
 
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>함께하는 반려동물</Text>
-                {detail.pets.length === 0 ? (
-                  <View style={styles.noteBox}>
-                    <Text style={styles.noteText}>아직 그룹에 참여한 반려동물이 없어요.</Text>
-                  </View>
-                ) : (
-                  detail.pets.map((pet) => (
-                    <View key={pet.pet_id} style={styles.row}>
-                      <MaterialIcons color="#4e5968" name="pets" size={20} />
-                      <Text style={styles.rowLabel}>{pet.name}</Text>
-                      <Text style={styles.rowMeta}>{SPECIES_LABELS[pet.species] ?? pet.species}</Text>
-                      {isOwner || myPets.some((myPet) => myPet.id === pet.pet_id) ? (
-                        // 해제 권한은 펫 소유자 또는 그룹 소유자 (17장).
-                        <Pressable
-                          disabled={isActing}
-                          hitSlop={8}
-                          onPress={() => confirmDetachPet(pet)}
-                          style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
-                          {detachingPetId === pet.pet_id ? (
-                            <ActivityIndicator color="#e5484d" size="small" />
-                          ) : (
-                            <MaterialIcons color="#e5484d" name="link-off" size={20} />
-                          )}
-                        </Pressable>
-                      ) : null}
-                    </View>
-                  ))
-                )}
-              </View>
-
-              {sharablePets.length > 0 ? (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>내 반려동물 공유하기</Text>
-                  <Text style={styles.sectionHint}>
-                    공유하면 그룹 멤버가 함께 급여를 기록할 수 있어요.
-                  </Text>
-                  {sharablePets.map((pet) => (
-                    <View key={pet.id} style={styles.row}>
-                      <MaterialIcons color="#4e5968" name="pets" size={20} />
-                      <Text style={styles.rowLabel}>{pet.name}</Text>
-                      <Pressable
-                        disabled={sharingPetId !== null}
-                        onPress={() => void sharePet(pet.id)}
-                        style={({ pressed }) => [
-                          styles.attachButton,
-                          sharingPetId !== null && styles.attachButtonDisabled,
-                          pressed && styles.pressed,
-                        ]}>
-                        {sharingPetId === pet.id ? (
-                          <ActivityIndicator color="#3182f6" size="small" />
-                        ) : (
-                          <Text style={styles.attachButtonText}>공유</Text>
-                        )}
-                      </Pressable>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
+              {/* 반려동물 관련 섹션(함께하는 반려동물 · 공유하기)은 2026-07-25에 숨겼다 —
+                  내 정보의 진입점과 같은 이유다. 삭제가 아니라 숨김이라 서버 API 와 화면은
+                  그대로 있다 (docs/DESIGN.md). */}
 
               <View style={styles.section}>
                 {isOwner ? (
