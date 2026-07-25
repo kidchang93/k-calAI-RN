@@ -13,8 +13,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BodyMetrics } from '@/components/body-metrics';
 import { ErrorBanner } from '@/components/error-banner';
+import { WeeklyCoaching } from '@/components/weekly-coaching';
 import { logout } from '@/services/auth-api';
 import { clearAuthSession } from '@/services/auth-session';
+import { Coaching, getWeeklyCoaching } from '@/services/coaching-api';
 import { confirmDialog, notifyDialog } from '@/services/dialog';
 import {
   ActivityLevel,
@@ -44,6 +46,8 @@ export default function AccountScreen() {
   const router = useRouter();
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [goal, setGoal] = useState<GoalResponse | null>(null);
+  // 주간 조언. 동의가 없으면(403) 조용히 비운다 — 내 정보 전체를 막지 않는다.
+  const [coaching, setCoaching] = useState<Coaching | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -54,9 +58,15 @@ export default function AccountScreen() {
     setErrorMessage(null);
 
     try {
-      const [profileResult, goalResult] = await Promise.all([getProfile(), getGoal()]);
+      const [profileResult, goalResult, coachingResult] = await Promise.all([
+        getProfile(),
+        getGoal(),
+        // 조언은 sensitive_health 동의가 필요하다. 없으면 카드만 빠지고 나머지는 그대로 보인다.
+        getWeeklyCoaching().catch(() => null),
+      ]);
       setProfile(profileResult);
       setGoal(goalResult);
+      setCoaching(coachingResult);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
@@ -199,6 +209,15 @@ export default function AccountScreen() {
               <BodyMetrics profile={profile} />
             </View>
           )}
+
+          {/* 이번 주 코칭은 리포트가 아니라 여기에 둔다 (2026-07-25). 리포트는 숫자를 보는
+              곳이고, 조언은 그 숫자가 아니라 **내 기준**에 붙는 말이다 — 바로 위 몸 지표가
+              "권장 주 150분"을 말하면 이 카드가 "이번 주 0분"이라 답한다. 기준과 현황이
+              한 화면에 있어야 조언이 근거를 갖는다. 조언이 없거나 미동의(403)면 사라진다. */}
+          <WeeklyCoaching
+            coaching={coaching}
+            shownNotice={profile?.activity_guide?.notice ?? null}
+          />
 
           <View style={styles.section}>
             <Pressable

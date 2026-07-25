@@ -11,10 +11,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { WeeklyCoaching } from '@/components/weekly-coaching';
 import { KcalCalendar } from '@/components/kcal-calendar';
 import { Segmented } from '@/components/segmented';
-import { Coaching, getWeeklyCoaching } from '@/services/coaching-api';
 import { formatFoodLabel } from '@/services/food-label';
 import {
   formatDateParam,
@@ -87,8 +85,6 @@ export default function TrendsScreen() {
   const [isLoadingMeals, setIsLoadingMeals] = useState(false);
   const [trends, setTrends] = useState<TrendsResponse | null>(null);
   const [weights, setWeights] = useState<WeightLog[] | null>(null);
-  // 주간 조언. 동의가 없으면(403) 조용히 비운다 — 리포트 전체를 막지 않는다.
-  const [coaching, setCoaching] = useState<Coaching | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -109,17 +105,14 @@ export default function TrendsScreen() {
       // 캘린더는 보고 있는 '달' 전체가 조회 범위다. 그래프는 오늘 기준 최근 N일.
       const { start_date, end_date } =
         viewMode === 'calendar' ? monthRange(month) : recentDateRange(PERIOD_DAYS[period]);
-      const [trendsResult, weightsResult, coachingResult] = await Promise.all([
+      const [trendsResult, weightsResult] = await Promise.all([
         getTrends(start_date, end_date),
         getWeights(),
-        // 조언은 sensitive_health 동의가 필요하다. 없으면 카드만 빠지고 나머지는 그대로 보인다.
-        getWeeklyCoaching().catch(() => null),
       ]);
 
       if (loadSeqRef.current === seq) {
         setTrends(trendsResult);
         setWeights(weightsResult);
-        setCoaching(coachingResult);
       }
     } catch (error) {
       if (loadSeqRef.current !== seq) {
@@ -128,7 +121,6 @@ export default function TrendsScreen() {
 
       setTrends(null);
       setWeights(null);
-      setCoaching(null);
       setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
       if (loadSeqRef.current === seq) {
@@ -241,11 +233,8 @@ export default function TrendsScreen() {
             <Segmented onChange={setViewMode} options={VIEW_OPTIONS} value={viewMode} />
           </View>
 
-          {/* 코칭이 맨 위다 — 리포트에서 유일하게 "그래서 뭘 하면 되는지"를 말하는 카드이고,
-              숫자는 그 근거로 아래에 따라온다. 예전에는 그래프·요약 뒤에 있어 스크롤해야
-              보였다. 조언이 없거나 미동의(403)면 컴포넌트가 스스로 사라진다. */}
-          <WeeklyCoaching coaching={coaching} />
-
+          {/* 이번 주 코칭은 2026-07-25에 내 정보 탭으로 옮겼다 — 리포트는 숫자를 보는 곳으로
+              두고, 조언은 그 조언의 기준(몸 지표·권장 활동량)이 있는 화면에 붙인다. */}
           {isLoading ? (
             <View style={styles.stateBox}>
               <ActivityIndicator color="#3182f6" />

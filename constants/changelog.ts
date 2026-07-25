@@ -26,8 +26,12 @@ export const CHANGE_TYPE_LABELS: Record<ChangeType, string> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: '2026-07-25',
-    title: '기록한 끼니가 제자리에 보여요',
+    title: '기록한 끼니가 제자리에 · 코칭은 내 정보로',
     items: [
+      {
+        type: 'improved',
+        text: '이번 주 코칭을 내 정보 탭으로 옮겼어요. 바로 위에 있는 권장 운동량과 나란히 보여서, 권장량 대비 이번 주에 얼마나 하셨는지 한눈에 비교됩니다. 리포트 탭은 그래프와 캘린더만 남아 더 간단해졌어요.',
+      },
       {
         type: 'fixed',
         text: '이미 적어둔 끼니에 메뉴를 더하면 그 끼니가 목록 맨 아래로 내려가던 문제를 고쳤어요. 방금 추가한 기록이 사라진 것처럼 보일 수 있었는데, 이제 원래 자리에 그대로 있습니다.',

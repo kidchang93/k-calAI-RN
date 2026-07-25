@@ -12,7 +12,16 @@ const TONE_ICONS: Record<CoachingTone, { name: 'check-circle' | 'lightbulb-outli
   caution: { name: 'info', color: '#d4571a' },
 };
 
-export function WeeklyCoaching({ coaching }: { coaching: Coaching | null }) {
+export function WeeklyCoaching({
+  coaching,
+  // 같은 화면에 이미 떠 있는 고지 문구. 코칭 고지와 **글자가 같으면** 반복하지 않는다 —
+  // 내 정보 탭에서는 바로 위 '주당 권장 운동량'이 같은 문장을 내려주기 때문이다(2026-07-25).
+  // 앱은 문구를 판단하지 않고 비교만 한다: 서버가 문장을 바꾸면 자동으로 다시 보인다.
+  shownNotice = null,
+}: {
+  coaching: Coaching | null;
+  shownNotice?: string | null;
+}) {
   if (coaching === null || coaching.items.length === 0) {
     return null;
   }
@@ -45,7 +54,9 @@ export function WeeklyCoaching({ coaching }: { coaching: Coaching | null }) {
         })}
 
         {/* 고지 문구는 서버 문자열을 그대로 쓴다 — 앱 하드코딩 금지. */}
-        <Text style={styles.notice}>{coaching.notice}</Text>
+        {coaching.notice === shownNotice ? null : (
+          <Text style={styles.notice}>{coaching.notice}</Text>
+        )}
       </View>
     </View>
   );
