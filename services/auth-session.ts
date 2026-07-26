@@ -24,6 +24,15 @@ function getWebStorage(): Storage | null {
   }
 }
 
+// 세션 토큰은 **그 자체가 로그인 자격증명**이다 — 서버는 sha256 해시만 갖고 있어(auth_sessions)
+// 어느 기기가 쓰는지 구분하지 못한다. expo-secure-store 의 기본값(WHEN_UNLOCKED)은 백업을
+// 복원할 때 **새 기기로 옮겨지므로**, 기기를 바꾸거나 백업을 다른 기기에 풀면 그 기기가 그대로
+// 로그인 상태가 된다. `_THIS_DEVICE_ONLY` 계열만 "not migrated to a new device when restoring
+// from a backup" 이다(Expo 문서). 기기 이전 시 재로그인을 요구하는 편이 맞다.
+const KEYCHAIN_OPTIONS = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
+
 async function persistSession(session: AuthTokenResponse): Promise<void> {
   const raw = JSON.stringify(session);
 
@@ -32,7 +41,15 @@ async function persistSession(session: AuthTokenResponse): Promise<void> {
     return;
   }
 
-  await SecureStore.setItemAsync(STORAGE_KEY, raw);
+  try {
+    await SecureStore.setItemAsync(STORAGE_KEY, raw, KEYCHAIN_OPTIONS);
+  } catch {
+    // 기존 로그인 사용자의 키체인 항목은 예전 속성(WHEN_UNLOCKED)으로 남아 있다. 속성이 다른
+    // 항목의 갱신이 거부될 수 있어, 지우고 새로 쓴다 — 여기서 실패하면 세션이 저장되지 않아
+    // **앱을 껐다 켤 때마다 로그아웃**되므로 조용히 넘기지 않는다.
+    await SecureStore.deleteItemAsync(STORAGE_KEY);
+    await SecureStore.setItemAsync(STORAGE_KEY, raw, KEYCHAIN_OPTIONS);
+  }
 }
 
 async function removePersistedSession(): Promise<void> {
