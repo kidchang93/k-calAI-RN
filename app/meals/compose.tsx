@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/back-button';
 import { ChipGroup } from '@/components/chip-group';
 import { ErrorBanner } from '@/components/error-banner';
+import { MedicalDisclaimer } from '@/components/medical-disclaimer';
 import { PlanLimitBanner } from '@/components/plan-limit-banner';
 import { QuantityEditor, QuantityValue } from '@/components/quantity-editor';
 import { NutrientChip, NutrientChips } from '@/components/nutrient-chips';
@@ -795,6 +796,10 @@ export default function MealComposeScreen() {
                 ))}
                 {/* 등급 근거가 지침 컷오프가 아니라 정책값이라는 고지. 서버가 문구를 정한다. */}
                 {warningNotice ? <Text style={styles.warningNotice}>{warningNotice}</Text> : null}
+
+                {/* 경고가 뜬 순간이 사용자가 식이 결정을 내리는 순간이다 — 최종 판단자가
+                    누구인지 여기서 말해야 한다 (Apple 1.4.1). */}
+                <MedicalDisclaimer />
 
                 {/* 경고를 막다른 길로 두지 않는다 — "먹지 마세요" 다음에는 "그럼 뭘 먹지"가
                     와야 한다. 기록을 막지 않으므로 이건 대안 제시일 뿐이고, 이미 먹은 것을

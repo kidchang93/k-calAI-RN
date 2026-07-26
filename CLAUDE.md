@@ -129,7 +129,8 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 ```
 
 - **토스 SDK를 npm으로 설치하지 마세요.** 브라우저 전용(`window`·`document` 의존)이라 번들에 들어가면 네이티브가 DOM 없는 런타임에서 평가합니다. `services/toss-sdk.ts`가 **웹에서만** `https://js.tosspayments.com/v2/standard`를 script 태그로 1회 로드합니다(프라미스 캐시).
-- **네이티브에는 결제 버튼을 그리지 않습니다.** `isBillingSupported()`(= `Platform.OS === 'web'`)가 false면 "결제는 웹에서 진행해주세요" 안내만 그립니다 (인앱결제 예정).
+- **네이티브에는 결제 버튼을 그리지 않습니다.** `isBillingSupported()`(= `Platform.OS === 'web'`)가 false면 "결제는 웹에서 진행해주세요" 안내만 그립니다.
+  > ⚠️ **2026-07-26: 이 안내 문구는 스토어 출시 시 그대로 두면 안 됩니다.** App Store Review Guidelines 3.1.3은 "앱 안에서 IAP 아닌 결제수단을 **권유**하는 것"을 금지하고(미국 스토어만 예외), 3.1.3(b)는 **앱에도 IAP가 있을 때만** 웹 구독의 앱 내 사용을 허용합니다. 즉 "웹에서만 판다"는 성립하지 않습니다. 대응 설계는 서버 `docs/DATA_MODEL.md` **30장**, 심사 요건은 `docs/LEGAL_COMPLIANCE.md` §6입니다. ⏰ Android는 **2026-08-31**까지 Play Billing 8 필수이고, `expo-in-app-purchases`는 Billing v4라 쓸 수 없습니다(`expo-iap` 1순위).
 - **`client_key`를 `EXPO_PUBLIC_*`에 넣지 마세요.** 서버 checkout 응답으로만 받습니다. 시크릿 키·빌링키는 서버 밖으로 나오지 않습니다.
 - **`changePlan`(PUT)을 업그레이드에 쓰지 마세요.** 유료 플랜은 400입니다. 유료 구독자의 '그만두기'는 **`cancelBilling()`**입니다 — PUT lite는 즉시 적용되며 **남은 유료 기간을 포기시킵니다.**
 - **`confirm`은 마운트 1회만** 부릅니다 (`app/billing/success.tsx`의 ref 가드). `authKey`는 1회용입니다. 단 **ref 가드는 마운트 안에서만 삽니다** — 이 화면의 URL은 토스가 브라우저를 통째로 되돌려 만든 실제 URL이라 새로고침·뒤로가기로 새 마운트가 생기면 가드가 초기화되고 소비된 `authKey`로 confirm이 다시 나가 502가 됩니다. 그래서 **confirm 실패를 확정하기 전에 `fetchMySubscription()`으로 서버 상태를 되묻습니다**(2026-07-16). 요청한 유료 플랜이 실효 플랜으로 내려오면 청구는 이미 성공한 것이라 성공 화면을 그립니다 — 이게 없으면 결제에 성공한 사람에게 '다시 시도'를 권해 **이중 결제**로 몹니다. 진짜 카드 거절은 구독이 lite로 남아 있어 이 되물음을 통과하지 못하므로 오류 화면이 그대로 동작합니다.
@@ -188,6 +189,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 - **`changePlan`(PUT `/api/me/subscription`)으로 업그레이드하지 않는다.** 유료 플랜은 400입니다. 유료 구독자에게는 `cancelBilling()`을 붙입니다.
 - **카카오 REST 키·`client_secret`을 앱에 넣지 않는다.** `EXPO_PUBLIC_*`는 번들에 평문 노출됩니다 — 토큰 교환은 서버에서만 합니다.
 - **`app.json`의 `newArchEnabled`, `reactCompiler`를 임의로 끄지 않는다.**
+- **질환 수치를 그리는 화면에서 `MedicalDisclaimer`를 빼지 않는다.** Apple 1.4.1은 의료 앱에 "의료 결정 전 의사와 상의하라고 **상기시킬 것**"을 요구하며, 약관에 조항을 두는 것으로는 그 요구를 충족하지 못합니다(`components/medical-disclaimer.tsx`, 서버 `docs/LEGAL_COMPLIANCE.md` §6-1). 현재 부착 위치: 기록 화면 경고(`app/meals/compose.tsx`) · 홈 오늘의 영양(`components/day-nutrients-card.tsx`) · 질환 영양 추이(`components/nutrient-trends.tsx`) · 진료 리포트(`app/report/index.tsx`, `tone="strong"`). 반대로 **모든 화면에 깔지도 않습니다** — 배경이 되면 아무도 읽지 않습니다.
 
 ---
 

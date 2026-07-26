@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/back-button';
 import { ErrorBanner } from '@/components/error-banner';
+import { MedicalDisclaimer } from '@/components/medical-disclaimer';
 import { formatFoodLabel } from '@/services/food-label';
 import {
   getMedicalReport,
@@ -189,6 +190,11 @@ function ReportBody({ report }: { report: MedicalReport }) {
       </View>
 
       <Text style={styles.docNotice}>{report.notice}</Text>
+
+      {/* 이 문서는 **진료실에서 의료진이 보는 종이**가 된다. 인쇄물에 최종 판단자가 누구인지
+          적혀 있지 않으면, 우리가 낸 수치가 판단처럼 읽힐 여지가 남는다 (Apple 1.4.1 이
+          요구하는 상기도 이것이다 — `kcalAI-model/docs/LEGAL_COMPLIANCE.md` §6-1). */}
+      <MedicalDisclaimer tone="strong" />
     </View>
   );
 }

@@ -1,6 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { MedicalDisclaimer } from '@/components/medical-disclaimer';
 import { NutrientTrendAxis, NutrientTrends as NutrientTrendsData } from '@/services/health-api';
 
 // 질환 축 기간 추이. 리포트가 kcal 만 보여주면 정작 이 앱의 대상 사용자에게 중요한 숫자가
@@ -23,6 +24,8 @@ export function NutrientTrends({ trends }: { trends: NutrientTrendsData | null }
       ))}
 
       <Text style={styles.notice}>{trends.notice}</Text>
+      {/* 축마다 붙이지 않고 섹션에 한 번만 — 반복되면 읽히지 않는다. */}
+      <MedicalDisclaimer />
     </View>
   );
 }

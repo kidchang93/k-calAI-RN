@@ -1,6 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { MedicalDisclaimer } from '@/components/medical-disclaimer';
 import { DayNutrientAxis, DayNutrients } from '@/services/health-api';
 
 // 오늘 먹은 음식의 질환 축 누적 (서버 DATA_MODEL.md 28장).
@@ -31,6 +32,7 @@ export function DayNutrientsCard({ nutrients }: { nutrients: DayNutrients | null
       ))}
 
       <Text style={styles.notice}>{nutrients.notice}</Text>
+      <MedicalDisclaimer />
     </View>
   );
 }

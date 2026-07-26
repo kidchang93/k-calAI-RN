@@ -25,6 +25,20 @@ export const CHANGE_TYPE_LABELS: Record<ChangeType, string> = {
 // 최신순(위가 최신). 새 릴리즈는 이 배열 맨 앞에 추가한다.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-07-26',
+    title: '결제 기록 정확도 · 안내 문구',
+    items: [
+      {
+        type: 'improved',
+        text: '결제를 취소하거나 환불받으면 결제 내역에 바로 반영돼요. 카드사 쪽에서 처리된 것도 놓치지 않아요.',
+      },
+      {
+        type: 'improved',
+        text: '영양 수치와 진료용 기록에 "치료·복약·식이 조절은 담당 의료진과 상의하세요" 안내를 함께 보여드려요. 저희가 드리는 건 판단이 아니라 참고할 근거예요.',
+      },
+    ],
+  },
+  {
     date: '2026-07-25',
     title: '진료용 기록 · 질환 영양 추이',
     items: [
