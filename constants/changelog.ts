@@ -26,8 +26,12 @@ export const CHANGE_TYPE_LABELS: Record<ChangeType, string> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: '2026-08-03',
-    title: '지난 기록에도 질환 수치 · 내 질환 식단 가이드',
+    title: '지난 기록에도 질환 수치 · 내 질환 식단 가이드 · 검사 수치',
     items: [
+      {
+        type: 'new',
+        text: '검사 수치를 기록할 수 있어요. 병원 결과지나 가정용 혈압계에서 본 값을 옮겨 적어 두면, 식단 기록과 나란히 진료용 문서에 함께 실려요. 저희가 정상 여부를 판단하지는 않고, 학회 지침의 기준 범위만 옆에 적어 드려요.',
+      },
       {
         type: 'new',
         text: '지난 날짜의 기록에서도 나트륨·칼륨·인·당류를 볼 수 있어요. 그날 하루 합계도 함께 보여드려요. 예전에는 기록하는 순간에만 보이고 사라졌어요.',

@@ -268,6 +268,20 @@ export type ReportMeal = {
   items: ReportMealItem[];
 };
 
+export type ReportLabResult = {
+  measured_on: string;
+  panel: string;
+  label: string;
+  value: number;
+  unit: string;
+  // 지침이 정한 정상범위 문장. 근거가 없는 항목(혈압)은 null이다.
+  reference: string | null;
+  note: string | null;
+  // 리포트 기간 이전의 검사인가. 검사 주기(3개월)가 리포트 기간보다 길어 직전 값을 함께
+  // 싣기 때문에, 화면이 "기간 이전" 사실을 밝혀야 한다.
+  is_before_period: boolean;
+};
+
 export type MedicalReport = {
   start_date: string;
   end_date: string;
@@ -281,6 +295,8 @@ export type MedicalReport = {
     total_days: number;
   };
   nutrients: NutrientTrends | null;
+  // 검사 수치 — 케어 루프의 결과 축. 식단 요약과 나란히 놓여야 근거가 된다.
+  labs: ReportLabResult[];
   meals: ReportMeal[];
   notice: string;
 };
@@ -299,7 +315,12 @@ export async function getMedicalReport(
     throw new Error('서버 응답 형식이 올바르지 않습니다.');
   }
 
-  return data as unknown as MedicalReport;
+  return {
+    ...data,
+    // 옛 서버(2026-08-03 이전)는 `labs`를 주지 않는다. 그대로 두면 화면이 undefined에
+    // .map()을 걸어 리포트 전체가 크래시한다 — 검사 수치는 부가 정보이므로 빈 배열로 흘린다.
+    labs: Array.isArray(data.labs) ? data.labs : [],
+  } as unknown as MedicalReport;
 }
 
 // 기록 직전 알러지·질병 경고 판정 (DATA_MODEL.md 16장). source는 판별 유니온 —

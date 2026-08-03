@@ -363,6 +363,17 @@ export default function TrendsScreen() {
                 <MaterialIcons color="#b0b8c1" name="chevron-right" size={18} />
               </Pressable>
 
+              {/* **케어 루프의 결과 축**(서버 `docs/CARE_LOOP.md` §4). 식단 추이 바로 아래인
+                  것이 핵심이다 — "나트륨을 이만큼 먹었다"와 "그래서 수치가 어떻게 됐다"는
+                  나란히 놓여야 근거가 된다. 지금까지 앞쪽만 있어 근거가 절반이었다. */}
+              <Pressable
+                onPress={() => router.push('/labs')}
+                style={({ pressed }) => [styles.reportButton, pressed && styles.pressed]}>
+                <MaterialIcons color="#3182f6" name="science" size={18} />
+                <Text style={styles.reportButtonText}>검사 수치 기록하기</Text>
+                <MaterialIcons color="#b0b8c1" name="chevron-right" size={18} />
+              </Pressable>
+
               <WeightSection
                 logs={periodWeights}
                 onPressManage={() => router.push('/me/weights')}

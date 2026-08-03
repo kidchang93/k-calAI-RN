@@ -159,6 +159,32 @@ function ReportBody({ report }: { report: MedicalReport }) {
         </View>
       ) : null}
 
+      {/* 검사 수치 — **식단 요약 바로 다음**이다. "무엇을 먹었나"와 "그래서 수치가 어떻게
+          됐나"가 나란히 놓여야 진료에서 되짚을 근거가 된다 (서버 `docs/CARE_LOOP.md` §4).
+          기간에 검사가 없으면 서버가 직전 값을 실어 주고, 그 사실을 여기서 밝힌다 —
+          검사 주기(3개월)가 리포트 기간보다 길기 때문이다. */}
+      {report.labs.length > 0 ? (
+        <View style={styles.block}>
+          <Text style={styles.blockTitle}>검사 수치</Text>
+          {report.labs.map((lab) => (
+            <View key={`${lab.measured_on}-${lab.panel}`} style={styles.axisRow}>
+              <Text style={styles.axisName}>{lab.label}</Text>
+              <Text style={styles.axisValue}>{`${lab.value} ${lab.unit}`}</Text>
+              <Text style={styles.axisNote}>
+                {lab.is_before_period
+                  ? `${lab.measured_on} 검사 (조회 기간 이전)`
+                  : `${lab.measured_on} 검사`}
+                {lab.reference !== null ? ` · ${lab.reference}` : ''}
+              </Text>
+            </View>
+          ))}
+          <Text style={styles.blockNotice}>
+            사용자가 검사 결과지를 보고 직접 입력한 값입니다. 앱이 측정하거나 정상 여부를
+            판단하지 않습니다.
+          </Text>
+        </View>
+      ) : null}
+
       <View style={styles.block}>
         <Text style={styles.blockTitle}>식단 기록</Text>
         {byDate.length === 0 ? (
