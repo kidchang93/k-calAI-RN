@@ -15,7 +15,15 @@ import { DayNutrientAxis, DayNutrients } from '@/services/health-api';
 //    만들어내는 셈이다 — 참고치는 문장으로만 적는다.
 // 2. **못 센 항목 수를 밝힌다.** 실측이 없는 음식은 합계에서 빠져 실제보다 적게 보인다.
 //    이걸 감추면 커버리지 구멍이 "적게 먹었다"로 읽힌다.
-export function DayNutrientsCard({ nutrients }: { nutrients: DayNutrients | null }) {
+// title 은 과거 날짜에서 재사용하기 위해 열어 둔다 — 지난 기록을 보면서 "오늘의 영양"이라고
+// 적혀 있으면 그 숫자가 언제 것인지 알 수 없다 (2026-08-03, `CARE_LOOP.md` §0-3).
+export function DayNutrientsCard({
+  nutrients,
+  title = '오늘의 영양',
+}: {
+  nutrients: DayNutrients | null;
+  title?: string;
+}) {
   if (nutrients === null) {
     return null;
   }
@@ -24,7 +32,7 @@ export function DayNutrientsCard({ nutrients }: { nutrients: DayNutrients | null
     <View style={styles.card}>
       <View style={styles.headRow}>
         <MaterialIcons color="#3182f6" name="monitor-heart" size={18} />
-        <Text style={styles.title}>오늘의 영양</Text>
+        <Text style={styles.title}>{title}</Text>
       </View>
 
       {nutrients.axes.map((axis) => (

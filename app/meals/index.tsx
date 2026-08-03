@@ -6,15 +6,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/back-button';
 import { ChipGroup } from '@/components/chip-group';
+import { DayNutrientsCard } from '@/components/day-nutrients-card';
 import { ErrorBanner } from '@/components/error-banner';
+import { NutrientChip, NutrientChips } from '@/components/nutrient-chips';
 import { QuantityEditor, QuantityValue } from '@/components/quantity-editor';
+import { NUTRIENT_LABELS } from '@/constants/nutrition';
 import { formatFoodLabel } from '@/services/food-label';
 import { confirmDialog } from '@/services/dialog';
 import {
+  DayNutrients,
   deleteMeal,
   estimateNutrition,
   formatDateParam,
   getMeals,
+  getSummary,
+  MealItem,
   MealItemSource,
   MealLog,
   MealType,
@@ -69,6 +75,8 @@ export default function MealListScreen() {
     });
 
   const [meals, setMeals] = useState<MealLog[]>([]);
+  // 그날의 질환 축 누적. 질환이 없으면 서버가 null 을 주고 카드가 나타나지 않는다.
+  const [nutrients, setNutrients] = useState<DayNutrients | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -99,6 +107,14 @@ export default function MealListScreen() {
       setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
+    }
+
+    // 하루 누적은 **기록 조회와 독립적으로** 다룬다. 403(민감정보 미동의)·네트워크 오류로
+    // 끼니 목록까지 막히면 안 된다 — 홈의 다음 끼니 추천과 같은 규약이다.
+    try {
+      setNutrients((await getSummary(date)).nutrients);
+    } catch {
+      setNutrients(null);
     }
   }, [date]);
 
@@ -281,6 +297,14 @@ export default function MealListScreen() {
             </Text>
           </View>
 
+          {/* 질환 축 누적을 **kcal 합계 바로 아래**에 둔다 — 만성질환자에게는 이 숫자가 더
+              중요하다(홈에서 칼로리 링 아래 놓은 것과 같은 이유). 이 카드가 없던 동안 지난
+              기록은 kcal 만 말했고, 경고는 저장하는 순간에만 보였다 (`CARE_LOOP.md` §0-3). */}
+          <DayNutrientsCard
+            nutrients={nutrients}
+            title={date === formatDateParam(new Date()) ? '오늘의 영양' : '이날의 영양'}
+          />
+
           {/* 빈 날짜에도 새 끼니를 남길 수 있어야 한다 — 항상 노출한다. */}
           <Pressable
             onPress={openAddMeal}
@@ -398,11 +422,14 @@ export default function MealListScreen() {
                     </View>
                   ) : (
                     meal.items.map((item) => (
-                      <View key={item.id} style={styles.itemRow}>
-                        <Text style={styles.itemLabel}>{formatFoodLabel(item.food_label)}</Text>
-                        <Text style={styles.itemMeta}>
-                          {`${item.serving_ratio}인분 · ${item.kcal.toLocaleString()} kcal`}
-                        </Text>
+                      <View key={item.id} style={styles.itemBlock}>
+                        <View style={styles.itemRow}>
+                          <Text style={styles.itemLabel}>{formatFoodLabel(item.food_label)}</Text>
+                          <Text style={styles.itemMeta}>
+                            {`${item.serving_ratio}인분 · ${item.kcal.toLocaleString()} kcal`}
+                          </Text>
+                        </View>
+                        <NutrientChips chips={itemNutrientChips(item)} />
                       </View>
                     ))
                   )}
@@ -445,6 +472,44 @@ function formatTime(isoText: string): string {
   const minutes = String(parsed.getMinutes()).padStart(2, '0');
 
   return `${hours}:${minutes}`;
+}
+
+// 저장된 항목 → 수치 칩.
+//
+// ⚠️ **기록 화면(compose)과 달리 serving_ratio 를 곱하지 않는다.** 저장된 스냅샷은 이미
+// **먹은 양 기준**이기 때문이다(서버 `models/health_model.py` 리비전 0025 주석). compose 는
+// 1인분 실측을 받아 화면에서 곱하지만 여기 값은 곱셈이 끝난 값이라, 또 곱하면 2인분을 먹은
+// 것으로 보인다.
+//
+// 등급(tier)이 전부 null 이라 칩은 회색이다 — 등급은 굳히지 않고 조회 시점 규칙으로 다시
+// 판정하기로 했고(`kcalAI-model/docs/CARE_LOOP.md` §0-3), 과거 기록에 그 재판정을 붙이는 것은
+// 아직 하지 않았다. 상한 대비 위치는 위의 하루 누적 카드(게이지)가 말해 준다.
+function itemNutrientChips(item: MealItem): NutrientChip[] {
+  const chips: NutrientChip[] = [];
+
+  const milligrams: [string, number | null][] = [
+    [NUTRIENT_LABELS.sodium, item.sodium_mg],
+    [NUTRIENT_LABELS.potassium, item.potassium_mg],
+    [NUTRIENT_LABELS.phosphorus, item.phosphorus_mg],
+  ];
+
+  for (const [label, value] of milligrams) {
+    // null 은 "실측을 못 찾았다"는 뜻이다. 0으로 그리면 먹지 않았다는 거짓말이 된다.
+    if (value !== null) {
+      chips.push({ label, value: `${Math.round(value).toLocaleString()}mg`, tier: null });
+    }
+  }
+
+  // 당류만 단위가 g 다 (서버 경고 API 의 nutrient_unit 과 같은 규약).
+  if (item.sugar_g !== null) {
+    chips.push({
+      label: NUTRIENT_LABELS.sugar,
+      value: `${Math.round(item.sugar_g * 10) / 10}g`,
+      tier: null,
+    });
+  }
+
+  return chips;
 }
 
 const styles = StyleSheet.create({
@@ -515,14 +580,18 @@ const styles = StyleSheet.create({
     color: '#6b7684',
     fontSize: 13,
   },
-  itemRow: {
-    alignItems: 'center',
+  // 이름·kcal 한 줄 아래에 수치 칩이 붙으므로 바깥은 세로, 안쪽 한 줄만 가로다.
+  itemBlock: {
     backgroundColor: '#f2f4f6',
     borderRadius: 8,
-    flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  itemRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
   },
   mealCard: {
     backgroundColor: '#ffffff',

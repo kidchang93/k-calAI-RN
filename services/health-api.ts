@@ -160,6 +160,15 @@ export type MealItem = {
   kcal: number;
   source: MealItemSource;
   confidence: number | null;
+  // 기록 시점 영양 스냅샷. **먹은 양 기준**(1인분 실측 × serving_ratio)이고 실측이 없으면 null이다
+  // (서버 리비전 0025, 응답 노출은 2026-08-03). DB 값이 나중에 바뀌어도 이 수치는 변하지 않는다 —
+  // 과거 기록이 말하는 근거는 **기록된 시점의 것**이어야 하기 때문이다.
+  // 등급(tier)은 여기 없다. 수치는 사실이라 굳히지만 등급은 해석이라 볼 때마다 다시 판정한다
+  // (`kcalAI-model/docs/CARE_LOOP.md` §0-3).
+  sodium_mg: number | null;
+  potassium_mg: number | null;
+  phosphorus_mg: number | null;
+  sugar_g: number | null;
 };
 
 export type MealLog = {
@@ -946,6 +955,13 @@ function parseMealItem(value: unknown): MealItem | null {
     kcal: value.kcal,
     source,
     confidence,
+    // 스냅샷은 **없어도 파싱을 실패시키지 않는다** — 옛 서버(2026-08-03 이전)는 이 필드를
+    // 주지 않고, 실측이 없는 음식은 서버가 null 을 준다. 둘 다 "수치를 모른다"로 수렴하고
+    // 화면은 칩을 그리지 않는다. 여기서 0으로 채우면 "0mg 을 먹었다"가 되어 거짓이 된다.
+    sodium_mg: typeof value.sodium_mg === 'number' ? value.sodium_mg : null,
+    potassium_mg: typeof value.potassium_mg === 'number' ? value.potassium_mg : null,
+    phosphorus_mg: typeof value.phosphorus_mg === 'number' ? value.phosphorus_mg : null,
+    sugar_g: typeof value.sugar_g === 'number' ? value.sugar_g : null,
   };
 }
 
