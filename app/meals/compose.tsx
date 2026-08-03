@@ -788,11 +788,30 @@ export default function MealComposeScreen() {
               <MaterialIcons color="#e5484d" name="warning-amber" size={20} />
               <View style={styles.warningBody}>
                 {warnings.map((warning) => (
-                  <Text
+                  <View
                     key={`${warning.source}-${warning.code}-${warning.matched_label}`}
-                    style={styles.warningText}>
-                    {formatWarning(warning)}
-                  </Text>
+                    style={styles.warningLine}>
+                    <Text style={styles.warningText}>{formatWarning(warning)}</Text>
+
+                    {/* **경고를 이해할 수 있게 한다.** "칼륨이 높아요"만으로는 왜 줄여야 하는지,
+                        내 병기에서도 그런지 알 수 없다 — 실사용에서 "내 질환 정보를 찾기 너무
+                        힘들다"로 나온 지점이다 (서버 `docs/CARE_LOOP.md` §0-3·§5-2).
+                        `nutrient` 가 있는 경고만 축 가이드가 있다(알러지·임신·암은 없다).
+                        서버 테스트 `test_every_axis_warning_condition_has_a_guide` 가 이 대응을 건다. */}
+                    {warning.nutrient !== null ? (
+                      <Pressable
+                        hitSlop={6}
+                        onPress={() =>
+                          router.push({
+                            pathname: '/guides/[condition]',
+                            params: { condition: warning.code, axis: warning.nutrient as string },
+                          })
+                        }
+                        style={({ pressed }) => [styles.warningWhy, pressed && styles.pressed]}>
+                        <Text style={styles.warningWhyText}>왜?</Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
                 ))}
                 {/* 등급 근거가 지침 컷오프가 아니라 정책값이라는 고지. 서버가 문구를 정한다. */}
                 {warningNotice ? <Text style={styles.warningNotice}>{warningNotice}</Text> : null}
@@ -1395,10 +1414,27 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     marginTop: 4,
   },
+  warningLine: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 8,
+  },
   warningText: {
     color: '#e5484d',
+    flex: 1,
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 19,
+  },
+  warningWhy: {
+    backgroundColor: '#ffffff',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  warningWhyText: {
+    color: '#e5484d',
+    fontSize: 12,
+    fontWeight: '800',
   },
 });

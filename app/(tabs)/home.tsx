@@ -11,10 +11,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ConditionGuideCard } from '@/components/condition-guide-card';
 import { DayNutrientsCard } from '@/components/day-nutrients-card';
 import { MealTypeCard } from '@/components/meal-type-card';
 import { NextMealCard } from '@/components/next-meal-card';
 import { ProgressRing } from '@/components/progress-ring';
+import { GuideSummary, listGuides } from '@/services/guide-api';
 import { consumePendingInvite } from '@/services/group-invite';
 import { DaySummary, formatDateParam, getSummary, MealBreakdown, MealType } from '@/services/health-api';
 import {
@@ -43,6 +45,8 @@ export default function HomeScreen() {
   // 403(민감정보 미동의)·네트워크 오류로 오늘 요약까지 막히면 안 된다.
   const [recommendation, setRecommendation] = useState<DietRecommendation | null>(null);
   const [mealType] = useState<MealType>(() => nextMealType());
+  // 질환 가이드 진입점. 콘텐츠는 지침이 바뀔 때만 바뀌므로 마운트 1회만 읽는다.
+  const [guides, setGuides] = useState<GuideSummary[]>([]);
 
   const loadSummary = useCallback(async () => {
     setIsLoading(true);
@@ -97,6 +101,23 @@ export default function HomeScreen() {
     };
   }, [mealType]);
 
+  // 가이드 목록도 있으면 좋은 것이다 — 실패해도 조용히 넘어간다(카드가 안 그려질 뿐).
+  useEffect(() => {
+    let isCancelled = false;
+
+    listGuides()
+      .then((result) => {
+        if (!isCancelled) {
+          setGuides(result);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -144,6 +165,10 @@ export default function HomeScreen() {
               칼로리 링 **바로 아래**인 것이 핵심이다 — 만성질환자에게는 kcal 보다 이 숫자가
               중요하다(kcalAI-model/docs/PRODUCT_STRATEGY.md §1). */}
           {summary !== null ? <DayNutrientsCard nutrients={summary.nutrients} /> : null}
+
+          {/* 수치 **바로 다음**이 "이게 무슨 뜻이지"가 이어지는 자리다. 여기를 놓치면
+              가이드는 아무도 찾지 않는 화면이 된다 (서버 `docs/CARE_LOOP.md` §5-2). */}
+          <ConditionGuideCard guides={guides} />
 
           {/* "다음에 뭘 먹지"가 "끼니별 기록 조회"보다 먼저다. 예전에는 그룹 진입과 나란한
               회색 행이어서, 가장 쓸모 있는 화면이 가장 눈에 안 띄었다. */}

@@ -140,7 +140,13 @@ export default function ConditionsScreen() {
 
           <View style={styles.header}>
             <Text style={styles.title}>해당하는 것을{'\n'}모두 골라주세요</Text>
-            <Text style={styles.subtitle}>추천에서 피해야 할 음식을 거르는 데만 씁니다.</Text>
+            {/* 예전 문구는 "추천에서 피해야 할 음식을 거르는 데만 씁니다"였다. 사실이지만
+                **질환을 고르는 사람이 알고 싶은 것**은 그게 아니다 — 방금 진단받은 사람은
+                무엇을 어떻게 먹어야 하는지를 알고 싶어 한다. 이 화면이 앱에서 질환을 언급하는
+                첫 자리인데 배울 것이 있다는 사실조차 알리지 않았다 (서버 `docs/CARE_LOOP.md` §0-3). */}
+            <Text style={styles.subtitle}>
+              고른 질환의 식단 가이드를 볼 수 있고, 먹은 음식에 주의할 성분이 있으면 알려드려요.
+            </Text>
           </View>
 
           {isLoadingOptions ? (
