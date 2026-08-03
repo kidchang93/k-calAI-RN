@@ -51,8 +51,11 @@ export default function BillingFailScreen() {
             ) : null}
           </View>
 
+          {/* 네이티브에서 이 화면에 도달할 경로 자체가 없지만(결제 버튼을 그리지 않는다),
+              도달하더라도 **다른 결제수단을 가리키지 않는다** — App Store 3.1.3.
+              예전 문구는 "결제는 웹에서 진행해주세요"였다. */}
           {isBillingSupported() ? null : (
-            <Text style={styles.note}>결제는 웹에서 진행해주세요.</Text>
+            <Text style={styles.note}>앱 내 구독은 준비 중이에요.</Text>
           )}
 
           <View style={styles.actions}>

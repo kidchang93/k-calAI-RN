@@ -11,7 +11,10 @@ import { Platform } from 'react-native';
 
 const TOSS_SDK_URL = 'https://js.tosspayments.com/v2/standard';
 
-const NOT_WEB_MESSAGE = '결제는 웹에서 진행해주세요.';
+// 네이티브에서 결제 경로를 호출했을 때의 방어용 메시지. 화면은 애초에 버튼을 그리지 않으므로
+// 사용자에게 보일 일이 없지만, **다른 결제수단을 가리키는 문구는 쓰지 않는다** —
+// App Store 3.1.3 이 금지하는 것이 앱 안에서 IAP 아닌 결제수단을 권유하는 행위다.
+const NOT_SUPPORTED_MESSAGE = '이 환경에서는 결제를 진행할 수 없습니다.';
 const LOAD_FAIL_MESSAGE = '결제 모듈을 불러오지 못했습니다. 네트워크 연결을 확인한 뒤 다시 시도해주세요.';
 
 // SDK 표면 중 우리가 실제로 쓰는 부분만 좁게 선언한다 (any 금지).
@@ -34,14 +37,14 @@ type TossWindow = Window & { TossPayments?: TossPaymentsFactory };
 // 스크립트를 두 번 넣지 않도록 프라미스를 캐시한다 (요금제 화면을 여러 번 드나들어도 1회 로드).
 let sdkPromise: Promise<TossPaymentsFactory> | null = null;
 
-// 화면이 결제 버튼을 그릴지, '웹에서 진행해주세요' 안내를 그릴지 판단하는 기준.
+// 화면이 결제 버튼을 그릴지 '준비 중' 안내를 그릴지 판단하는 기준.
 export function isBillingSupported(): boolean {
   return Platform.OS === 'web';
 }
 
 export async function loadTossSdk(): Promise<TossPaymentsFactory> {
   if (!isBillingSupported()) {
-    throw new Error(NOT_WEB_MESSAGE);
+    throw new Error(NOT_SUPPORTED_MESSAGE);
   }
 
   if (sdkPromise === null) {
@@ -58,7 +61,7 @@ export async function loadTossSdk(): Promise<TossPaymentsFactory> {
 // 결제창이 돌아올 절대 URL을 만든다. window 접근을 services 안에 가둔다 — 화면은 DOM을 모른다.
 export function billingReturnUrl(path: string): string {
   if (!isBillingSupported() || typeof window === 'undefined') {
-    throw new Error(NOT_WEB_MESSAGE);
+    throw new Error(NOT_SUPPORTED_MESSAGE);
   }
 
   return `${window.location.origin}${path}`;
@@ -90,7 +93,7 @@ export async function requestBillingAuth(options: {
 function injectSdkScript(): Promise<TossPaymentsFactory> {
   // 웹 정적 렌더링(document 없음)을 방어한다.
   if (typeof document === 'undefined') {
-    return Promise.reject(new Error(NOT_WEB_MESSAGE));
+    return Promise.reject(new Error(NOT_SUPPORTED_MESSAGE));
   }
 
   return new Promise((resolve, reject) => {

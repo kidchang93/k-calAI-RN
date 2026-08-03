@@ -397,11 +397,14 @@ function PlanCompareCard({
               </>
             )
           ) : (
+            /* ⚠️ **다른 결제수단을 권유하지 않는다.** 예전 문구는 "결제는 웹에서
+               진행해주세요"였는데, App Store Review Guidelines 3.1.3 이 금지하는 것이
+               정확히 앱 안에서 IAP 아닌 결제수단을 권유하는 행위다(미국 스토어만 예외).
+               "준비 중"이라는 사실만 남기고 어디서 살 수 있는지는 말하지 않는다.
+               (서버 `docs/DATA_MODEL.md` 30장 · `docs/LEGAL_COMPLIANCE.md` §6-4) */
             <View style={styles.noticeBox}>
-              <MaterialIcons color="#6b7684" name="desktop-windows" size={16} />
-              <Text style={styles.noticeText}>
-                결제는 웹에서 진행해주세요. 앱 내 결제는 준비 중이에요.
-              </Text>
+              <MaterialIcons color="#6b7684" name="schedule" size={16} />
+              <Text style={styles.noticeText}>앱 내 구독은 준비 중이에요.</Text>
             </View>
           )}
         </View>
