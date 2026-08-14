@@ -89,7 +89,7 @@ function InviteFrame({ title, description, icon, children }: InviteFrameProps) {
     <SafeAreaView style={styles.safeArea}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.container}>
-        <MaterialIcons color="#3182f6" name={icon} size={48} />
+        <MaterialIcons color="#2a7d76" name={icon} size={48} />
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.description}>{description}</Text>
         {children}
@@ -100,7 +100,7 @@ function InviteFrame({ title, description, icon, children }: InviteFrameProps) {
 
 const styles = StyleSheet.create({
   code: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 28,
     fontWeight: '900',
     letterSpacing: 6,
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   codeCard: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderColor: '#e5e8eb',
+    borderColor: '#e4e2de',
     borderRadius: 12,
     borderWidth: 1,
     gap: 4,
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   codeLabel: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   description: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 15,
     marginBottom: 8,
     textAlign: 'center',
@@ -141,23 +141,23 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     paddingHorizontal: 24,
     paddingVertical: 14,
     width: '100%',
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 24,
     fontWeight: '900',
     marginTop: 4,

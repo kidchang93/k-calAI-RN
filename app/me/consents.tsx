@@ -83,7 +83,7 @@ export default function ConsentsScreen() {
 
           {isLoading ? (
             <View style={styles.stateBox}>
-              <ActivityIndicator color="#3182f6" />
+              <ActivityIndicator color="#2a7d76" />
               <Text style={styles.stateText}>동의 내역을 불러오는 중입니다.</Text>
             </View>
           ) : (
@@ -102,7 +102,7 @@ export default function ConsentsScreen() {
 
                 <View style={styles.statusRow}>
                   <MaterialIcons
-                    color={hasHealthConsent ? '#20c997' : '#8b95a1'}
+                    color={hasHealthConsent ? '#60beb8' : '#a9a6a1'}
                     name={hasHealthConsent ? 'check-circle' : 'remove-circle-outline'}
                     size={16}
                   />
@@ -137,7 +137,7 @@ export default function ConsentsScreen() {
                             pressed && !isSubmitting && styles.pressed,
                           ]}>
                           {isSubmitting ? (
-                            <ActivityIndicator color="#ffffff" />
+                            <ActivityIndicator color="#22211f" />
                           ) : (
                             <Text style={styles.revokeButtonText}>철회하고 삭제</Text>
                           )}
@@ -164,7 +164,7 @@ export default function ConsentsScreen() {
                       pressed && !isSubmitting && styles.pressed,
                     ]}>
                     {isSubmitting ? (
-                      <ActivityIndicator color="#ffffff" />
+                      <ActivityIndicator color="#22211f" />
                     ) : (
                       <Text style={styles.agreeButtonText}>동의하기</Text>
                     )}
@@ -213,12 +213,12 @@ function RequiredConsentRow({
       accessibilityRole="link"
       onPress={() => router.push(href)}
       style={({ pressed }) => [styles.requiredRow, pressed && styles.pressed]}>
-      <MaterialIcons color="#20c997" name="check-circle" size={16} />
+      <MaterialIcons color="#60beb8" name="check-circle" size={16} />
       <Text style={styles.requiredLabel}>{label}</Text>
       <Text style={styles.requiredMeta}>
         {consent === null ? '기록 없음' : `${formatDay(consent.agreed_at)} 동의`}
       </Text>
-      <MaterialIcons color="#b0b8c1" name="chevron-right" size={18} />
+      <MaterialIcons color="#a9a6a1" name="chevron-right" size={18} />
     </Pressable>
   );
 }
@@ -263,18 +263,18 @@ function formatDay(isoText: string): string {
 const styles = StyleSheet.create({
   agreeButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     justifyContent: 'center',
     minHeight: 44,
   },
   agreeButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '900',
   },
   buttonDisabled: {
-    backgroundColor: '#d1d6db',
+    backgroundColor: '#e4e2de',
   },
   card: {
     backgroundColor: '#ffffff',
@@ -288,12 +288,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cardText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 13,
     lineHeight: 19,
   },
   cardTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '900',
   },
@@ -302,22 +302,22 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   confirmBox: {
-    backgroundColor: '#fff5f5',
+    backgroundColor: '#fbeaea',
     borderRadius: 8,
     gap: 10,
     padding: 14,
   },
   confirmStrong: {
-    color: '#e5484d',
+    color: '#b8524e',
     fontWeight: '900',
   },
   confirmText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 13,
     lineHeight: 19,
   },
   confirmTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '900',
   },
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     minHeight: 42,
   },
   keepButtonText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -348,24 +348,24 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   linkButtonText: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
   noteText: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
     lineHeight: 17,
   },
   optionalBadge: {
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
   optionalBadgeText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 11,
     fontWeight: '800',
   },
@@ -373,13 +373,13 @@ const styles = StyleSheet.create({
     opacity: 0.74,
   },
   requiredLabel: {
-    color: '#333d4b',
+    color: '#22211f',
     flex: 1,
     fontSize: 14,
     fontWeight: '700',
   },
   requiredMeta: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
   },
   requiredRow: {
@@ -389,19 +389,19 @@ const styles = StyleSheet.create({
   },
   revokeButton: {
     alignItems: 'center',
-    backgroundColor: '#e5484d',
+    backgroundColor: '#ea8989',
     borderRadius: 8,
     flex: 1,
     justifyContent: 'center',
     minHeight: 42,
   },
   revokeButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 14,
     fontWeight: '900',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   stateText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   statusRow: {
@@ -424,16 +424,16 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   statusText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '700',
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 30,
     fontWeight: '900',
   },

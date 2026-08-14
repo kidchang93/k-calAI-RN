@@ -58,7 +58,7 @@ export default function ConditionGuideScreen() {
 
           {isLoading ? (
             <View style={styles.stateBox}>
-              <ActivityIndicator color="#3182f6" />
+              <ActivityIndicator color="#2a7d76" />
               <Text style={styles.stateText}>가이드를 불러오는 중입니다.</Text>
             </View>
           ) : errorMessage !== null ? (
@@ -109,7 +109,7 @@ function AxisCard({
           <Text style={styles.axisSummary}>{axis.summary}</Text>
         </View>
         <MaterialIcons
-          color="#8b95a1"
+          color="#a9a6a1"
           name={isOpen ? 'expand-less' : 'expand-more'}
           size={22}
         />
@@ -132,7 +132,7 @@ function AxisCard({
               서로 반대인 안내를 각각 읽고 혼자 판단하는 것이 가장 위험하다. */}
           {axis.caution !== null ? (
             <View style={styles.cautionBox}>
-              <MaterialIcons color="#c2410c" name="warning-amber" size={16} />
+              <MaterialIcons color="#b8524e" name="warning-amber" size={16} />
               <Text style={styles.cautionText}>{axis.caution}</Text>
             </View>
           ) : null}
@@ -154,12 +154,12 @@ function AxisCard({
 
 const styles = StyleSheet.create({
   axisLabel: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 17,
     fontWeight: '900',
   },
   axisSummary: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     lineHeight: 19,
   },
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   cardBody: {
-    borderTopColor: '#f2f4f6',
+    borderTopColor: '#e4e2de',
     borderTopWidth: 1,
     gap: 18,
     padding: 18,
@@ -185,14 +185,14 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   cautionBox: {
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#fbeaea',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 8,
     padding: 12,
   },
   cautionText: {
-    color: '#9a3412',
+    color: '#b8524e',
     flex: 1,
     fontSize: 13,
     lineHeight: 20,
@@ -207,17 +207,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   intro: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 15,
     lineHeight: 23,
   },
   notice: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
     lineHeight: 18,
   },
   paragraph: {
-    color: '#333d4b',
+    color: '#22211f',
     fontSize: 15,
     lineHeight: 24,
   },
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
     opacity: 0.74,
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
@@ -235,23 +235,23 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sectionTitle: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 14,
     fontWeight: '900',
   },
   sourceItem: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
     lineHeight: 18,
   },
   sources: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     borderRadius: 8,
     gap: 4,
     padding: 12,
   },
   sourcesTitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 12,
     fontWeight: '800',
     marginBottom: 2,
@@ -264,11 +264,11 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   stateText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 26,
     fontWeight: '900',
   },

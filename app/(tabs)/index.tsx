@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { notifyDialog } from '@/services/dialog';
@@ -65,12 +65,14 @@ export default function RecordScreen() {
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.kicker}>K-Cal AI</Text>
+            <Text style={styles.kicker}>MEAL CARE</Text>
             <Text style={styles.title}>사진 한 장으로{'\n'}식단을 기록해요</Text>
           </View>
-          <View style={styles.logoMark}>
-            <MaterialIcons color="#ffffff" name="restaurant" size={28} />
-          </View>
+          <Image
+            accessibilityIgnoresInvertColors
+            source={require('@/assets/images/meal_care_logo.png')}
+            style={styles.logoMark}
+          />
         </View>
 
         <View style={styles.introCard}>
@@ -89,7 +91,7 @@ export default function RecordScreen() {
         <Pressable
           onPress={() => openCompose({})}
           style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
-          <MaterialIcons color="#3182f6" name="edit-note" size={20} />
+          <MaterialIcons color="#2a7d76" name="edit-note" size={20} />
           <Text style={styles.secondaryButtonText}>검색·직접 입력으로 추가</Text>
         </Pressable>
 
@@ -127,7 +129,7 @@ function ActionButton({
       onPress={onPress}
       style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}>
       <View style={styles.actionIcon}>
-        <MaterialIcons color="#3182f6" name={icon} size={24} />
+        <MaterialIcons color="#2a7d76" name={icon} size={24} />
       </View>
       <Text style={styles.actionLabel}>{label}</Text>
     </Pressable>
@@ -150,14 +152,14 @@ const styles = StyleSheet.create({
   },
   actionIcon: {
     alignItems: 'center',
-    backgroundColor: '#edf6ff',
+    backgroundColor: '#bee2dd',
     borderRadius: 8,
     height: 40,
     justifyContent: 'center',
     width: 40,
   },
   actionLabel: {
-    color: '#333d4b',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
   },
@@ -167,7 +169,7 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
   },
   disclaimer: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
     textAlign: 'center',
   },
@@ -184,39 +186,36 @@ const styles = StyleSheet.create({
     padding: 22,
   },
   introText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
     lineHeight: 20,
   },
   introTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 18,
     fontWeight: '900',
   },
   kicker: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 15,
     fontWeight: '800',
     marginBottom: 10,
   },
   logoMark: {
-    alignItems: 'center',
-    backgroundColor: '#3182f6',
-    borderRadius: 20,
     height: 56,
-    justifyContent: 'center',
+    resizeMode: 'contain',
     width: 56,
   },
   pressed: {
     opacity: 0.74,
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   secondaryButton: {
     alignItems: 'center',
-    backgroundColor: '#edf6ff',
+    backgroundColor: '#bee2dd',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 8,
@@ -224,12 +223,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   secondaryButtonText: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 16,
     fontWeight: '800',
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 30,
     fontWeight: '900',
     lineHeight: 39,

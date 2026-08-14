@@ -6,10 +6,10 @@ import { Coaching, CoachingTone } from '@/services/coaching-api';
 // 주간 조언. 문구·판정은 전부 서버가 규칙으로 만든다 — 앱은 톤에 맞춰 그리기만 한다
 // (kcalAI-model/docs/ACTIVITY_GUIDANCE.md 3-5).
 const TONE_ICONS: Record<CoachingTone, { name: 'check-circle' | 'lightbulb-outline' | 'info'; color: string }> = {
-  good: { name: 'check-circle', color: '#0f8a5f' },
-  tip: { name: 'lightbulb-outline', color: '#3182f6' },
+  good: { name: 'check-circle', color: '#2a7d76' },
+  tip: { name: 'lightbulb-outline', color: '#2a7d76' },
   // 주의도 붉은 경고색을 쓰지 않는다 — 사실 안내이지 경고가 아니다.
-  caution: { name: 'info', color: '#d4571a' },
+  caution: { name: 'info', color: '#b8524e' },
 };
 
 export function WeeklyCoaching({
@@ -70,12 +70,12 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   conditions: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
     fontWeight: '700',
   },
   evidence: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
   },
   headerRow: {
@@ -93,15 +93,15 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   message: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 14,
     fontWeight: '700',
     lineHeight: 20,
   },
   notice: {
-    borderTopColor: '#f2f4f6',
+    borderTopColor: '#e4e2de',
     borderTopWidth: 1,
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
     lineHeight: 18,
     paddingTop: 10,
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sectionTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 18,
     fontWeight: '800',
   },

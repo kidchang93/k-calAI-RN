@@ -151,7 +151,7 @@ export default function GoalEditScreen() {
 
             {isLoading ? (
               <View style={styles.stateBox}>
-                <ActivityIndicator color="#3182f6" />
+                <ActivityIndicator color="#2a7d76" />
                 <Text style={styles.stateText}>목표를 불러오는 중입니다.</Text>
               </View>
             ) : (
@@ -214,7 +214,7 @@ export default function GoalEditScreen() {
                       keyboardType="numeric"
                       onChangeText={setCustomKcalText}
                       placeholder={computed === null ? '2000' : String(computed.target)}
-                      placeholderTextColor="#b0b8c1"
+                      placeholderTextColor="#a9a6a1"
                       style={styles.input}
                       value={customKcalText ?? (computed === null ? '' : String(computed.target))}
                     />
@@ -247,7 +247,7 @@ export default function GoalEditScreen() {
                     pressed && styles.pressed,
                   ]}>
                   {isSaving ? (
-                    <ActivityIndicator color="#ffffff" />
+                    <ActivityIndicator color="#22211f" />
                   ) : (
                     <Text style={styles.primaryButtonText}>목표 저장</Text>
                   )}
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   cardLabel: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -283,15 +283,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   cardValue: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '900',
   },
   cardValueNegative: {
-    color: '#e5484d',
+    color: '#b8524e',
   },
   cardValuePositive: {
-    color: '#20c997',
+    color: '#60beb8',
   },
   container: {
     alignSelf: 'center',
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   disclaimer: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
     textAlign: 'center',
   },
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   input: {
-    color: '#191f28',
+    color: '#22211f',
     flex: 1,
     fontSize: 17,
     fontWeight: '700',
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
   inputRow: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderColor: '#e5e8eb',
+    borderColor: '#e4e2de',
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: 'row',
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   label: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -340,21 +340,21 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     marginTop: 8,
     paddingVertical: 14,
   },
   primaryButtonDisabled: {
-    backgroundColor: '#b4c7e7',
+    backgroundColor: '#99d2ce',
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
@@ -362,12 +362,12 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     alignItems: 'center',
-    backgroundColor: '#edf6ff',
+    backgroundColor: '#bee2dd',
     borderRadius: 8,
     paddingVertical: 14,
   },
   secondaryButtonText: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 16,
     fontWeight: '800',
   },
@@ -379,21 +379,21 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   stateText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 26,
     fontWeight: '900',
     lineHeight: 34,
   },
   unit: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 14,
     fontWeight: '700',
   },

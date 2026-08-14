@@ -45,7 +45,7 @@ export function Segmented<T extends string>({ options, value, onChange, compact 
 
 const styles = StyleSheet.create({
   track: {
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 999,
     flexDirection: 'row',
     padding: 3,
@@ -65,13 +65,13 @@ const styles = StyleSheet.create({
   segmentSelected: {
     backgroundColor: '#ffffff',
     // 선택된 칸만 살짝 떠 보이게 (iOS 세그먼트 관례).
-    shadowColor: '#000000',
+    shadowColor: '#22211f',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 2,
   },
   label: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   labelSelected: {
-    color: '#191f28',
+    color: '#22211f',
   },
   pressed: {
     opacity: 0.6,

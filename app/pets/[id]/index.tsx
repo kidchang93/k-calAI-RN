@@ -155,7 +155,7 @@ export default function PetDetailScreen() {
 
             {isLoading ? (
               <View style={styles.stateBox}>
-                <ActivityIndicator color="#3182f6" />
+                <ActivityIndicator color="#2a7d76" />
                 <Text style={styles.stateText}>반려동물 정보를 불러오는 중입니다.</Text>
               </View>
             ) : pet === null ? (
@@ -190,7 +190,7 @@ export default function PetDetailScreen() {
                       </Text>
                     )}
                   </View>
-                  <MaterialIcons color="#3182f6" name="local-fire-department" size={22} />
+                  <MaterialIcons color="#2a7d76" name="local-fire-department" size={22} />
                 </View>
 
                 <View style={styles.section}>
@@ -203,7 +203,7 @@ export default function PetDetailScreen() {
 
                   {feedings.map((feeding) => (
                     <View key={feeding.id} style={styles.feedingRow}>
-                      <MaterialIcons color="#4e5968" name="restaurant" size={18} />
+                      <MaterialIcons color="#5c5b57" name="restaurant" size={18} />
                       <View style={styles.feedingBody}>
                         <Text style={styles.feedingLabel}>{feeding.food_label}</Text>
                         <Text style={styles.feedingMeta}>{formatTime(feeding.fed_at)}</Text>
@@ -218,7 +218,7 @@ export default function PetDetailScreen() {
                         maxLength={100}
                         onChangeText={setFoodLabel}
                         placeholder="사료 이름"
-                        placeholderTextColor="#b0b8c1"
+                        placeholderTextColor="#a9a6a1"
                         style={styles.input}
                         value={foodLabel}
                       />
@@ -229,7 +229,7 @@ export default function PetDetailScreen() {
                           keyboardType="numeric"
                           onChangeText={setAmountText}
                           placeholder="60"
-                          placeholderTextColor="#b0b8c1"
+                          placeholderTextColor="#a9a6a1"
                           style={styles.input}
                           value={amountText}
                         />
@@ -244,7 +244,7 @@ export default function PetDetailScreen() {
                           pressed && styles.pressed,
                         ]}>
                         {isSavingFeeding ? (
-                          <ActivityIndicator color="#ffffff" />
+                          <ActivityIndicator color="#22211f" />
                         ) : (
                           <Text style={styles.primaryButtonText}>급여 기록</Text>
                         )}
@@ -259,18 +259,18 @@ export default function PetDetailScreen() {
                       router.push({ pathname: '/pets/[id]/edit', params: { id: String(pet.id) } })
                     }
                     style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-                    <MaterialIcons color="#4e5968" name="edit" size={20} />
+                    <MaterialIcons color="#5c5b57" name="edit" size={20} />
                     <Text style={styles.rowLabel}>정보 수정</Text>
-                    <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+                    <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
                   </Pressable>
 
                   <Pressable
                     disabled={isDeleting}
                     onPress={() => confirmDelete(pet)}
                     style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-                    <MaterialIcons color="#e5484d" name="delete-outline" size={20} />
+                    <MaterialIcons color="#b8524e" name="delete-outline" size={20} />
                     {isDeleting ? (
-                      <ActivityIndicator color="#e5484d" size="small" />
+                      <ActivityIndicator color="#b8524e" size="small" />
                     ) : (
                       <Text style={styles.deleteLabel}>삭제</Text>
                     )}
@@ -329,13 +329,13 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   deleteLabel: {
-    color: '#e5484d',
+    color: '#b8524e',
     flex: 1,
     fontSize: 16,
     fontWeight: '700',
   },
   feedingAmount: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
   },
@@ -347,12 +347,12 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   feedingLabel: {
-    color: '#333d4b',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '700',
   },
   feedingMeta: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
   },
   feedingRow: {
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   input: {
-    color: '#191f28',
+    color: '#22211f',
     flex: 1,
     fontSize: 16,
     fontWeight: '700',
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   inputRow: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderColor: '#e5e8eb',
+    borderColor: '#e4e2de',
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: 'row',
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   inputRowSmall: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderColor: '#e5e8eb',
+    borderColor: '#e4e2de',
     borderRadius: 8,
     borderWidth: 1,
     flex: 1,
@@ -402,16 +402,16 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     justifyContent: 'center',
     paddingHorizontal: 18,
   },
   primaryButtonDisabled: {
-    backgroundColor: '#b4c7e7',
+    backgroundColor: '#99d2ce',
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
   },
@@ -421,23 +421,23 @@ const styles = StyleSheet.create({
   },
   recommendCard: {
     alignItems: 'center',
-    backgroundColor: '#f5f9ff',
+    backgroundColor: '#eef7f5',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 12,
     padding: 16,
   },
   recommendHint: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   recommendLabel: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '700',
   },
   recommendValue: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 18,
     fontWeight: '900',
   },
@@ -450,13 +450,13 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   rowLabel: {
-    color: '#191f28',
+    color: '#22211f',
     flex: 1,
     fontSize: 16,
     fontWeight: '700',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
@@ -471,12 +471,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionMeta: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
     fontWeight: '700',
   },
   sectionTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 17,
     fontWeight: '800',
   },
@@ -488,20 +488,20 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   stateText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 30,
     fontWeight: '900',
   },
   unit: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 14,
     fontWeight: '700',
   },

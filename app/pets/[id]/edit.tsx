@@ -111,7 +111,7 @@ export default function PetEditScreen() {
 
             {isLoading ? (
               <View style={styles.stateBox}>
-                <ActivityIndicator color="#3182f6" />
+                <ActivityIndicator color="#2a7d76" />
                 <Text style={styles.stateText}>반려동물 정보를 불러오는 중입니다.</Text>
               </View>
             ) : pet === null ? null : (
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
@@ -164,15 +164,15 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   stateText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 30,
     fontWeight: '900',
   },

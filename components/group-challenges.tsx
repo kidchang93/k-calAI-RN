@@ -124,7 +124,7 @@ export function GroupChallenges({ groupId }: { groupId: number }) {
         <Pressable
           onPress={() => setIsCreating((current) => !current)}
           style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
-          <MaterialIcons color="#3182f6" name={isCreating ? 'close' : 'add'} size={18} />
+          <MaterialIcons color="#2a7d76" name={isCreating ? 'close' : 'add'} size={18} />
         </Pressable>
       </View>
 
@@ -136,7 +136,7 @@ export function GroupChallenges({ groupId }: { groupId: number }) {
             maxLength={60}
             onChangeText={setTitle}
             placeholder="예: 이번 주 다 같이 걷기"
-            placeholderTextColor="#b0b8c1"
+            placeholderTextColor="#a9a6a1"
             style={styles.input}
             value={title}
           />
@@ -159,7 +159,7 @@ export function GroupChallenges({ groupId }: { groupId: number }) {
               pressed && !isBusy && styles.pressed,
             ]}>
             {isBusy ? (
-              <ActivityIndicator color="#ffffff" />
+              <ActivityIndicator color="#22211f" />
             ) : (
               <Text style={styles.primaryButtonText}>챌린지 만들기</Text>
             )}
@@ -168,7 +168,7 @@ export function GroupChallenges({ groupId }: { groupId: number }) {
       ) : null}
 
       {isLoading ? (
-        <ActivityIndicator color="#3182f6" />
+        <ActivityIndicator color="#2a7d76" />
       ) : challenges.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyText}>
@@ -195,7 +195,7 @@ export function GroupChallenges({ groupId }: { groupId: number }) {
                 </Text>
               </View>
               <MaterialIcons
-                color="#8b95a1"
+                color="#a9a6a1"
                 name={openId === challenge.id ? 'expand-less' : 'expand-more'}
                 size={20}
               />
@@ -238,7 +238,7 @@ export function GroupChallenges({ groupId }: { groupId: number }) {
                       </Text>
                       <Text style={styles.entryMinutes}>{`${entry.minutes}분`}</Text>
                       {entry.achieved ? (
-                        <MaterialIcons color="#0f8a5f" name="check-circle" size={16} />
+                        <MaterialIcons color="#2a7d76" name="check-circle" size={16} />
                       ) : null}
                     </View>
                   ))
@@ -267,13 +267,13 @@ export function GroupChallenges({ groupId }: { groupId: number }) {
 
 const styles = StyleSheet.create({
   activeChip: {
-    backgroundColor: '#e9f8f0',
+    backgroundColor: '#bee2dd',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
   activeText: {
-    color: '#0f8a5f',
+    color: '#2a7d76',
     fontSize: 11,
     fontWeight: '800',
   },
@@ -296,33 +296,33 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   challengeMeta: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
   },
   challengeTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
   },
   consentBox: {
-    backgroundColor: '#f5f9ff',
+    backgroundColor: '#eef7f5',
     borderRadius: 8,
     gap: 8,
     padding: 12,
   },
   consentButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     paddingVertical: 10,
   },
   consentButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 13,
     fontWeight: '800',
   },
   consentText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 12,
     lineHeight: 18,
   },
@@ -331,18 +331,18 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   deleteButtonText: {
-    color: '#e5484d',
+    color: '#b8524e',
     fontSize: 13,
     fontWeight: '700',
   },
   detailBody: {
-    borderTopColor: '#f2f4f6',
+    borderTopColor: '#e4e2de',
     borderTopWidth: 1,
     gap: 8,
     paddingTop: 10,
   },
   disabled: {
-    backgroundColor: '#b0c9f0',
+    backgroundColor: '#99d2ce',
   },
   emptyCard: {
     backgroundColor: '#ffffff',
@@ -350,26 +350,26 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   emptyText: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
     lineHeight: 19,
   },
   entryMinutes: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 14,
     fontWeight: '800',
   },
   entryName: {
-    color: '#4e5968',
+    color: '#5c5b57',
     flex: 1,
     fontSize: 14,
   },
   entryNameMe: {
-    color: '#191f28',
+    color: '#22211f',
     fontWeight: '800',
   },
   entryRank: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
     fontWeight: '800',
     width: 20,
@@ -380,19 +380,19 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   error: {
-    color: '#e5484d',
+    color: '#b8524e',
     fontSize: 13,
   },
   input: {
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 8,
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 14,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   note: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
   },
   pressed: {
@@ -400,12 +400,12 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     paddingVertical: 12,
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -418,14 +418,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 18,
     fontWeight: '800',
   },
   targetInput: {
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 8,
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 14,
     fontWeight: '800',
     paddingHorizontal: 12,
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
     width: 72,
   },
   targetLabel: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
   },
   targetRow: {
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   targetUnit: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
   },
   titleRow: {

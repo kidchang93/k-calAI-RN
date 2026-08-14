@@ -134,12 +134,12 @@ export default function RecommendationsScreen() {
 
           {isLoading ? (
             <View style={styles.stateBox}>
-              <ActivityIndicator color="#3182f6" />
+              <ActivityIndicator color="#2a7d76" />
               <Text style={styles.stateText}>추천 메뉴를 불러오는 중입니다.</Text>
             </View>
           ) : errorMessage ? (
             <View style={styles.errorBox}>
-              <MaterialIcons color="#e5484d" name="error-outline" size={20} />
+              <MaterialIcons color="#b8524e" name="error-outline" size={20} />
               <View style={styles.errorBody}>
                 <Text style={styles.errorText}>{errorMessage}</Text>
                 <Pressable
@@ -153,7 +153,7 @@ export default function RecommendationsScreen() {
             <>
               {excludedRules.length > 0 ? (
                 <View style={styles.excludedBox}>
-                  <MaterialIcons color="#3182f6" name="verified-user" size={18} />
+                  <MaterialIcons color="#2a7d76" name="verified-user" size={18} />
                   <View style={styles.excludedBody}>
                     <Text style={styles.excludedText}>
                       {`${excludedRules.map((entry) => entry.label).join(' · ')} 제외 반영`}
@@ -169,7 +169,7 @@ export default function RecommendationsScreen() {
 
               {recommendation.items.length === 0 ? (
                 <View style={styles.emptyCard}>
-                  <MaterialIcons color="#8b95a1" name="search-off" size={32} />
+                  <MaterialIcons color="#a9a6a1" name="search-off" size={32} />
                   <Text style={styles.emptyTitle}>추천할 메뉴를 찾지 못했어요</Text>
                   <Text style={styles.emptyText}>
                     제외 조건과 남은 칼로리 안에서 고를 수 있는 메뉴가 없습니다. 다른 끼니를
@@ -187,7 +187,7 @@ export default function RecommendationsScreen() {
               {/* 질병 기반 식이 도움말 (신장병이면 칼륨 저감 조리법 등). 서버가 문구를 내려보낸다. */}
               {recommendation.tips.length > 0 || recommendation.tier_notice !== null ? (
                 <View style={styles.tipsBox}>
-                  <MaterialIcons color="#3182f6" name="lightbulb-outline" size={18} />
+                  <MaterialIcons color="#2a7d76" name="lightbulb-outline" size={18} />
                   <View style={styles.tipsBody}>
                     <Text style={styles.tipsTitle}>식이 도움말</Text>
                     {recommendation.tips.map((tip) => (
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   disclaimer: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
     textAlign: 'center',
   },
@@ -281,13 +281,13 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   emptyText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
   },
   emptyTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 18,
     fontWeight: '800',
   },
@@ -296,14 +296,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   errorBox: {
-    backgroundColor: '#fff5f5',
+    backgroundColor: '#fbeaea',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 10,
     padding: 16,
   },
   errorText: {
-    color: '#e5484d',
+    color: '#b8524e',
     fontSize: 14,
   },
   excludedBody: {
@@ -312,19 +312,19 @@ const styles = StyleSheet.create({
   },
   excludedBox: {
     alignItems: 'flex-start',
-    backgroundColor: '#f5f9ff',
+    backgroundColor: '#eef7f5',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 8,
     padding: 14,
   },
   excludedSubText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 12,
     lineHeight: 17,
   },
   excludedText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 19,
@@ -339,18 +339,18 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   itemKcal: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 15,
     fontWeight: '900',
   },
   itemName: {
-    color: '#191f28',
+    color: '#22211f',
     flex: 1,
     fontSize: 16,
     fontWeight: '800',
   },
   itemReason: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     lineHeight: 19,
   },
@@ -375,12 +375,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   retryButtonText: {
-    color: '#e5484d',
+    color: '#b8524e',
     fontSize: 14,
     fontWeight: '700',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
@@ -394,15 +394,15 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   stateText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   tierNotice: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 12,
     lineHeight: 18,
     marginTop: 4,
@@ -413,24 +413,24 @@ const styles = StyleSheet.create({
   },
   tipsBox: {
     alignItems: 'flex-start',
-    backgroundColor: '#f5f9ff',
+    backgroundColor: '#eef7f5',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 8,
     padding: 14,
   },
   tipsText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 13,
     lineHeight: 19,
   },
   tipsTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 14,
     fontWeight: '800',
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 30,
     fontWeight: '900',
   },

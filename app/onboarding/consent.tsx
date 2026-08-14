@@ -89,7 +89,7 @@ export default function ConsentScreen() {
                 pressed && styles.pressed,
               ]}>
               {isAgreeing ? (
-                <ActivityIndicator color="#ffffff" />
+                <ActivityIndicator color="#22211f" />
               ) : (
                 <Text style={styles.primaryButtonText}>동의하고 시작</Text>
               )}
@@ -110,13 +110,13 @@ export default function ConsentScreen() {
 
 const styles = StyleSheet.create({
   badge: {
-    backgroundColor: '#edf6ff',
+    backgroundColor: '#bee2dd',
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   badgeText: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 12,
     fontWeight: '800',
   },
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   cardBody: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 14,
     lineHeight: 20,
   },
@@ -141,11 +141,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   cardMeta: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
   },
   cardTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
   },
@@ -157,12 +157,12 @@ const styles = StyleSheet.create({
   },
   ghostButton: {
     alignItems: 'center',
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 8,
     paddingVertical: 14,
   },
   ghostButtonText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 16,
     fontWeight: '700',
   },
@@ -170,12 +170,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   noteBox: {
-    backgroundColor: '#f5f9ff',
+    backgroundColor: '#eef7f5',
     borderRadius: 8,
     padding: 16,
   },
   noteText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 13,
     lineHeight: 19,
   },
@@ -184,31 +184,31 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     paddingVertical: 14,
   },
   primaryButtonDisabled: {
-    backgroundColor: '#b4c7e7',
+    backgroundColor: '#99d2ce',
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
     padding: 20,
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 26,
     fontWeight: '900',
     lineHeight: 34,

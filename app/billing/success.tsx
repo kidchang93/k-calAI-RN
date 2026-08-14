@@ -82,21 +82,21 @@ export default function BillingSuccessScreen() {
         <View style={styles.container}>
           {isConfirming ? (
             <View style={styles.stateBox}>
-              <ActivityIndicator color="#3182f6" />
+              <ActivityIndicator color="#2a7d76" />
               <Text style={styles.stateText}>결제를 확인하고 있어요. 잠시만 기다려주세요.</Text>
             </View>
           ) : !hasParams ? (
             <ResultCard
-              accent="#e5484d"
-              accentBackground="#fff5f5"
+              accent="#b8524e"
+              accentBackground="#fbeaea"
               icon="link-off"
               message="결제 정보가 확인되지 않았어요. 요금제 화면에서 다시 시도해주세요."
               title="잘못된 접근이에요"
             />
           ) : errorMessage !== null ? (
             <ResultCard
-              accent="#e5484d"
-              accentBackground="#fff5f5"
+              accent="#b8524e"
+              accentBackground="#fbeaea"
               icon="error-outline"
               message={errorMessage}
               title={failureTitle(failureKind)}
@@ -132,8 +132,8 @@ function SuccessCard({ subscription }: { subscription: MySubscription }) {
 
   return (
     <View style={styles.resultCard}>
-      <View style={[styles.iconWrap, { backgroundColor: '#edf6ff' }]}>
-        <MaterialIcons color="#20c997" name="check-circle" size={32} />
+      <View style={[styles.iconWrap, { backgroundColor: '#bee2dd' }]}>
+        <MaterialIcons color="#60beb8" name="check-circle" size={32} />
       </View>
       <Text style={styles.resultTitle}>구독이 시작됐어요</Text>
       <Text style={styles.resultMessage}>
@@ -274,14 +274,14 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   detailBox: {
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 8,
     gap: 10,
     padding: 14,
     width: '100%',
   },
   detailLabel: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   detailRow: {
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   detailValue: {
-    color: '#333d4b',
+    color: '#22211f',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -305,13 +305,13 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     justifyContent: 'center',
     minHeight: 46,
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '900',
   },
@@ -323,19 +323,19 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   resultMessage: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
   },
   resultTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 22,
     fontWeight: '900',
     textAlign: 'center',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
     minHeight: 46,
   },
   secondaryButtonText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 15,
     fontWeight: '800',
   },
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   stateText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
     textAlign: 'center',
   },

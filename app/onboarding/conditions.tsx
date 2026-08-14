@@ -150,7 +150,7 @@ export default function ConditionsScreen() {
           </View>
 
           {isLoadingOptions ? (
-            <ActivityIndicator color="#3182f6" />
+            <ActivityIndicator color="#2a7d76" />
           ) : (
             <ChipGroup onToggle={toggle} options={chipOptions} selectedValues={selectedValues} />
           )}
@@ -181,7 +181,7 @@ export default function ConditionsScreen() {
 
           <View style={styles.noteBox}>
             <Text style={styles.noteText}>
-              kcal은 의료 서비스가 아닙니다. 진단·처방을 대신하지 않으며, 치료 중이라면 반드시
+              밀케어는 의료 서비스가 아닙니다. 진단·처방을 대신하지 않으며, 치료 중이라면 반드시
               의료진과 상의하세요.
             </Text>
           </View>
@@ -200,7 +200,7 @@ export default function ConditionsScreen() {
                 pressed && styles.pressed,
               ]}>
               {isSaving ? (
-                <ActivityIndicator color="#ffffff" />
+                <ActivityIndicator color="#22211f" />
               ) : (
                 <Text style={styles.primaryButtonText}>다음</Text>
               )}
@@ -232,12 +232,12 @@ const styles = StyleSheet.create({
   },
   ghostButton: {
     alignItems: 'center',
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 8,
     paddingVertical: 14,
   },
   ghostButtonText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 16,
     fontWeight: '700',
   },
@@ -248,22 +248,22 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   stageHint: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     lineHeight: 19,
   },
   stageTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
   },
   noteBox: {
-    backgroundColor: '#f5f9ff',
+    backgroundColor: '#eef7f5',
     borderRadius: 8,
     padding: 16,
   },
   noteText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 13,
     lineHeight: 19,
   },
@@ -272,31 +272,31 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     paddingVertical: 14,
   },
   primaryButtonDisabled: {
-    backgroundColor: '#b4c7e7',
+    backgroundColor: '#99d2ce',
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
     padding: 20,
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 26,
     fontWeight: '900',
     lineHeight: 34,

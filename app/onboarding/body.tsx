@@ -128,7 +128,7 @@ export default function BodyScreen() {
                     keyboardType="numeric"
                     onChangeText={setHeightText}
                     placeholder="175"
-                    placeholderTextColor="#b0b8c1"
+                    placeholderTextColor="#a9a6a1"
                     style={styles.input}
                     value={heightText}
                   />
@@ -143,7 +143,7 @@ export default function BodyScreen() {
                     keyboardType="numeric"
                     onChangeText={setWeightText}
                     placeholder="70.5"
-                    placeholderTextColor="#b0b8c1"
+                    placeholderTextColor="#a9a6a1"
                     style={styles.input}
                     value={weightText}
                   />
@@ -159,7 +159,7 @@ export default function BodyScreen() {
                     maxLength={4}
                     onChangeText={setBirthYearText}
                     placeholder="1993"
-                    placeholderTextColor="#b0b8c1"
+                    placeholderTextColor="#a9a6a1"
                     style={styles.input}
                     value={birthYearText}
                   />
@@ -226,7 +226,7 @@ export default function BodyScreen() {
                 pressed && styles.pressed,
               ]}>
               {isSaving ? (
-                <ActivityIndicator color="#ffffff" />
+                <ActivityIndicator color="#22211f" />
               ) : (
                 <Text style={styles.primaryButtonText}>다음</Text>
               )}
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   input: {
-    color: '#191f28',
+    color: '#22211f',
     flex: 1,
     fontSize: 17,
     fontWeight: '700',
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
   inputRow: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderColor: '#e5e8eb',
+    borderColor: '#e4e2de',
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: 'row',
@@ -275,22 +275,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   label: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 14,
     fontWeight: '700',
   },
   noteBox: {
-    backgroundColor: '#f5f9ff',
+    backgroundColor: '#eef7f5',
     borderRadius: 8,
     padding: 16,
   },
   underageText: {
-    color: '#d4571a',
+    color: '#b8524e',
     fontSize: 13,
     lineHeight: 19,
   },
   noteText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 13,
     lineHeight: 19,
   },
@@ -299,38 +299,38 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     marginTop: 8,
     paddingVertical: 14,
   },
   primaryButtonDisabled: {
-    backgroundColor: '#b4c7e7',
+    backgroundColor: '#99d2ce',
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
     padding: 20,
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 26,
     fontWeight: '900',
     lineHeight: 34,
   },
   unit: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 14,
     fontWeight: '700',
   },

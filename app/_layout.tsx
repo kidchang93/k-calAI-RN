@@ -11,6 +11,20 @@ export const unstable_settings = {
   initialRouteName: 'auth',
 };
 
+// 내비게이션 테마도 앱 팔레트(docs/DESIGN.md)를 따른다 — 기본 테마의 iOS 블루가
+// 화면 전환 배경·헤더 강조색으로 새어 나오면 하드코딩 팔레트와 어긋난다.
+const NAV_THEME = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: '#2a7d76',
+    background: '#f7f6f4',
+    card: '#ffffff',
+    text: '#22211f',
+    border: '#e4e2de',
+  },
+};
+
 // 인증 가드를 여기서 router.replace() 로 처리하지 않습니다.
 // 루트 레이아웃의 effect 는 네비게이터가 마운트되기 전에 실행될 수 있어
 // "Attempted to navigate before mounting the Root Layout component" 를 던집니다.
@@ -27,7 +41,7 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : NAV_THEME}>
       <Stack initialRouteName="auth">
         <Stack.Screen name="auth" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

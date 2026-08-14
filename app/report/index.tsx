@@ -73,7 +73,7 @@ export default function MedicalReportScreen() {
               <Pressable
                 onPress={() => window.print()}
                 style={({ pressed }) => [styles.printButton, pressed && styles.pressed]}>
-                <MaterialIcons color="#ffffff" name="print" size={18} />
+                <MaterialIcons color="#22211f" name="print" size={18} />
                 <Text style={styles.printButtonText}>인쇄 · PDF 저장</Text>
               </Pressable>
             ) : null}
@@ -81,7 +81,7 @@ export default function MedicalReportScreen() {
 
           {isLoading ? (
             <View style={styles.stateBox}>
-              <ActivityIndicator color="#3182f6" />
+              <ActivityIndicator color="#2a7d76" />
             </View>
           ) : errorMessage !== null ? (
             <ErrorBanner message={errorMessage} onRetry={() => void load()} />
@@ -259,13 +259,13 @@ function formatGeneratedAt(value: string): string {
 
 const styles = StyleSheet.create({
   axisName: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 14,
     fontWeight: '800',
     width: 60,
   },
   axisNote: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
   },
   axisRow: {
@@ -274,23 +274,23 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   axisValue: {
-    color: '#333d4b',
+    color: '#22211f',
     flex: 1,
     fontSize: 14,
   },
   block: {
-    borderTopColor: '#e5e8eb',
+    borderTopColor: '#e4e2de',
     borderTopWidth: 1,
     gap: 10,
     paddingTop: 16,
   },
   blockNotice: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 11,
     lineHeight: 16,
   },
   blockTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '900',
   },
@@ -303,34 +303,34 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   dayTitle: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '800',
     marginTop: 6,
   },
   docNotice: {
-    borderTopColor: '#e5e8eb',
+    borderTopColor: '#e4e2de',
     borderTopWidth: 1,
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 11,
     lineHeight: 16,
     paddingTop: 12,
   },
   docPeriod: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
   },
   docTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 22,
     fontWeight: '900',
   },
   emptyText: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 14,
   },
   itemText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 13,
     lineHeight: 19,
   },
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mealKcal: {
-    color: '#333d4b',
+    color: '#22211f',
     fontSize: 13,
     fontWeight: '800',
   },
@@ -349,18 +349,18 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   mealType: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     width: 34,
   },
   metaBox: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     borderRadius: 8,
     gap: 6,
     padding: 14,
   },
   metaLabel: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     width: 96,
   },
@@ -368,13 +368,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   metaValue: {
-    color: '#191f28',
+    color: '#22211f',
     flex: 1,
     fontSize: 13,
     fontWeight: '700',
   },
   nativeHint: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
     lineHeight: 19,
     textAlign: 'center',
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
   },
   printButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 6,
@@ -392,12 +392,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   printButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 14,
     fontWeight: '800',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {

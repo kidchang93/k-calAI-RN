@@ -192,7 +192,7 @@ export default function GroupDetailScreen() {
 
           {isLoading ? (
             <View style={styles.stateBox}>
-              <ActivityIndicator color="#3182f6" />
+              <ActivityIndicator color="#2a7d76" />
               <Text style={styles.stateText}>그룹 정보를 불러오는 중입니다.</Text>
             </View>
           ) : detail === null ? (
@@ -220,7 +220,7 @@ export default function GroupDetailScreen() {
                 <Pressable
                   onPress={() => void shareInviteCode(detail)}
                   style={({ pressed }) => [styles.shareButton, pressed && styles.pressed]}>
-                  <MaterialIcons color="#3182f6" name="ios-share" size={18} />
+                  <MaterialIcons color="#2a7d76" name="ios-share" size={18} />
                   <Text style={styles.shareButtonText}>링크 공유</Text>
                 </Pressable>
               </View>
@@ -229,7 +229,7 @@ export default function GroupDetailScreen() {
                 <Text style={styles.sectionTitle}>멤버</Text>
                 {detail.members.map((member) => (
                   <View key={member.user_id} style={styles.row}>
-                    <MaterialIcons color="#4e5968" name="person" size={20} />
+                    <MaterialIcons color="#5c5b57" name="person" size={20} />
                     <Text style={styles.rowLabel}>{member.nickname}</Text>
                     <Text
                       style={[styles.roleBadge, member.role === 'owner' && styles.roleBadgeOwner]}>
@@ -242,9 +242,9 @@ export default function GroupDetailScreen() {
                         onPress={() => confirmRemoveMember(member)}
                         style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
                         {removingUserId === member.user_id ? (
-                          <ActivityIndicator color="#e5484d" size="small" />
+                          <ActivityIndicator color="#b8524e" size="small" />
                         ) : (
-                          <MaterialIcons color="#e5484d" name="person-remove" size={20} />
+                          <MaterialIcons color="#b8524e" name="person-remove" size={20} />
                         )}
                       </Pressable>
                     ) : null}
@@ -265,9 +265,9 @@ export default function GroupDetailScreen() {
                     disabled={isActing}
                     onPress={() => confirmDeleteGroup(detail)}
                     style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-                    <MaterialIcons color="#e5484d" name="delete-outline" size={20} />
+                    <MaterialIcons color="#b8524e" name="delete-outline" size={20} />
                     {isDeletingGroup ? (
-                      <ActivityIndicator color="#e5484d" size="small" />
+                      <ActivityIndicator color="#b8524e" size="small" />
                     ) : (
                       <Text style={styles.dangerLabel}>그룹 삭제</Text>
                     )}
@@ -277,9 +277,9 @@ export default function GroupDetailScreen() {
                     disabled={isActing}
                     onPress={() => confirmLeave(detail)}
                     style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-                    <MaterialIcons color="#e5484d" name="logout" size={20} />
+                    <MaterialIcons color="#b8524e" name="logout" size={20} />
                     {isLeaving ? (
-                      <ActivityIndicator color="#e5484d" size="small" />
+                      <ActivityIndicator color="#b8524e" size="small" />
                     ) : (
                       <Text style={styles.dangerLabel}>그룹 나가기</Text>
                     )}
@@ -297,7 +297,7 @@ export default function GroupDetailScreen() {
 const styles = StyleSheet.create({
   attachButton: {
     alignItems: 'center',
-    backgroundColor: '#edf6ff',
+    backgroundColor: '#bee2dd',
     borderRadius: 8,
     minWidth: 56,
     paddingHorizontal: 14,
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   attachButtonText: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   dangerLabel: {
-    color: '#e5484d',
+    color: '#b8524e',
     flex: 1,
     fontSize: 16,
     fontWeight: '700',
@@ -337,20 +337,20 @@ const styles = StyleSheet.create({
   },
   inviteCard: {
     alignItems: 'center',
-    backgroundColor: '#f5f9ff',
+    backgroundColor: '#eef7f5',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 12,
     padding: 16,
   },
   inviteCode: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 22,
     fontWeight: '900',
     letterSpacing: 3,
   },
   inviteLabel: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -360,16 +360,16 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   noteText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   pressed: {
     opacity: 0.74,
   },
   roleBadge: {
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 999,
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 12,
     fontWeight: '700',
     overflow: 'hidden',
@@ -377,8 +377,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   roleBadgeOwner: {
-    backgroundColor: '#edf6ff',
-    color: '#3182f6',
+    backgroundColor: '#bee2dd',
+    color: '#2a7d76',
   },
   row: {
     alignItems: 'center',
@@ -389,18 +389,18 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   rowLabel: {
-    color: '#191f28',
+    color: '#22211f',
     flex: 1,
     fontSize: 16,
     fontWeight: '700',
   },
   rowMeta: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '700',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
@@ -410,11 +410,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sectionHint: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
   },
   sectionTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 17,
     fontWeight: '800',
   },
@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   shareButtonText: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -440,15 +440,15 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   stateText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 30,
     fontWeight: '900',
   },

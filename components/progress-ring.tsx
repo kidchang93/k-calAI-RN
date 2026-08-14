@@ -8,8 +8,8 @@ export function ProgressRing({
   size = 200,
   strokeWidth = 16,
   progress,
-  trackColor = '#e5e8eb',
-  progressColor = '#3182f6',
+  trackColor = '#e4e2de',
+  progressColor = '#2a7d76',
   children,
 }: {
   size?: number;

@@ -62,12 +62,12 @@ export default function PaymentDetailScreen() {
 
           {isLoading ? (
             <View style={styles.stateBox}>
-              <ActivityIndicator color="#3182f6" />
+              <ActivityIndicator color="#2a7d76" />
               <Text style={styles.stateText}>영수증을 불러오는 중입니다.</Text>
             </View>
           ) : notFound ? (
             <View style={styles.emptyCard}>
-              <MaterialIcons color="#8b95a1" name="receipt-long" size={28} />
+              <MaterialIcons color="#a9a6a1" name="receipt-long" size={28} />
               <Text style={styles.emptyTitle}>영수증을 찾을 수 없어요</Text>
               <Text style={styles.emptyText}>이미 삭제되었거나 접근할 수 없는 결제예요.</Text>
             </View>
@@ -147,13 +147,13 @@ function formatDateTime(isoText: string): string {
 
 const styles = StyleSheet.create({
   amountCard: {
-    backgroundColor: '#f5f9ff',
+    backgroundColor: '#eef7f5',
     borderRadius: 8,
     gap: 8,
     padding: 20,
   },
   amountLabel: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   amountValue: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 28,
     fontWeight: '900',
   },
@@ -181,12 +181,12 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   emptyText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
     textAlign: 'center',
   },
   emptyTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 19,
     fontWeight: '900',
   },
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   receiptLabel: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -211,14 +211,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   receiptValue: {
-    color: '#191f28',
+    color: '#22211f',
     flexShrink: 1,
     fontSize: 15,
     fontWeight: '700',
     textAlign: 'right',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
@@ -232,15 +232,15 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   stateText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 30,
     fontWeight: '900',
   },

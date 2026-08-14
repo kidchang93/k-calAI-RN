@@ -28,7 +28,7 @@ export default function BillingFailScreen() {
           <View style={styles.resultCard}>
             <View style={[styles.iconWrap, isCanceled ? styles.iconWrapInfo : styles.iconWrapError]}>
               <MaterialIcons
-                color={isCanceled ? '#3182f6' : '#e5484d'}
+                color={isCanceled ? '#2a7d76' : '#b8524e'}
                 name={isCanceled ? 'info-outline' : 'error-outline'}
                 size={32}
               />
@@ -94,13 +94,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   codeBox: {
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   codeText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -118,13 +118,13 @@ const styles = StyleSheet.create({
     width: 60,
   },
   iconWrapError: {
-    backgroundColor: '#fff5f5',
+    backgroundColor: '#fbeaea',
   },
   iconWrapInfo: {
-    backgroundColor: '#edf6ff',
+    backgroundColor: '#bee2dd',
   },
   note: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
     textAlign: 'center',
   },
@@ -133,13 +133,13 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     justifyContent: 'center',
     minHeight: 46,
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '900',
   },
@@ -151,19 +151,19 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   resultMessage: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
   },
   resultTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 22,
     fontWeight: '900',
     textAlign: 'center',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     minHeight: 46,
   },
   secondaryButtonText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 15,
     fontWeight: '800',
   },

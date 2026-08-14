@@ -31,7 +31,7 @@ export function DayNutrientsCard({
   return (
     <View style={styles.card}>
       <View style={styles.headRow}>
-        <MaterialIcons color="#3182f6" name="monitor-heart" size={18} />
+        <MaterialIcons color="#2a7d76" name="monitor-heart" size={18} />
         <Text style={styles.title}>{title}</Text>
       </View>
 
@@ -80,7 +80,7 @@ function AxisRow({ axis, totalItems }: { axis: DayNutrientAxis; totalItems: numb
   );
 }
 
-// 상한을 넘었으면 붉게, 가까우면(80%) 주황, 그 외는 파랑. 칩 팔레트(nutrient-chips)와 같은 색이다.
+// 상한을 넘었으면 코랄, 가까우면(80%) 살구, 그 외는 민트. 칩 팔레트(nutrient-chips)와 같은 색이다.
 function ratioTextStyle(ratio: number) {
   if (ratio >= 1) {
     return styles.valueOver;
@@ -107,17 +107,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   axisLabel: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 14,
     fontWeight: '800',
   },
   axisValue: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '900',
   },
   basis: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
   },
   card: {
@@ -127,20 +127,20 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   coverage: {
-    color: '#b8770c',
+    color: '#a4603f',
     fontSize: 12,
     lineHeight: 17,
   },
   fill: {
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 4,
     height: '100%',
   },
   fillNear: {
-    backgroundColor: '#b8770c',
+    backgroundColor: '#ed9c89',
   },
   fillOver: {
-    backgroundColor: '#d4571a',
+    backgroundColor: '#ea8989',
   },
   headRow: {
     alignItems: 'center',
@@ -148,26 +148,26 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   notice: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 11,
     lineHeight: 16,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '900',
   },
   track: {
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 4,
     height: 8,
     overflow: 'hidden',
     width: '100%',
   },
   valueNear: {
-    color: '#b8770c',
+    color: '#a4603f',
   },
   valueOver: {
-    color: '#d4571a',
+    color: '#b8524e',
   },
 });

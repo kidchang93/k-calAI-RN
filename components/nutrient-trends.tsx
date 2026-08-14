@@ -77,7 +77,7 @@ function AxisCard({ axis }: { axis: NutrientTrendAxis }) {
       {axis.limit_mg !== null && axis.days_over_limit !== null ? (
         <View style={styles.summaryRow}>
           <MaterialIcons
-            color={axis.days_over_limit > 0 ? '#d4571a' : '#0f8a5f'}
+            color={axis.days_over_limit > 0 ? '#b8524e' : '#2a7d76'}
             name={axis.days_over_limit > 0 ? 'info' : 'check-circle'}
             size={16}
           />
@@ -96,21 +96,21 @@ function AxisCard({ axis }: { axis: NutrientTrendAxis }) {
 
 const styles = StyleSheet.create({
   average: {
-    color: '#333d4b',
+    color: '#22211f',
     fontSize: 14,
     fontWeight: '800',
   },
   averageEmpty: {
-    color: '#b0b8c1',
+    color: '#a9a6a1',
     fontSize: 13,
   },
   axisLabel: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
   },
   bar: {
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 3,
     width: '100%',
   },
@@ -119,14 +119,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   barOver: {
-    backgroundColor: '#e5484d',
+    backgroundColor: '#ea8989',
   },
   barTrack: {
     height: BAR_HEIGHT,
     justifyContent: 'flex-end',
   },
   basis: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
     lineHeight: 17,
   },
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   notice: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
     lineHeight: 17,
   },
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sectionTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 17,
     fontWeight: '900',
   },
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   summaryText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 13,
   },
 });

@@ -99,7 +99,7 @@ export function PetForm({
             maxLength={50}
             onChangeText={setName}
             placeholder="콩이"
-            placeholderTextColor="#b0b8c1"
+            placeholderTextColor="#a9a6a1"
             style={styles.input}
             value={name}
           />
@@ -126,7 +126,7 @@ export function PetForm({
             maxLength={50}
             onChangeText={setBreed}
             placeholder="말티즈"
-            placeholderTextColor="#b0b8c1"
+            placeholderTextColor="#a9a6a1"
             style={styles.input}
             value={breed}
           />
@@ -141,7 +141,7 @@ export function PetForm({
             maxLength={4}
             onChangeText={setBirthYearText}
             placeholder="2021"
-            placeholderTextColor="#b0b8c1"
+            placeholderTextColor="#a9a6a1"
             style={styles.input}
             value={birthYearText}
           />
@@ -156,7 +156,7 @@ export function PetForm({
             keyboardType="numeric"
             onChangeText={setWeightText}
             placeholder="4.2"
-            placeholderTextColor="#b0b8c1"
+            placeholderTextColor="#a9a6a1"
             style={styles.input}
             value={weightText}
           />
@@ -178,7 +178,7 @@ export function PetForm({
           pressed && styles.pressed,
         ]}>
         {isSaving ? (
-          <ActivityIndicator color="#ffffff" />
+          <ActivityIndicator color="#22211f" />
         ) : (
           <Text style={styles.primaryButtonText}>{submitLabel}</Text>
         )}
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   input: {
-    color: '#191f28',
+    color: '#22211f',
     flex: 1,
     fontSize: 17,
     fontWeight: '700',
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
   inputRow: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderColor: '#e5e8eb',
+    borderColor: '#e4e2de',
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: 'row',
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   label: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -221,21 +221,21 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     marginTop: 8,
     paddingVertical: 14,
   },
   primaryButtonDisabled: {
-    backgroundColor: '#b4c7e7',
+    backgroundColor: '#99d2ce',
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
   },
   unit: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 14,
     fontWeight: '700',
   },

@@ -129,12 +129,12 @@ export default function HomeScreen() {
 
           {isLoading ? (
             <View style={styles.stateBox}>
-              <ActivityIndicator color="#3182f6" />
+              <ActivityIndicator color="#2a7d76" />
               <Text style={styles.stateText}>오늘 기록을 불러오는 중입니다.</Text>
             </View>
           ) : errorMessage ? (
             <View style={styles.errorBox}>
-              <MaterialIcons color="#e5484d" name="error-outline" size={20} />
+              <MaterialIcons color="#b8524e" name="error-outline" size={20} />
               <View style={styles.errorBody}>
                 <Text style={styles.errorText}>{errorMessage}</Text>
                 <Pressable
@@ -146,7 +146,7 @@ export default function HomeScreen() {
             </View>
           ) : summary === null ? null : summary.target_kcal === null || summary.target_kcal === 0 ? (
             <View style={styles.emptyGoalCard}>
-              <MaterialIcons color="#3182f6" name="flag" size={28} />
+              <MaterialIcons color="#2a7d76" name="flag" size={28} />
               <Text style={styles.emptyGoalTitle}>목표를 설정해주세요</Text>
               <Text style={styles.emptyGoalText}>
                 하루 목표 칼로리를 정하면 진행률을 볼 수 있습니다.
@@ -193,12 +193,12 @@ export default function HomeScreen() {
           <Pressable
             onPress={() => router.push('/groups')}
             style={({ pressed }) => [styles.groupRow, pressed && styles.pressed]}>
-            <MaterialIcons color="#3182f6" name="groups" size={24} />
+            <MaterialIcons color="#2a7d76" name="groups" size={24} />
             <View style={styles.groupRowBody}>
               <Text style={styles.groupRowTitle}>내 그룹</Text>
               <Text style={styles.groupRowText}>가족·친구와 함께 기록해요</Text>
             </View>
-            <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+            <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
           </Pressable>
 
           <Text style={styles.disclaimer}>AI 추정값이며 실제와 다를 수 있습니다.</Text>
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   disclaimer: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
     textAlign: 'center',
   },
@@ -265,12 +265,12 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   emptyGoalText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
     textAlign: 'center',
   },
   emptyGoalTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 19,
     fontWeight: '900',
   },
@@ -279,14 +279,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   errorBox: {
-    backgroundColor: '#fff5f5',
+    backgroundColor: '#fbeaea',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 10,
     padding: 16,
   },
   errorText: {
-    color: '#e5484d',
+    color: '#b8524e',
     fontSize: 14,
   },
   groupRow: {
@@ -302,11 +302,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   groupRowText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
   },
   groupRowTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
   },
@@ -321,14 +321,14 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     marginTop: 8,
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
   },
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   retryButtonText: {
-    color: '#e5484d',
+    color: '#b8524e',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -353,22 +353,22 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   ringLabel: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 15,
     fontWeight: '700',
   },
   ringSummary: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 16,
     fontWeight: '800',
   },
   ringValue: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 40,
     fontWeight: '900',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
@@ -382,15 +382,15 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   stateText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 30,
     fontWeight: '900',
   },

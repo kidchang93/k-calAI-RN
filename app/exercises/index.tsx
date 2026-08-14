@@ -190,7 +190,7 @@ export default function ExercisesScreen() {
             <Text style={styles.cardTitle}>운동 추가</Text>
 
             {isLoading && types.length === 0 ? (
-              <ActivityIndicator color="#3182f6" />
+              <ActivityIndicator color="#2a7d76" />
             ) : (
               <>
                 <ChipGroup
@@ -232,7 +232,7 @@ export default function ExercisesScreen() {
                     maxLength={200}
                     onChangeText={setMemo}
                     placeholder="어떤 운동이었나요?"
-                    placeholderTextColor="#b0b8c1"
+                    placeholderTextColor="#a9a6a1"
                     style={styles.memoInput}
                     value={memo}
                   />
@@ -252,7 +252,7 @@ export default function ExercisesScreen() {
                     pressed && canSave && styles.pressed,
                   ]}>
                   {isSaving ? (
-                    <ActivityIndicator color="#ffffff" />
+                    <ActivityIndicator color="#22211f" />
                   ) : (
                     <Text style={styles.saveButtonText}>기록 추가</Text>
                   )}
@@ -266,7 +266,7 @@ export default function ExercisesScreen() {
 
             {exercises.length === 0 ? (
               <View style={styles.emptyCard}>
-                <MaterialIcons color="#b0b8c1" name="fitness-center" size={28} />
+                <MaterialIcons color="#a9a6a1" name="fitness-center" size={28} />
                 <Text style={styles.emptyText}>아직 오늘 기록한 운동이 없어요.</Text>
               </View>
             ) : (
@@ -286,7 +286,7 @@ export default function ExercisesScreen() {
                   <Pressable
                     onPress={() => void remove(exercise.id)}
                     style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}>
-                    <MaterialIcons color="#e5484d" name="delete-outline" size={20} />
+                    <MaterialIcons color="#b8524e" name="delete-outline" size={20} />
                   </Pressable>
                 </View>
               ))
@@ -329,7 +329,7 @@ function WeeklySummaryCard({
         <View style={styles.badgeRow}>
           {summary.streak_weeks > 0 ? (
             <View style={styles.streakChip}>
-              <MaterialIcons color="#d4571a" name="local-fire-department" size={14} />
+              <MaterialIcons color="#b8524e" name="local-fire-department" size={14} />
               <Text style={styles.streakText}>{`${summary.streak_weeks}주 연속`}</Text>
             </View>
           ) : null}
@@ -389,7 +389,7 @@ function WeeklySummaryCard({
               ? `목표 미설정 — 권장량 ${summary.recommended_min_minutes}분을 기준으로 보고 있어요`
               : `내 목표 ${summary.target_minutes}분 (권장 ${summary.recommended_min_minutes}분)`}
           </Text>
-          <MaterialIcons color="#3182f6" name="edit" size={16} />
+          <MaterialIcons color="#2a7d76" name="edit" size={16} />
         </Pressable>
       )}
 
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   goalCancelText: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -426,9 +426,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   goalInput: {
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 8,
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
     paddingHorizontal: 12,
@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
   },
   goalRow: {
     alignItems: 'center',
-    backgroundColor: '#f5f9ff',
+    backgroundColor: '#eef7f5',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 6,
@@ -447,29 +447,29 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   goalRowText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     flex: 1,
     fontSize: 13,
     fontWeight: '700',
   },
   goalSave: {
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
   goalSaveText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 13,
     fontWeight: '800',
   },
   goalUnit: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
   },
   streakChip: {
     alignItems: 'center',
-    backgroundColor: '#fff1e9',
+    backgroundColor: '#fbeaea',
     borderRadius: 6,
     flexDirection: 'row',
     gap: 3,
@@ -477,18 +477,18 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   streakText: {
-    color: '#d4571a',
+    color: '#b8524e',
     fontSize: 12,
     fontWeight: '800',
   },
   achievedChip: {
-    backgroundColor: '#e9f8f0',
+    backgroundColor: '#bee2dd',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   achievedText: {
-    color: '#0f8a5f',
+    color: '#2a7d76',
     fontSize: 12,
     fontWeight: '800',
   },
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   cardTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
   },
@@ -510,9 +510,9 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   durationInput: {
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 8,
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
     paddingHorizontal: 14,
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   emptyText: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 14,
   },
   exerciseBody: {
@@ -541,15 +541,15 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   exerciseMemo: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
   },
   exerciseMeta: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
   },
   exerciseName: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
   },
@@ -565,7 +565,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   fieldLabel: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -573,27 +573,27 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   hint: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
   },
   listSection: {
     gap: 10,
   },
   memoInput: {
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 8,
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 14,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   notice: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
     lineHeight: 18,
   },
   preset: {
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -604,7 +604,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   presetText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -612,12 +612,12 @@ const styles = StyleSheet.create({
     opacity: 0.74,
   },
   progressFill: {
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 999,
     height: '100%',
   },
   progressTrack: {
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 999,
     height: 8,
     overflow: 'hidden',
@@ -626,20 +626,20 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   saveButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     paddingVertical: 14,
   },
   saveButtonDisabled: {
-    backgroundColor: '#b0c9f0',
+    backgroundColor: '#99d2ce',
   },
   saveButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
   },
@@ -647,20 +647,20 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   summaryBreakdown: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
   },
   summaryDetail: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 14,
     fontWeight: '700',
   },
   summaryTarget: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 16,
     fontWeight: '700',
   },
@@ -671,12 +671,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   summaryValue: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 30,
     fontWeight: '900',
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 30,
     fontWeight: '900',
   },

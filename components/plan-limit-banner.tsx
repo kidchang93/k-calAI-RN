@@ -12,7 +12,7 @@ export function PlanLimitBanner({
 }) {
   return (
     <View style={styles.limitBox}>
-      <MaterialIcons color="#e5484d" name="error-outline" size={20} />
+      <MaterialIcons color="#b8524e" name="error-outline" size={20} />
       <View style={styles.limitBody}>
         <Text style={styles.limitText}>{message}</Text>
         <Pressable
@@ -31,14 +31,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   limitBox: {
-    backgroundColor: '#fff5f5',
+    backgroundColor: '#fbeaea',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 10,
     padding: 16,
   },
   limitText: {
-    color: '#e5484d',
+    color: '#b8524e',
     fontSize: 14,
     fontWeight: '700',
     lineHeight: 20,
@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   upgradeButtonText: {
-    color: '#e5484d',
+    color: '#b8524e',
     fontSize: 14,
     fontWeight: '700',
   },

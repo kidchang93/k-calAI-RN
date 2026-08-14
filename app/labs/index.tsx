@@ -148,7 +148,7 @@ export default function LabsScreen() {
 
           {needsConsent ? (
             <View style={styles.consentBox}>
-              <MaterialIcons color="#3182f6" name="lock-outline" size={24} />
+              <MaterialIcons color="#2a7d76" name="lock-outline" size={24} />
               <Text style={styles.consentText}>
                 검사 수치는 민감정보라 수집 동의가 필요해요.
               </Text>
@@ -180,12 +180,12 @@ export default function LabsScreen() {
 
               {isLoading ? (
                 <View style={styles.stateBox}>
-                  <ActivityIndicator color="#3182f6" />
+                  <ActivityIndicator color="#2a7d76" />
                   <Text style={styles.stateText}>불러오는 중입니다.</Text>
                 </View>
               ) : results.length === 0 ? (
                 <View style={styles.stateBox}>
-                  <MaterialIcons color="#b0b8c1" name="science" size={32} />
+                  <MaterialIcons color="#a9a6a1" name="science" size={32} />
                   <Text style={styles.stateText}>
                     아직 기록이 없어요. 가장 최근 검사 결과부터 남겨보세요.
                   </Text>
@@ -272,7 +272,7 @@ function AddForm({
               keyboardType="decimal-pad"
               onChangeText={onChangeValue}
               placeholder="수치"
-              placeholderTextColor="#b0b8c1"
+              placeholderTextColor="#a9a6a1"
               style={styles.valueInput}
               value={valueText}
             />
@@ -282,7 +282,7 @@ function AddForm({
           <TextInput
             onChangeText={onChangeDate}
             placeholder="검사일 (YYYY-MM-DD)"
-            placeholderTextColor="#b0b8c1"
+            placeholderTextColor="#a9a6a1"
             style={styles.input}
             value={measuredOn}
           />
@@ -290,7 +290,7 @@ function AddForm({
           <TextInput
             onChangeText={onChangeNote}
             placeholder="메모 (선택) — 예: OO내과 정기검사"
-            placeholderTextColor="#b0b8c1"
+            placeholderTextColor="#a9a6a1"
             style={styles.input}
             value={noteText}
           />
@@ -304,7 +304,7 @@ function AddForm({
               pressed && !isSaving && styles.pressed,
             ]}>
             {isSaving ? (
-              <ActivityIndicator color="#ffffff" />
+              <ActivityIndicator color="#22211f" />
             ) : (
               <Text style={styles.primaryButtonText}>저장</Text>
             )}
@@ -338,7 +338,7 @@ function ResultRow({ result, onDelete }: { result: LabResult; onDelete: () => vo
         hitSlop={8}
         onPress={onDelete}
         style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
-        <MaterialIcons color="#e5484d" name="delete-outline" size={20} />
+        <MaterialIcons color="#b8524e" name="delete-outline" size={20} />
       </Pressable>
     </View>
   );
@@ -346,7 +346,7 @@ function ResultRow({ result, onDelete }: { result: LabResult; onDelete: () => vo
 
 const styles = StyleSheet.create({
   buttonDisabled: {
-    backgroundColor: '#b4c7e7',
+    backgroundColor: '#99d2ce',
   },
   card: {
     backgroundColor: '#ffffff',
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   cardTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '900',
   },
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
     padding: 28,
   },
   consentText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 14,
     textAlign: 'center',
   },
@@ -387,34 +387,34 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   input: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     borderRadius: 8,
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 15,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   notice: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
     lineHeight: 18,
   },
   panelChip: {
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 7,
   },
   panelChipActive: {
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
   },
   panelChipText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '700',
   },
   panelChipTextActive: {
-    color: '#ffffff',
+    color: '#22211f',
   },
   panelGrid: {
     flexDirection: 'row',
@@ -426,17 +426,17 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     paddingVertical: 13,
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
   },
   reference: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     lineHeight: 19,
   },
@@ -451,16 +451,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   resultLabel: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
   },
   resultMeta: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
   },
   resultReference: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 12,
     lineHeight: 18,
     marginTop: 2,
@@ -474,12 +474,12 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   resultValue: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '900',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sourceNote: {
-    color: '#b0b8c1',
+    color: '#a9a6a1',
     fontSize: 11,
     lineHeight: 16,
   },
@@ -501,29 +501,29 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   stateText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
     textAlign: 'center',
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
     lineHeight: 21,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 26,
     fontWeight: '900',
   },
   unit: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 15,
     fontWeight: '700',
   },
   valueInput: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     borderRadius: 8,
-    color: '#191f28',
+    color: '#22211f',
     flex: 1,
     fontSize: 18,
     fontWeight: '800',

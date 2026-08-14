@@ -72,7 +72,7 @@ export function KcalCalendar({
           hitSlop={10}
           onPress={() => onChangeMonth(-1)}
           style={({ pressed }) => [styles.monthButton, pressed && styles.pressed]}>
-          <MaterialIcons color="#4e5968" name="chevron-left" size={22} />
+          <MaterialIcons color="#5c5b57" name="chevron-left" size={22} />
         </Pressable>
         <Text style={styles.monthTitle}>{`${year}년 ${monthIndex + 1}월`}</Text>
         <Pressable
@@ -80,7 +80,7 @@ export function KcalCalendar({
           hitSlop={10}
           onPress={() => onChangeMonth(1)}
           style={({ pressed }) => [styles.monthButton, pressed && styles.pressed]}>
-          <MaterialIcons color={canGoNext ? '#4e5968' : '#d1d6db'} name="chevron-right" size={22} />
+          <MaterialIcons color={canGoNext ? '#5c5b57' : '#e4e2de'} name="chevron-right" size={22} />
         </Pressable>
       </View>
 
@@ -145,11 +145,11 @@ export function KcalCalendar({
 
       <View style={styles.legendRow}>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: '#3182f6' }]} />
+          <View style={[styles.legendDot, { backgroundColor: '#60beb8' }]} />
           <Text style={styles.legendText}>목표 이내</Text>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: '#e5484d' }]} />
+          <View style={[styles.legendDot, { backgroundColor: '#ea8989' }]} />
           <Text style={styles.legendText}>목표 초과</Text>
         </View>
         <View style={styles.legendItem}>
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   monthTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '900',
   },
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   weekdayLabel: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     flex: 1,
     fontSize: 12,
     fontWeight: '800',
@@ -206,37 +206,37 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   cellSelected: {
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
   },
   cellDay: {
-    color: '#333d4b',
+    color: '#22211f',
     fontSize: 13,
     fontWeight: '700',
   },
   cellDayToday: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontWeight: '900',
   },
   cellDaySelected: {
-    color: '#ffffff',
+    color: '#22211f',
     fontWeight: '900',
   },
   cellDayFuture: {
-    color: '#d1d6db',
+    color: '#e4e2de',
   },
   cellKcal: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 10,
     fontWeight: '800',
   },
   cellKcalOver: {
-    color: '#e5484d',
+    color: '#b8524e',
   },
   cellKcalSelected: {
-    color: '#ffffff',
+    color: '#22211f',
   },
   cellEmptyDot: {
-    color: '#d1d6db',
+    color: '#e4e2de',
     fontSize: 10,
     fontWeight: '800',
   },
@@ -257,12 +257,12 @@ const styles = StyleSheet.create({
     width: 6,
   },
   legendText: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 11,
     fontWeight: '700',
   },
   legendMuted: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 11,
     fontWeight: '700',
   },

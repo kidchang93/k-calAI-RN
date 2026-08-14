@@ -60,14 +60,14 @@ export default function PetsScreen() {
 
           {isLoading ? (
             <View style={styles.stateBox}>
-              <ActivityIndicator color="#3182f6" />
+              <ActivityIndicator color="#2a7d76" />
               <Text style={styles.stateText}>반려동물 목록을 불러오는 중입니다.</Text>
             </View>
           ) : errorMessage ? (
             <ErrorBanner message={errorMessage} onRetry={() => void loadPets()} />
           ) : pets === null || pets.length === 0 ? (
             <View style={styles.emptyCard}>
-              <MaterialIcons color="#3182f6" name="pets" size={28} />
+              <MaterialIcons color="#2a7d76" name="pets" size={28} />
               <Text style={styles.emptyTitle}>아직 등록한 반려동물이 없어요</Text>
               <Text style={styles.emptyText}>등록하면 급여 기록을 남길 수 있습니다.</Text>
             </View>
@@ -119,12 +119,12 @@ function PetRow({ pet, onPress }: { pet: PetResponse; onPress: () => void }) {
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.petRow, pressed && styles.pressed]}>
-      <MaterialIcons color="#3182f6" name="pets" size={24} />
+      <MaterialIcons color="#2a7d76" name="pets" size={24} />
       <View style={styles.petBody}>
         <Text style={styles.petName}>{pet.name}</Text>
         <Text style={styles.petMeta}>{metaParts.join(' · ')}</Text>
       </View>
-      <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+      <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
     </Pressable>
   );
 }
@@ -144,12 +144,12 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   emptyText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
     textAlign: 'center',
   },
   emptyTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 19,
     fontWeight: '900',
   },
@@ -157,12 +157,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   noteBox: {
-    backgroundColor: '#f5f9ff',
+    backgroundColor: '#eef7f5',
     borderRadius: 8,
     padding: 16,
   },
   noteText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 13,
     lineHeight: 19,
   },
@@ -174,11 +174,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   petMeta: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
   },
   petName: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
   },
@@ -195,17 +195,17 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     paddingVertical: 14,
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
@@ -219,15 +219,15 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   stateText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 30,
     fontWeight: '900',
   },

@@ -174,14 +174,14 @@ export default function PlanScreen() {
 
           {isLoading ? (
             <View style={styles.stateBox}>
-              <ActivityIndicator color="#3182f6" />
+              <ActivityIndicator color="#2a7d76" />
               <Text style={styles.stateText}>요금제를 불러오는 중입니다.</Text>
             </View>
           ) : subscription === null ? null : (
             <View style={styles.currentCard}>
               <View style={styles.currentHeader}>
                 <View style={styles.currentIconWrap}>
-                  <MaterialIcons color="#3182f6" name="workspace-premium" size={22} />
+                  <MaterialIcons color="#2a7d76" name="workspace-premium" size={22} />
                 </View>
                 <View style={styles.currentBody}>
                   <Text style={styles.currentLabel}>현재 요금제</Text>
@@ -194,7 +194,7 @@ export default function PlanScreen() {
               {status === null ? null : (
                 <View style={styles.statusRow}>
                   <MaterialIcons
-                    color={status.tone === 'alert' ? '#e5484d' : '#6b7684'}
+                    color={status.tone === 'alert' ? '#b8524e' : '#5c5b57'}
                     name={status.icon}
                     size={16}
                   />
@@ -243,7 +243,7 @@ export default function PlanScreen() {
                           pressed && !isCanceling && styles.pressed,
                         ]}>
                         {isCanceling ? (
-                          <ActivityIndicator color="#ffffff" />
+                          <ActivityIndicator color="#22211f" />
                         ) : (
                           <Text style={styles.confirmCancelButtonText}>해지하기</Text>
                         )}
@@ -327,7 +327,7 @@ function PlanCompareCard({
 
       {isCurrent ? (
         <View style={styles.currentPill}>
-          <MaterialIcons color="#20c997" name="check-circle" size={16} />
+          <MaterialIcons color="#60beb8" name="check-circle" size={16} />
           <Text style={styles.currentPillText}>사용 중</Text>
         </View>
       ) : isPaidPlan ? (
@@ -364,7 +364,7 @@ function PlanCompareCard({
                       pressed && !isDisabled && styles.pressed,
                     ]}>
                     {isSubscribing ? (
-                      <ActivityIndicator color="#ffffff" />
+                      <ActivityIndicator color="#22211f" />
                     ) : (
                       <Text style={styles.confirmChangeButtonText}>바꾸기</Text>
                     )}
@@ -382,7 +382,7 @@ function PlanCompareCard({
                     pressed && !isDisabled && styles.pressed,
                   ]}>
                   {isSubscribing ? (
-                    <ActivityIndicator color="#ffffff" />
+                    <ActivityIndicator color="#22211f" />
                   ) : (
                     <Text style={styles.selectButtonText}>
                       {changeNotice === null ? '구독하기' : '이 요금제로 바꾸기'}
@@ -403,7 +403,7 @@ function PlanCompareCard({
                "준비 중"이라는 사실만 남기고 어디서 살 수 있는지는 말하지 않는다.
                (서버 `docs/DATA_MODEL.md` 30장 · `docs/LEGAL_COMPLIANCE.md` §6-4) */
             <View style={styles.noticeBox}>
-              <MaterialIcons color="#6b7684" name="schedule" size={16} />
+              <MaterialIcons color="#5c5b57" name="schedule" size={16} />
               <Text style={styles.noticeText}>앱 내 구독은 준비 중이에요.</Text>
             </View>
           )}
@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   cancelButtonText: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
     fontWeight: '700',
     textDecorationLine: 'underline',
@@ -628,48 +628,48 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   confirmBox: {
-    backgroundColor: '#fff5f5',
+    backgroundColor: '#fbeaea',
     borderRadius: 8,
     gap: 10,
     padding: 14,
   },
   confirmCancelButton: {
     alignItems: 'center',
-    backgroundColor: '#e5484d',
+    backgroundColor: '#ea8989',
     borderRadius: 8,
     flex: 1,
     justifyContent: 'center',
     minHeight: 42,
   },
   confirmCancelButtonDisabled: {
-    backgroundColor: '#d1d6db',
+    backgroundColor: '#e4e2de',
   },
   confirmCancelButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 14,
     fontWeight: '900',
   },
   // 플랜 변경 확인의 실행 버튼. 해지(빨강)와 달리 파괴적 행동이 아니라 결제라 프라이머리를 쓴다.
   confirmChangeButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     flex: 1,
     justifyContent: 'center',
     minHeight: 42,
   },
   confirmChangeButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 14,
     fontWeight: '900',
   },
   confirmText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 13,
     lineHeight: 19,
   },
   confirmTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '900',
   },
@@ -696,21 +696,21 @@ const styles = StyleSheet.create({
   },
   currentIconWrap: {
     alignItems: 'center',
-    backgroundColor: '#edf6ff',
+    backgroundColor: '#bee2dd',
     borderRadius: 999,
     height: 40,
     justifyContent: 'center',
     width: 40,
   },
   currentLabel: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '700',
   },
   currentPill: {
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 999,
     flexDirection: 'row',
     gap: 6,
@@ -718,12 +718,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   currentPillText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '800',
   },
   currentValue: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 18,
     fontWeight: '900',
   },
@@ -739,26 +739,26 @@ const styles = StyleSheet.create({
     minHeight: 42,
   },
   keepButtonText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 14,
     fontWeight: '800',
   },
   noticeBox: {
     alignItems: 'center',
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 8,
     padding: 12,
   },
   noticeText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     flex: 1,
     fontSize: 13,
     lineHeight: 18,
   },
   paymentNote: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
     lineHeight: 17,
   },
@@ -771,8 +771,8 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   planCardCurrent: {
-    backgroundColor: '#f5f9ff',
-    borderColor: '#3182f6',
+    backgroundColor: '#eef7f5',
+    borderColor: '#2a7d76',
   },
   planFooter: {
     gap: 8,
@@ -783,17 +783,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   planName: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 18,
     fontWeight: '900',
   },
   planPrice: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 16,
     fontWeight: '900',
   },
   planSpecLabel: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   planSpecRow: {
@@ -801,7 +801,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   planSpecValue: {
-    color: '#333d4b',
+    color: '#22211f',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -812,7 +812,7 @@ const styles = StyleSheet.create({
     opacity: 0.74,
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
@@ -822,22 +822,22 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sectionTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 19,
     fontWeight: '900',
   },
   selectButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     justifyContent: 'center',
     minHeight: 46,
   },
   selectButtonDisabled: {
-    backgroundColor: '#b4c7e7',
+    backgroundColor: '#99d2ce',
   },
   selectButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '900',
   },
@@ -849,7 +849,7 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   stateText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   statusRow: {
@@ -858,40 +858,40 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   statusText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     flex: 1,
     fontSize: 13,
     fontWeight: '700',
   },
   statusTextAlert: {
-    color: '#e5484d',
+    color: '#b8524e',
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 30,
     fontWeight: '900',
   },
   usageBox: {
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 8,
     gap: 8,
     padding: 14,
   },
   usageCaption: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
   },
   usageFill: {
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 999,
     height: '100%',
   },
   usageLabel: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '800',
   },
@@ -901,13 +901,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   usageTrack: {
-    backgroundColor: '#e5e8eb',
+    backgroundColor: '#e4e2de',
     borderRadius: 999,
     height: 8,
     overflow: 'hidden',
   },
   usageValue: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 14,
     fontWeight: '900',
   },

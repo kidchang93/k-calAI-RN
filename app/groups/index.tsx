@@ -62,14 +62,14 @@ export default function GroupsScreen() {
 
           {isLoading ? (
             <View style={styles.stateBox}>
-              <ActivityIndicator color="#3182f6" />
+              <ActivityIndicator color="#2a7d76" />
               <Text style={styles.stateText}>그룹 목록을 불러오는 중입니다.</Text>
             </View>
           ) : errorMessage ? (
             <ErrorBanner message={errorMessage} onRetry={() => void loadGroups()} />
           ) : groups === null || groups.length === 0 ? (
             <View style={styles.emptyCard}>
-              <MaterialIcons color="#3182f6" name="groups" size={28} />
+              <MaterialIcons color="#2a7d76" name="groups" size={28} />
               <Text style={styles.emptyTitle}>아직 그룹이 없어요</Text>
               <Text style={styles.emptyText}>
                 그룹을 만들거나 초대코드로 참여하면 함께 기록할 수 있습니다.
@@ -110,14 +110,14 @@ export default function GroupsScreen() {
 function GroupRow({ group, onPress }: { group: GroupSummary; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.groupRow, pressed && styles.pressed]}>
-      <MaterialIcons color="#3182f6" name="groups" size={24} />
+      <MaterialIcons color="#2a7d76" name="groups" size={24} />
       <View style={styles.groupBody}>
         <Text style={styles.groupName}>{group.name}</Text>
         <Text style={styles.groupMeta}>
           {`${GROUP_KIND_LABELS[group.kind]} · ${group.member_count}명${group.role === 'owner' ? ' · 내가 만든 그룹' : ''}`}
         </Text>
       </View>
-      <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+      <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
     </Pressable>
   );
 }
@@ -140,12 +140,12 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   emptyText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
     textAlign: 'center',
   },
   emptyTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 19,
     fontWeight: '900',
   },
@@ -157,11 +157,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   groupMeta: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
   },
   groupName: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
   },
@@ -181,17 +181,17 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     paddingVertical: 14,
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
@@ -200,13 +200,13 @@ const styles = StyleSheet.create({
   secondaryButton: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderColor: '#e5e8eb',
+    borderColor: '#e4e2de',
     borderRadius: 8,
     borderWidth: 1,
     paddingVertical: 14,
   },
   secondaryButtonText: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 16,
     fontWeight: '800',
   },
@@ -218,15 +218,15 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   stateText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 30,
     fontWeight: '900',
   },

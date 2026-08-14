@@ -309,7 +309,7 @@ export default function MealListScreen() {
           <Pressable
             onPress={openAddMeal}
             style={({ pressed }) => [styles.addMealButton, pressed && styles.pressed]}>
-            <MaterialIcons color="#ffffff" name="add" size={20} />
+            <MaterialIcons color="#22211f" name="add" size={20} />
             <Text style={styles.addMealButtonText}>기록 추가</Text>
           </Pressable>
 
@@ -319,12 +319,12 @@ export default function MealListScreen() {
 
           {isLoading ? (
             <View style={styles.stateBox}>
-              <ActivityIndicator color="#3182f6" />
+              <ActivityIndicator color="#2a7d76" />
               <Text style={styles.stateText}>끼니 기록을 불러오는 중입니다.</Text>
             </View>
           ) : meals.length === 0 ? (
             <View style={styles.stateBox}>
-              <MaterialIcons color="#b0b8c1" name="no-meals" size={32} />
+              <MaterialIcons color="#a9a6a1" name="no-meals" size={32} />
               <Text style={styles.stateText}>
                 아직 기록이 없어요. 기록 탭에서 사진으로 남겨보세요.
               </Text>
@@ -336,7 +336,7 @@ export default function MealListScreen() {
                   <View style={styles.mealHeader}>
                     <View style={styles.mealIconWrap}>
                       <MaterialIcons
-                        color="#3182f6"
+                        color="#2a7d76"
                         name={MEAL_TYPE_ICONS[meal.meal_type]}
                         size={18}
                       />
@@ -352,7 +352,7 @@ export default function MealListScreen() {
                       hitSlop={8}
                       onPress={() => openAppendMeal(meal)}
                       style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
-                      <MaterialIcons color="#3182f6" name="add-circle-outline" size={20} />
+                      <MaterialIcons color="#2a7d76" name="add-circle-outline" size={20} />
                     </Pressable>
                     <Pressable
                       disabled={deletingId !== null || isSavingEdit}
@@ -360,7 +360,7 @@ export default function MealListScreen() {
                       onPress={() => (editingMealId === meal.id ? cancelEdit() : startEdit(meal))}
                       style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
                       <MaterialIcons
-                        color={editingMealId === meal.id ? '#3182f6' : '#6b7684'}
+                        color={editingMealId === meal.id ? '#2a7d76' : '#5c5b57'}
                         name={editingMealId === meal.id ? 'close' : 'edit'}
                         size={20}
                       />
@@ -371,9 +371,9 @@ export default function MealListScreen() {
                       onPress={() => confirmDelete(meal)}
                       style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
                       {deletingId === meal.id ? (
-                        <ActivityIndicator color="#e5484d" size="small" />
+                        <ActivityIndicator color="#b8524e" size="small" />
                       ) : (
-                        <MaterialIcons color="#e5484d" name="delete-outline" size={20} />
+                        <MaterialIcons color="#b8524e" name="delete-outline" size={20} />
                       )}
                     </Pressable>
                   </View>
@@ -413,7 +413,7 @@ export default function MealListScreen() {
                             pressed && styles.pressed,
                           ]}>
                           {isSavingEdit ? (
-                            <ActivityIndicator color="#ffffff" size="small" />
+                            <ActivityIndicator color="#22211f" size="small" />
                           ) : (
                             <Text style={styles.saveButtonText}>저장</Text>
                           )}
@@ -515,7 +515,7 @@ function itemNutrientChips(item: MealItem): NutrientChip[] {
 const styles = StyleSheet.create({
   addMealButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 6,
@@ -523,19 +523,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addMealButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
   },
   cancelButton: {
     alignItems: 'center',
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 8,
     flex: 1,
     paddingVertical: 12,
   },
   cancelButtonText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 15,
     fontWeight: '800',
   },
@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   disclaimer: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
     textAlign: 'center',
   },
@@ -558,7 +558,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   editSectionLabel: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '800',
   },
@@ -571,18 +571,18 @@ const styles = StyleSheet.create({
     minWidth: 24,
   },
   itemLabel: {
-    color: '#333d4b',
+    color: '#22211f',
     flex: 1,
     fontSize: 14,
     fontWeight: '700',
   },
   itemMeta: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
   },
   // 이름·kcal 한 줄 아래에 수치 칩이 붙으므로 바깥은 세로, 안쪽 한 줄만 가로다.
   itemBlock: {
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 8,
     gap: 8,
     paddingHorizontal: 12,
@@ -610,23 +610,23 @@ const styles = StyleSheet.create({
   },
   mealIconWrap: {
     alignItems: 'center',
-    backgroundColor: '#edf6ff',
+    backgroundColor: '#bee2dd',
     borderRadius: 999,
     height: 36,
     justifyContent: 'center',
     width: 36,
   },
   mealKcal: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
   },
   mealTime: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
   },
   mealTypeLabel: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
   },
@@ -634,21 +634,21 @@ const styles = StyleSheet.create({
     opacity: 0.74,
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   saveButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     flex: 1,
     paddingVertical: 12,
   },
   saveButtonDisabled: {
-    backgroundColor: '#b4c7e7',
+    backgroundColor: '#99d2ce',
   },
   saveButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
   },
@@ -666,16 +666,16 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   stateText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
     textAlign: 'center',
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 30,
     fontWeight: '900',
   },

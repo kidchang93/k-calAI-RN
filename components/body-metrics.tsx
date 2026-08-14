@@ -8,7 +8,7 @@ import { ProfileResponse } from '@/services/health-api';
 // 앱에서 다시 계산하지 않는다 (kcalAI-model/docs/ACTIVITY_GUIDANCE.md 3-1).
 //
 // 색은 '비만'을 붉게 칠하지 않는다. 낙인이 되고, 우리가 진단하는 것이 아니다.
-// 정상만 초록으로 두고 나머지는 전부 중립색으로 담담하게 보여준다.
+// 정상만 민트로 두고 나머지는 전부 중립색으로 담담하게 보여준다.
 
 export function BodyMetrics({ profile }: { profile: ProfileResponse | null }) {
   const router = useRouter();
@@ -62,7 +62,7 @@ export function BodyMetrics({ profile }: { profile: ProfileResponse | null }) {
       {activity_guide !== null ? (
         <View style={styles.card}>
           <View style={styles.guideHeader}>
-            <MaterialIcons color="#3182f6" name="directions-run" size={18} />
+            <MaterialIcons color="#2a7d76" name="directions-run" size={18} />
             <Text style={styles.guideTitle}>주당 권장 운동량</Text>
           </View>
 
@@ -93,7 +93,7 @@ export function BodyMetrics({ profile }: { profile: ProfileResponse | null }) {
           <Pressable
             onPress={() => router.push('/exercises')}
             style={({ pressed }) => [styles.recordButton, pressed && styles.pressed]}>
-            <MaterialIcons color="#3182f6" name="add" size={18} />
+            <MaterialIcons color="#2a7d76" name="add" size={18} />
             <Text style={styles.recordButtonText}>운동 기록하기</Text>
           </Pressable>
         </View>
@@ -113,7 +113,7 @@ function GuideRow({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   bmiBasis: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
   },
   bmiRow: {
@@ -123,12 +123,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   bmiUnit: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
     fontWeight: '700',
   },
   bmiValue: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 30,
     fontWeight: '900',
   },
@@ -144,21 +144,21 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   categoryChip: {
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   categoryChipNormal: {
-    backgroundColor: '#e9f8f0',
+    backgroundColor: '#bee2dd',
   },
   categoryText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '800',
   },
   categoryTextNormal: {
-    color: '#0f8a5f',
+    color: '#2a7d76',
   },
   guideHeader: {
     alignItems: 'center',
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   guideLabel: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   guideRow: {
@@ -178,17 +178,17 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   guideTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
   },
   guideValue: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 14,
     fontWeight: '800',
   },
   notice: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
     lineHeight: 18,
   },
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   },
   recordButton: {
     alignItems: 'center',
-    backgroundColor: '#f5f9ff',
+    backgroundColor: '#eef7f5',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 4,
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   recordButtonText: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -214,16 +214,16 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sectionTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 18,
     fontWeight: '800',
   },
   source: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
   },
   tip: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 13,
     lineHeight: 19,
   },

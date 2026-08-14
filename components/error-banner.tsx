@@ -1,11 +1,11 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-// 저장·조회 실패 배너. 홈 화면의 errorBox 패턴(#fff5f5 / #e5484d)을 공용화한 것.
+// 저장·조회 실패 배너. 홈 화면의 errorBox 패턴(#fbeaea / #b8524e)을 공용화한 것.
 export function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <View style={styles.errorBox}>
-      <MaterialIcons color="#e5484d" name="error-outline" size={20} />
+      <MaterialIcons color="#b8524e" name="error-outline" size={20} />
       <View style={styles.errorBody}>
         <Text style={styles.errorText}>{message}</Text>
         <Pressable
@@ -24,14 +24,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   errorBox: {
-    backgroundColor: '#fff5f5',
+    backgroundColor: '#fbeaea',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 10,
     padding: 16,
   },
   errorText: {
-    color: '#e5484d',
+    color: '#b8524e',
     fontSize: 14,
   },
   pressed: {
@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   retryButtonText: {
-    color: '#e5484d',
+    color: '#b8524e',
     fontSize: 14,
     fontWeight: '700',
   },

@@ -22,7 +22,7 @@ export function MealTypeCard({
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && onPress !== undefined && styles.pressed]}>
       <View style={styles.iconWrap}>
-        <MaterialIcons color="#3182f6" name={icon} size={20} />
+        <MaterialIcons color="#2a7d76" name={icon} size={20} />
       </View>
       <View style={styles.body}>
         <Text style={styles.label}>{label}</Text>
@@ -31,7 +31,7 @@ export function MealTypeCard({
         </Text>
       </View>
       {onPress !== undefined ? (
-        <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+        <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
       ) : null}
     </Pressable>
   );
@@ -51,25 +51,25 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   empty: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 14,
     fontWeight: '600',
   },
   iconWrap: {
     alignItems: 'center',
-    backgroundColor: '#edf6ff',
+    backgroundColor: '#bee2dd',
     borderRadius: 999,
     height: 40,
     justifyContent: 'center',
     width: 40,
   },
   kcal: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
   },
   label: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 14,
     fontWeight: '700',
   },

@@ -644,7 +644,7 @@ export default function MealComposeScreen() {
 
           {isLoadingExisting ? (
             <View style={styles.stateBox}>
-              <ActivityIndicator color="#3182f6" />
+              <ActivityIndicator color="#2a7d76" />
               <Text style={styles.stateText}>기존 끼니를 불러오는 중입니다.</Text>
             </View>
           ) : null}
@@ -726,14 +726,14 @@ export default function MealComposeScreen() {
                   isAnalyzing && styles.analyzeButtonDisabled,
                   pressed && !isAnalyzing && styles.pressed,
                 ]}>
-                <MaterialIcons color="#ffffff" name="restaurant-menu" size={18} />
+                <MaterialIcons color="#22211f" name="restaurant-menu" size={18} />
                 <Text style={styles.analyzeButtonText}>이 사진 분석하기</Text>
               </Pressable>
             ) : null}
 
             {isAnalyzing ? (
               <View style={styles.analyzingRow}>
-                <ActivityIndicator color="#3182f6" size="small" />
+                <ActivityIndicator color="#2a7d76" size="small" />
                 <Text style={styles.analyzingText}>사진 속 음식을 분석하고 있어요.</Text>
               </View>
             ) : null}
@@ -743,7 +743,7 @@ export default function MealComposeScreen() {
                 onChangeText={setSearchText}
                 onSubmitEditing={() => void addBySearch()}
                 placeholder="음식 이름으로 검색 (무료)"
-                placeholderTextColor="#8b95a1"
+                placeholderTextColor="#a9a6a1"
                 returnKeyType="search"
                 style={styles.searchInput}
                 value={searchText}
@@ -757,7 +757,7 @@ export default function MealComposeScreen() {
                   pressed && styles.pressed,
                 ]}>
                 {isSearching ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
+                  <ActivityIndicator color="#22211f" size="small" />
                 ) : (
                   <Text style={styles.searchButtonText}>추가</Text>
                 )}
@@ -767,7 +767,7 @@ export default function MealComposeScreen() {
             <Pressable
               onPress={addManual}
               style={({ pressed }) => [styles.manualAddButton, pressed && styles.pressed]}>
-              <MaterialIcons color="#3182f6" name="edit" size={18} />
+              <MaterialIcons color="#2a7d76" name="edit" size={18} />
               <Text style={styles.manualAddText}>직접 입력으로 추가</Text>
             </Pressable>
           </View>
@@ -785,7 +785,7 @@ export default function MealComposeScreen() {
 
           {warnings.length > 0 ? (
             <View style={styles.warningBox}>
-              <MaterialIcons color="#e5484d" name="warning-amber" size={20} />
+              <MaterialIcons color="#b8524e" name="warning-amber" size={20} />
               <View style={styles.warningBody}>
                 {warnings.map((warning) => (
                   <View
@@ -831,7 +831,7 @@ export default function MealComposeScreen() {
                     })
                   }
                   style={({ pressed }) => [styles.warningAction, pressed && styles.pressed]}>
-                  <MaterialIcons color="#3182f6" name="restaurant-menu" size={16} />
+                  <MaterialIcons color="#2a7d76" name="restaurant-menu" size={16} />
                   <Text style={styles.warningActionText}>다음 끼니에 맞는 메뉴 보기</Text>
                 </Pressable>
               </View>
@@ -843,7 +843,7 @@ export default function MealComposeScreen() {
               그랬다. 경고와 다른 톤(주의색이 아닌 회색)으로, 사실만 전한다. */}
           {unmeasured.length > 0 ? (
             <View style={styles.unmeasuredBox}>
-              <MaterialIcons color="#8b95a1" name="help-outline" size={18} />
+              <MaterialIcons color="#a9a6a1" name="help-outline" size={18} />
               <Text style={styles.unmeasuredText}>
                 {`${unmeasured.map(formatFoodLabel).join(', ')}은(는) 영양 정보가 없어 확인하지 못했어요. 안전하다는 뜻은 아니에요.`}
               </Text>
@@ -852,7 +852,7 @@ export default function MealComposeScreen() {
 
           {drafts.length === 0 ? (
             <View style={styles.emptyDraftBox}>
-              <MaterialIcons color="#b0b8c1" name="restaurant" size={28} />
+              <MaterialIcons color="#a9a6a1" name="restaurant" size={28} />
               <Text style={styles.emptyDraftText}>
                 위에서 사진·검색·직접 입력으로 먹은 메뉴를 추가해주세요.
               </Text>
@@ -890,10 +890,10 @@ export default function MealComposeScreen() {
                 pressed && canSave && styles.pressed,
               ]}>
               {isSaving ? (
-                <ActivityIndicator color="#ffffff" />
+                <ActivityIndicator color="#22211f" />
               ) : (
                 <>
-                  <MaterialIcons color="#ffffff" name="check" size={20} />
+                  <MaterialIcons color="#22211f" name="check" size={20} />
                   <Text style={styles.saveButtonText}>{isAppend ? '항목 추가 저장' : '기록 저장'}</Text>
                 </>
               )}
@@ -977,7 +977,7 @@ function AddActionButton({
         disabled && styles.addActionButtonDisabled,
         pressed && !disabled && styles.pressed,
       ]}>
-      <MaterialIcons color="#3182f6" name={icon} size={22} />
+      <MaterialIcons color="#2a7d76" name={icon} size={22} />
       <Text style={styles.addActionLabel}>{label}</Text>
     </Pressable>
   );
@@ -1087,7 +1087,7 @@ function formatDateTitle(date: string): string {
 const styles = StyleSheet.create({
   addActionButton: {
     alignItems: 'center',
-    backgroundColor: '#f5f9ff',
+    backgroundColor: '#eef7f5',
     borderRadius: 8,
     flex: 1,
     flexDirection: 'row',
@@ -1103,7 +1103,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   addActionLabel: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 15,
     fontWeight: '800',
   },
@@ -1114,18 +1114,18 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   addHint: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     lineHeight: 18,
   },
   addTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
   },
   analyzeButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 6,
@@ -1133,10 +1133,10 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
   },
   analyzeButtonDisabled: {
-    backgroundColor: '#b4c7e7',
+    backgroundColor: '#99d2ce',
   },
   analyzeButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
   },
@@ -1146,12 +1146,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   analyzingText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '700',
   },
   choiceLabel: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '800',
   },
@@ -1165,7 +1165,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   disclaimer: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
     textAlign: 'center',
   },
@@ -1183,13 +1183,13 @@ const styles = StyleSheet.create({
     padding: 28,
   },
   emptyDraftText: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
   },
   existingCard: {
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 8,
     gap: 8,
     padding: 16,
@@ -1200,12 +1200,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   existingKcal: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '700',
   },
   existingLabel: {
-    color: '#333d4b',
+    color: '#22211f',
     flex: 1,
     fontSize: 14,
     fontWeight: '700',
@@ -1217,12 +1217,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   existingTitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '800',
   },
   existingTotal: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '800',
   },
@@ -1243,7 +1243,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   manualAddText: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -1251,7 +1251,7 @@ const styles = StyleSheet.create({
     opacity: 0.74,
   },
   previewCaption: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
     fontWeight: '700',
     paddingHorizontal: 14,
@@ -1264,16 +1264,16 @@ const styles = StyleSheet.create({
   },
   previewImage: {
     aspectRatio: 4 / 3,
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     width: '100%',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   saveButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 8,
@@ -1281,10 +1281,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveButtonDisabled: {
-    backgroundColor: '#b4c7e7',
+    backgroundColor: '#99d2ce',
   },
   saveButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '900',
   },
@@ -1294,24 +1294,24 @@ const styles = StyleSheet.create({
   },
   searchButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     justifyContent: 'center',
     minWidth: 60,
     paddingHorizontal: 16,
   },
   searchButtonDisabled: {
-    backgroundColor: '#b4c7e7',
+    backgroundColor: '#99d2ce',
   },
   searchButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
   },
   searchInput: {
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 8,
-    color: '#191f28',
+    color: '#22211f',
     flex: 1,
     fontSize: 15,
     fontWeight: '700',
@@ -1330,26 +1330,26 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   stateText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 28,
     fontWeight: '900',
   },
   totalLabel: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
     fontWeight: '700',
   },
   totalRow: {
     alignItems: 'center',
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 8,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1357,12 +1357,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   totalValue: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 18,
     fontWeight: '900',
   },
   usageText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1372,7 +1372,7 @@ const styles = StyleSheet.create({
   },
   warningBox: {
     alignItems: 'flex-start',
-    backgroundColor: '#fff5f5',
+    backgroundColor: '#fbeaea',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 8,
@@ -1381,7 +1381,7 @@ const styles = StyleSheet.create({
   warningAction: {
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: '#eef4ff',
+    backgroundColor: '#eef7f5',
     borderRadius: 6,
     flexDirection: 'row',
     gap: 6,
@@ -1390,26 +1390,26 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   warningActionText: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 13,
     fontWeight: '800',
   },
   unmeasuredBox: {
     alignItems: 'flex-start',
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 8,
     padding: 14,
   },
   unmeasuredText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     flex: 1,
     fontSize: 13,
     lineHeight: 19,
   },
   warningNotice: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 12,
     lineHeight: 17,
     marginTop: 4,
@@ -1420,7 +1420,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   warningText: {
-    color: '#e5484d',
+    color: '#b8524e',
     flex: 1,
     fontSize: 13,
     fontWeight: '700',
@@ -1433,7 +1433,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   warningWhyText: {
-    color: '#e5484d',
+    color: '#b8524e',
     fontSize: 12,
     fontWeight: '800',
   },

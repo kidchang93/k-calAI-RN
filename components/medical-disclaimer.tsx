@@ -20,7 +20,7 @@ export function MedicalDisclaimer({ tone = 'quiet' }: { tone?: 'quiet' | 'strong
   return (
     <View style={[styles.box, isStrong && styles.boxStrong]}>
       <MaterialIcons
-        color={isStrong ? '#c2410c' : '#8b95a1'}
+        color={isStrong ? '#b8524e' : '#a9a6a1'}
         name="info-outline"
         size={isStrong ? 16 : 13}
       />
@@ -38,19 +38,19 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   boxStrong: {
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#fbeaea',
     borderRadius: 8,
     gap: 8,
     padding: 12,
   },
   text: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     flex: 1,
     fontSize: 11,
     lineHeight: 16,
   },
   textStrong: {
-    color: '#9a3412',
+    color: '#b8524e',
     fontSize: 13,
     lineHeight: 19,
   },

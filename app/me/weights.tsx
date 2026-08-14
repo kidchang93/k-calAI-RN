@@ -93,7 +93,7 @@ export default function WeightsScreen() {
                   keyboardType="numeric"
                   onChangeText={setWeightText}
                   placeholder="70.5"
-                  placeholderTextColor="#b0b8c1"
+                  placeholderTextColor="#a9a6a1"
                   style={styles.input}
                   value={weightText}
                 />
@@ -108,7 +108,7 @@ export default function WeightsScreen() {
                   pressed && styles.pressed,
                 ]}>
                 {isSaving ? (
-                  <ActivityIndicator color="#ffffff" />
+                  <ActivityIndicator color="#22211f" />
                 ) : (
                   <Text style={styles.primaryButtonText}>기록</Text>
                 )}
@@ -124,18 +124,18 @@ export default function WeightsScreen() {
 
               {isLoading ? (
                 <View style={styles.stateBox}>
-                  <ActivityIndicator color="#3182f6" />
+                  <ActivityIndicator color="#2a7d76" />
                   <Text style={styles.stateText}>체중 기록을 불러오는 중입니다.</Text>
                 </View>
               ) : weights.length === 0 ? (
                 <View style={styles.stateBox}>
-                  <MaterialIcons color="#b0b8c1" name="monitor-weight" size={32} />
+                  <MaterialIcons color="#a9a6a1" name="monitor-weight" size={32} />
                   <Text style={styles.stateText}>아직 기록이 없어요. 첫 체중을 기록해보세요.</Text>
                 </View>
               ) : (
                 weights.map((log) => (
                   <View key={log.id} style={styles.weightRow}>
-                    <MaterialIcons color="#4e5968" name="monitor-weight" size={18} />
+                    <MaterialIcons color="#5c5b57" name="monitor-weight" size={18} />
                     <Text style={styles.weightDate}>{formatMeasuredAt(log.measured_at)}</Text>
                     <Text style={styles.weightValue}>{`${log.weight_kg.toLocaleString()} kg`}</Text>
                   </View>
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   input: {
-    color: '#191f28',
+    color: '#22211f',
     flex: 1,
     fontSize: 17,
     fontWeight: '700',
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   inputRow: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderColor: '#e5e8eb',
+    borderColor: '#e4e2de',
     borderRadius: 8,
     borderWidth: 1,
     flex: 1,
@@ -205,21 +205,21 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     justifyContent: 'center',
     paddingHorizontal: 22,
   },
   primaryButtonDisabled: {
-    backgroundColor: '#b4c7e7',
+    backgroundColor: '#99d2ce',
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sectionTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 17,
     fontWeight: '800',
   },
@@ -241,26 +241,26 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   stateText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
     textAlign: 'center',
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 30,
     fontWeight: '900',
   },
   unit: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 14,
     fontWeight: '700',
   },
   weightDate: {
-    color: '#6b7684',
+    color: '#5c5b57',
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   weightValue: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
   },

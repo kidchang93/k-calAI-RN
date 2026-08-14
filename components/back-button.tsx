@@ -20,7 +20,7 @@ export function BackButton() {
         }
       }}
       style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
-      <MaterialIcons color="#4e5968" name="arrow-back" size={22} />
+      <MaterialIcons color="#5c5b57" name="arrow-back" size={22} />
       <Text style={styles.label}>뒤로</Text>
     </Pressable>
   );
@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   label: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 15,
     fontWeight: '700',
   },

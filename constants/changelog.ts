@@ -25,6 +25,28 @@ export const CHANGE_TYPE_LABELS: Record<ChangeType, string> = {
 // 최신순(위가 최신). 새 릴리즈는 이 배열 맨 앞에 추가한다.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-08-14',
+    title: '서비스 이름이 밀케어로 바뀌었어요',
+    items: [
+      {
+        type: 'improved',
+        text: '서비스 이름이 밀케어(MEAL CARE)로 바뀌었어요. 앱 아이콘과 로고도 새로 단장했어요. 이름만 달라졌을 뿐 기록·수치·계정은 그대로예요.',
+      },
+      {
+        type: 'improved',
+        text: '앱 전체 색을 민트 계열로 바꿨어요. 버튼과 강조 표시가 부드러운 민트로, 글자와 배경은 눈이 덜 피로한 따뜻한 회색으로 바뀌었어요.',
+      },
+      {
+        type: 'improved',
+        text: '버튼 글씨를 진하게 바꿔 밝은 곳에서도 잘 보여요. 삭제·해지처럼 되돌리기 어려운 동작은 코랄색으로 따로 구분했어요.',
+      },
+      {
+        type: 'improved',
+        text: '나트륨·칼륨·인 수치의 낮음·보통·높음 표시도 새 색으로 맞췄어요. 기준과 판정 방식은 그대로예요.',
+      },
+    ],
+  },
+  {
     date: '2026-08-03',
     title: '지난 기록에도 질환 수치 · 내 질환 식단 가이드 · 검사 수치',
     items: [

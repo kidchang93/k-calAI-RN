@@ -48,14 +48,14 @@ export default function PaymentsScreen() {
 
           {isLoading ? (
             <View style={styles.stateBox}>
-              <ActivityIndicator color="#3182f6" />
+              <ActivityIndicator color="#2a7d76" />
               <Text style={styles.stateText}>결제 내역을 불러오는 중입니다.</Text>
             </View>
           ) : errorMessage ? (
             <ErrorBanner message={errorMessage} onRetry={() => void loadPayments()} />
           ) : payments === null || payments.length === 0 ? (
             <View style={styles.emptyCard}>
-              <MaterialIcons color="#3182f6" name="receipt-long" size={28} />
+              <MaterialIcons color="#2a7d76" name="receipt-long" size={28} />
               <Text style={styles.emptyTitle}>아직 결제 내역이 없어요</Text>
               <Text style={styles.emptyText}>결제가 발생하면 영수증을 여기서 확인할 수 있어요.</Text>
             </View>
@@ -103,7 +103,7 @@ function PaymentRow({ payment, onPress }: { payment: PaymentItem; onPress: () =>
           <PaymentStatusBadge status={payment.status} />
         </View>
       </View>
-      <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+      <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
     </Pressable>
   );
 }
@@ -138,12 +138,12 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   emptyText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
     textAlign: 'center',
   },
   emptyTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 19,
     fontWeight: '900',
   },
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   paymentAmount: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '900',
   },
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   paymentLabel: {
-    color: '#191f28',
+    color: '#22211f',
     flexShrink: 1,
     fontSize: 16,
     fontWeight: '800',
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   paymentMeta: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
   },
   paymentRow: {
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     opacity: 0.74,
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
@@ -210,15 +210,15 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   stateText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 30,
     fontWeight: '900',
   },

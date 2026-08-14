@@ -148,7 +148,7 @@ export function QuantityEditor({
           onChangeText={changeLabel}
           onEndEditing={onLabelBlur}
           placeholder="음식 이름 (입력하면 칼로리 자동)"
-          placeholderTextColor="#b0b8c1"
+          placeholderTextColor="#a9a6a1"
           style={styles.nameInput}
           value={value.food_label}
         />
@@ -156,7 +156,7 @@ export function QuantityEditor({
           hitSlop={8}
           onPress={onRemove}
           style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}>
-          <MaterialIcons color="#e5484d" name="delete-outline" size={20} />
+          <MaterialIcons color="#b8524e" name="delete-outline" size={20} />
         </Pressable>
       </View>
 
@@ -173,7 +173,7 @@ export function QuantityEditor({
           <Pressable
             onPress={() => stepGram(-GRAM_STEP)}
             style={({ pressed }) => [styles.gramStepButton, pressed && styles.pressed]}>
-            <MaterialIcons color="#3182f6" name="remove" size={18} />
+            <MaterialIcons color="#2a7d76" name="remove" size={18} />
           </Pressable>
           <View style={styles.gramField}>
             <TextInput
@@ -186,7 +186,7 @@ export function QuantityEditor({
                 setGramText(derivedGram !== null ? String(derivedGram) : '');
               }}
               placeholder="그램"
-              placeholderTextColor="#b0b8c1"
+              placeholderTextColor="#a9a6a1"
               style={styles.gramInput}
               value={gramValue}
             />
@@ -195,7 +195,7 @@ export function QuantityEditor({
           <Pressable
             onPress={() => stepGram(GRAM_STEP)}
             style={({ pressed }) => [styles.gramStepButton, pressed && styles.pressed]}>
-            <MaterialIcons color="#3182f6" name="add" size={18} />
+            <MaterialIcons color="#2a7d76" name="add" size={18} />
           </Pressable>
         </View>
       ) : (
@@ -217,7 +217,7 @@ export function QuantityEditor({
             maxLength={6}
             onChangeText={changeKcal}
             placeholder="칼로리"
-            placeholderTextColor="#b0b8c1"
+            placeholderTextColor="#a9a6a1"
             style={styles.kcalInput}
             value={value.kcalText}
           />
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
   gramField: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderColor: '#e5e8eb',
+    borderColor: '#e4e2de',
     borderRadius: 8,
     borderWidth: 1,
     flex: 1,
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   gramInput: {
-    color: '#191f28',
+    color: '#22211f',
     flex: 1,
     // flex 항목의 기본 min-width는 내용 크기라, 좁은 폭에서 input이 안 줄고 옆의 'g'·+버튼을 밀어낸다.
     minWidth: 0,
@@ -271,14 +271,14 @@ const styles = StyleSheet.create({
   },
   gramStepButton: {
     alignItems: 'center',
-    backgroundColor: '#f5f9ff',
+    backgroundColor: '#eef7f5',
     borderRadius: 8,
     height: 42,
     justifyContent: 'center',
     width: 46,
   },
   gramUnit: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   kcalField: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderColor: '#e5e8eb',
+    borderColor: '#e4e2de',
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: 'row',
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   kcalInput: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '700',
     minWidth: 56,
@@ -311,21 +311,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   kcalUnit: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
     fontWeight: '700',
   },
   lookup: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
     fontWeight: '700',
   },
   nameInput: {
     backgroundColor: '#ffffff',
-    borderColor: '#e5e8eb',
+    borderColor: '#e4e2de',
     borderRadius: 8,
     borderWidth: 1,
-    color: '#191f28',
+    color: '#22211f',
     flex: 1,
     fontSize: 15,
     fontWeight: '700',
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   portion: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     minWidth: 24,
   },
   unitNotice: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
     fontWeight: '700',
   },

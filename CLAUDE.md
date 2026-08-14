@@ -170,7 +170,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 | 3 | 칼로리 프롬프트가 **앱에 하드코딩**되어 있습니다. 서버 템플릿화가 예정 항목입니다. | `services/calorie-api.ts:71` |
 | 4 | ~~`readErrorMessage` 중복 정의~~ **해결.** `services/http.ts` 공통 함수로 통일(배열 `detail` 처리 포함). | `services/http.ts` |
 | 5 | ~~서버 `/api/s3/*`가 `detail`에 boto3 내부 예외 노출~~ **해소.** S3 미사용 확정으로 서버에서 라우트가 제거되었습니다(`file_upload_api.py` 삭제, 2026-07-12 서버 소스 확인). 앱은 원래 호출하지 않았고, `photo_s3_key`는 `/api/meals` 응답 스키마 필드로만 남아 있습니다. | `kcalAI-model/api/` |
-| 6 | ~~`themed-text.tsx`·`themed-view.tsx`·`constants/theme.ts` 다크모드 체계가 있으나 실화면은 하드코딩~~ **해소** (2026-07-12): 라이트 전용 확정으로 테마 인프라 제거. 실화면 하드코딩 팔레트가 표준. 루트 `use-color-scheme`(내비 테마용)만 유지. | — |
+| 6 | ~~`themed-text.tsx`·`themed-view.tsx`·`constants/theme.ts` 다크모드 체계가 있으나 실화면은 하드코딩~~ **해소** (2026-07-12): 라이트 전용 확정으로 테마 인프라 제거. 실화면 하드코딩 팔레트가 표준. 루트 `use-color-scheme`(내비 테마용)만 유지. **2026-08-14: 팔레트 전면 교체 — 블루 → 민트(`#60beb8`)·웜 뉴트럴·코랄.** 토큰 파일은 여전히 없고 hex를 화면에 직접 씁니다 — 값은 `docs/DESIGN.md` '디자인 토큰'이 유일한 기준입니다. ⚠️ **면과 글자에 같은 색을 쓰지 않습니다**: 민트 면 위 흰 글자는 대비 2.2:1이라 버튼 라벨·아이콘은 잉크(`#22211f`), 흰 배경 위 강조 텍스트는 딥 톤(`#2a7d76`)입니다. | — |
 | 7 | ~~Expo 템플릿 잔재(`modal.tsx`·`hello-wave.tsx`·`parallax-scroll-view.tsx`·`collapsible.tsx`·`external-link.tsx`)~~ **삭제됨** (2026-07-12). `explore.tsx`(개발자 진단 화면)도 **삭제됨** (2026-07-13) — 서버 endpoint URL을 화면에 노출하고 있었습니다. 내 정보의 '개발자 정보' 진입점, 로그인 화면·기록 화면의 '연결 서버' 카드도 함께 제거했습니다. | — |
 | 8 | ~~`auth-session.ts` 미커밋~~ **해소.** 커밋됨(세션 영속화·Bearer 첨부 포함). | — |
 

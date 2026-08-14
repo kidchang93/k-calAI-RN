@@ -44,23 +44,23 @@ export function ChipGroup({
 const styles = StyleSheet.create({
   chip: {
     backgroundColor: '#ffffff',
-    borderColor: '#e5e8eb',
+    borderColor: '#e4e2de',
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
   chipSelected: {
-    backgroundColor: '#edf6ff',
-    borderColor: '#3182f6',
+    backgroundColor: '#bee2dd',
+    borderColor: '#2a7d76',
   },
   chipText: {
-    color: '#333d4b',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '700',
   },
   chipTextSelected: {
-    color: '#3182f6',
+    color: '#2a7d76',
   },
   container: {
     flexDirection: 'row',

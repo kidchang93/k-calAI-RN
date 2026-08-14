@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "k-calAI-RN",
+    "name": "밀케어",
     "slug": "k-calAI-RN",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -114,7 +114,7 @@
     "android": {
       "package": "com.kcalai.kcalairn",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#eef7f5",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -147,7 +147,7 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#22211f"
           }
         }
       ],

@@ -37,7 +37,7 @@ export function NutrientChips({ chips }: { chips: NutrientChip[] }) {
 const styles = StyleSheet.create({
   chip: {
     alignItems: 'baseline',
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 6,
     flexDirection: 'row',
     gap: 4,
@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   label: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 11,
     fontWeight: '700',
   },
@@ -59,25 +59,25 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   tierChipHigh: {
-    backgroundColor: '#fff1e9',
+    backgroundColor: '#fbeaea',
   },
   tierChipLow: {
-    backgroundColor: '#e9f8f0',
+    backgroundColor: '#bee2dd',
   },
   tierChipMid: {
-    backgroundColor: '#fff6e5',
+    backgroundColor: '#fbeee7',
   },
   tierTextHigh: {
-    color: '#d4571a',
+    color: '#b8524e',
   },
   tierTextLow: {
-    color: '#0f8a5f',
+    color: '#2a7d76',
   },
   tierTextMid: {
-    color: '#b8770c',
+    color: '#a4603f',
   },
   value: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 12,
     fontWeight: '800',
   },

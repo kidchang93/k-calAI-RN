@@ -9,11 +9,11 @@ import {
   ChangeType,
 } from '@/constants/changelog';
 
-// 변화 유형별 배지 색. new=파랑, improved=초록, fixed=회색.
+// 변화 유형별 배지 색. new=민트(진한 틴트), improved=민트(옅은 틴트), fixed=중립.
 const TYPE_COLORS: Record<ChangeType, { bg: string; fg: string }> = {
-  new: { bg: '#edf6ff', fg: '#3182f6' },
-  improved: { bg: '#e6f9f0', fg: '#12b886' },
-  fixed: { bg: '#f2f4f6', fg: '#6b7684' },
+  new: { bg: '#bee2dd', fg: '#2a7d76' },
+  improved: { bg: '#eef7f5', fg: '#2a7d76' },
+  fixed: { bg: '#e4e2de', fg: '#5c5b57' },
 };
 
 export default function UpdatesScreen() {
@@ -25,7 +25,7 @@ export default function UpdatesScreen() {
 
           <View style={styles.header}>
             <Text style={styles.title}>업데이트 이력</Text>
-            <Text style={styles.subtitle}>kcal이 어떻게 좋아지고 있는지 알려드려요.</Text>
+            <Text style={styles.subtitle}>밀케어가 어떻게 좋아지고 있는지 알려드려요.</Text>
           </View>
 
           {CHANGELOG.length === 0 ? (
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   cardDate: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   cardTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 18,
     fontWeight: '900',
   },
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   emptyText: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 14,
   },
   header: {
@@ -146,20 +146,20 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   itemText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 21,
   },
   latestBadge: {
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   latestBadgeText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 12,
     fontWeight: '800',
   },
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
@@ -175,11 +175,11 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 30,
     fontWeight: '900',
   },

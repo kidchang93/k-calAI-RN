@@ -25,7 +25,7 @@ export function LegalDocumentView({ document }: { document: LegalDocument }) {
           {/* 초안 경고는 문서 맨 위에 둔다 — 읽는 사람이 가장 먼저 알아야 한다. */}
           {document.draftNotice === null ? null : (
             <View style={styles.draftBox}>
-              <MaterialIcons color="#e5484d" name="info-outline" size={16} />
+              <MaterialIcons color="#b8524e" name="info-outline" size={16} />
               <Text style={styles.draftText}>{document.draftNotice}</Text>
             </View>
           )}
@@ -55,14 +55,14 @@ const styles = StyleSheet.create({
   },
   draftBox: {
     alignItems: 'flex-start',
-    backgroundColor: '#fff5f5',
+    backgroundColor: '#fbeaea',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 8,
     padding: 14,
   },
   draftText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     flex: 1,
     fontSize: 13,
     lineHeight: 19,
@@ -71,16 +71,16 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   meta: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
   },
   paragraph: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 14,
     lineHeight: 22,
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
@@ -93,12 +93,12 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   sectionTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '900',
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 28,
     fontWeight: '900',
   },

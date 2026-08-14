@@ -27,18 +27,18 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   label: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
     fontWeight: '700',
   },
   segment: {
-    backgroundColor: '#e5e8eb',
+    backgroundColor: '#e4e2de',
     borderRadius: 999,
     flex: 1,
     height: 4,
   },
   segmentDone: {
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
   },
   track: {
     flex: 1,

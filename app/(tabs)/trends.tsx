@@ -238,12 +238,12 @@ export default function TrendsScreen() {
               두고, 조언은 그 조언의 기준(몸 지표·권장 활동량)이 있는 화면에 붙인다. */}
           {isLoading ? (
             <View style={styles.stateBox}>
-              <ActivityIndicator color="#3182f6" />
+              <ActivityIndicator color="#2a7d76" />
               <Text style={styles.stateText}>기록을 불러오는 중입니다.</Text>
             </View>
           ) : errorMessage ? (
             <View style={styles.errorBox}>
-              <MaterialIcons color="#e5484d" name="error-outline" size={20} />
+              <MaterialIcons color="#b8524e" name="error-outline" size={20} />
               <View style={styles.errorBody}>
                 <Text style={styles.errorText}>{errorMessage}</Text>
                 <Pressable
@@ -303,7 +303,7 @@ export default function TrendsScreen() {
                     options={PERIOD_OPTIONS}
                     value={period}
                   />
-                  <MaterialIcons color="#8b95a1" name="show-chart" size={32} />
+                  <MaterialIcons color="#a9a6a1" name="show-chart" size={32} />
                   <Text style={styles.emptyTitle}>이 기간에 식단 기록이 없어요</Text>
                   <Text style={styles.emptyText}>
                     기록 탭에서 사진으로 식사를 남기면 여기에서 확인할 수 있습니다.
@@ -358,9 +358,9 @@ export default function TrendsScreen() {
               <Pressable
                 onPress={() => router.push('/report')}
                 style={({ pressed }) => [styles.reportButton, pressed && styles.pressed]}>
-                <MaterialIcons color="#3182f6" name="description" size={18} />
+                <MaterialIcons color="#2a7d76" name="description" size={18} />
                 <Text style={styles.reportButtonText}>진료용 기록 정리해서 보기</Text>
-                <MaterialIcons color="#b0b8c1" name="chevron-right" size={18} />
+                <MaterialIcons color="#a9a6a1" name="chevron-right" size={18} />
               </Pressable>
 
               {/* **케어 루프의 결과 축**(서버 `docs/CARE_LOOP.md` §4). 식단 추이 바로 아래인
@@ -369,9 +369,9 @@ export default function TrendsScreen() {
               <Pressable
                 onPress={() => router.push('/labs')}
                 style={({ pressed }) => [styles.reportButton, pressed && styles.pressed]}>
-                <MaterialIcons color="#3182f6" name="science" size={18} />
+                <MaterialIcons color="#2a7d76" name="science" size={18} />
                 <Text style={styles.reportButtonText}>검사 수치 기록하기</Text>
-                <MaterialIcons color="#b0b8c1" name="chevron-right" size={18} />
+                <MaterialIcons color="#a9a6a1" name="chevron-right" size={18} />
               </Pressable>
 
               <WeightSection
@@ -405,7 +405,7 @@ function DayDetail({
   if (date === null) {
     return (
       <View style={styles.dayHintCard}>
-        <MaterialIcons color="#8b95a1" name="touch-app" size={20} />
+        <MaterialIcons color="#a9a6a1" name="touch-app" size={20} />
         <Text style={styles.dayHintText}>날짜를 누르면 그날 먹은 음식을 볼 수 있어요.</Text>
       </View>
     );
@@ -423,7 +423,7 @@ function DayDetail({
 
       {isLoading ? (
         <View style={styles.dayLoadingBox}>
-          <ActivityIndicator color="#3182f6" />
+          <ActivityIndicator color="#2a7d76" />
         </View>
       ) : !hasMeals ? (
         <Text style={styles.dayEmptyText}>이 날은 기록이 없어요. 아래에서 추가할 수 있어요.</Text>
@@ -448,7 +448,7 @@ function DayDetail({
         <Pressable
           onPress={onPressAdd}
           style={({ pressed }) => [styles.dayAddButton, pressed && styles.pressed]}>
-          <MaterialIcons color="#ffffff" name="add" size={18} />
+          <MaterialIcons color="#22211f" name="add" size={18} />
           <Text style={styles.dayAddButtonText}>이 날짜에 기록 추가</Text>
         </Pressable>
         {hasMeals ? (
@@ -456,7 +456,7 @@ function DayDetail({
             onPress={onPressManage}
             style={({ pressed }) => [styles.manageButton, pressed && styles.pressed]}>
             <Text style={styles.manageButtonText}>기록 관리</Text>
-            <MaterialIcons color="#3182f6" name="chevron-right" size={18} />
+            <MaterialIcons color="#2a7d76" name="chevron-right" size={18} />
           </Pressable>
         ) : null}
       </View>
@@ -584,7 +584,7 @@ function WeightSection({ logs, onPressManage }: { logs: WeightLog[]; onPressMana
           onPress={onPressManage}
           style={({ pressed }) => [styles.weightManageButton, pressed && styles.pressed]}>
           <Text style={styles.weightManageText}>관리</Text>
-          <MaterialIcons color="#3182f6" name="chevron-right" size={16} />
+          <MaterialIcons color="#2a7d76" name="chevron-right" size={16} />
         </Pressable>
       </View>
 
@@ -622,15 +622,15 @@ function WeightSection({ logs, onPressManage }: { logs: WeightLog[]; onPressMana
 
 const styles = StyleSheet.create({
   bar: {
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 3,
     width: '100%',
   },
   barEmpty: {
-    backgroundColor: '#e5e8eb',
+    backgroundColor: '#e4e2de',
   },
   barLabel: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     flex: 1,
     fontSize: 11,
     textAlign: 'center',
@@ -640,7 +640,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   barOver: {
-    backgroundColor: '#e5484d',
+    backgroundColor: '#ea8989',
   },
   barRow: {
     alignItems: 'flex-end',
@@ -669,12 +669,12 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   chartTarget: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '700',
   },
   chartTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
   },
@@ -685,7 +685,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   disclaimer: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
     textAlign: 'center',
   },
@@ -699,7 +699,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   dayHintText: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -715,12 +715,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   dayTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '900',
   },
   dayTotal: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 15,
     fontWeight: '900',
   },
@@ -728,26 +728,26 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   dayEmptyText: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
     paddingVertical: 4,
   },
   mealRow: {
     alignItems: 'center',
-    borderTopColor: '#f2f4f6',
+    borderTopColor: '#e4e2de',
     borderTopWidth: 1,
     flexDirection: 'row',
     gap: 10,
     paddingTop: 10,
   },
   mealTypeChip: {
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   mealTypeChipText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 12,
     fontWeight: '800',
   },
@@ -755,13 +755,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mealFoods: {
-    color: '#333d4b',
+    color: '#22211f',
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 18,
   },
   mealKcal: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 14,
     fontWeight: '900',
   },
@@ -774,7 +774,7 @@ const styles = StyleSheet.create({
   },
   dayAddButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 4,
@@ -783,7 +783,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   dayAddButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -794,7 +794,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   manageButtonText: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 13,
     fontWeight: '800',
   },
@@ -806,13 +806,13 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   emptyText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
   },
   emptyTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 18,
     fontWeight: '800',
   },
@@ -821,14 +821,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   errorBox: {
-    backgroundColor: '#fff5f5',
+    backgroundColor: '#fbeaea',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 10,
     padding: 16,
   },
   errorText: {
-    color: '#e5484d',
+    color: '#b8524e',
     fontSize: 14,
   },
   header: {
@@ -837,13 +837,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   legendDot: {
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 999,
     height: 8,
     width: 8,
   },
   legendDotOver: {
-    backgroundColor: '#e5484d',
+    backgroundColor: '#ea8989',
     borderRadius: 999,
     height: 8,
     width: 8,
@@ -854,7 +854,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   legendText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 12,
     marginRight: 8,
   },
@@ -867,7 +867,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   reportButtonText: {
-    color: '#3182f6',
+    color: '#2a7d76',
     flex: 1,
     fontSize: 15,
     fontWeight: '800',
@@ -888,12 +888,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   retryButtonText: {
-    color: '#e5484d',
+    color: '#b8524e',
     fontSize: 14,
     fontWeight: '700',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
@@ -907,11 +907,11 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   stateText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   summaryCard: {
@@ -925,30 +925,30 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   summaryStat: {
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 8,
     flex: 1,
     gap: 4,
     padding: 12,
   },
   summaryStatLabel: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
   },
   summaryStatValue: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 17,
     fontWeight: '800',
   },
   targetLine: {
-    backgroundColor: '#8b95a1',
+    backgroundColor: '#a9a6a1',
     height: 1,
     left: 0,
     position: 'absolute',
     right: 0,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 24,
     fontWeight: '900',
   },
@@ -959,7 +959,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   weightDelta: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -981,19 +981,19 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   weightManageText: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 14,
     fontWeight: '700',
   },
   weightRecordButton: {
     alignItems: 'center',
-    backgroundColor: '#edf6ff',
+    backgroundColor: '#bee2dd',
     borderRadius: 8,
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
   weightRecordButtonText: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -1003,11 +1003,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   weightRowDate: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   weightRowValue: {
-    color: '#333d4b',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '700',
   },

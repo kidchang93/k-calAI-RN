@@ -23,7 +23,7 @@ export function ConditionGuideCard({ guides }: { guides: GuideSummary[] }) {
   return (
     <View style={styles.card}>
       <View style={styles.headRow}>
-        <MaterialIcons color="#3182f6" name="menu-book" size={18} />
+        <MaterialIcons color="#2a7d76" name="menu-book" size={18} />
         <Text style={styles.title}>내 질환 알아보기</Text>
       </View>
       <Text style={styles.subtitle}>왜 줄여야 하는지, 얼마나가 기준인지 근거와 함께 정리했어요.</Text>
@@ -39,7 +39,7 @@ export function ConditionGuideCard({ guides }: { guides: GuideSummary[] }) {
             <Text style={styles.rowTitle}>{`${guide.label} 식단 가이드`}</Text>
             <Text style={styles.rowMeta}>{`${guide.axis_count}개 항목`}</Text>
           </View>
-          <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+          <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
         </Pressable>
       ))}
     </View>
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
   },
   row: {
     alignItems: 'center',
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 8,
@@ -75,22 +75,22 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   rowMeta: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 12,
   },
   rowTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     lineHeight: 19,
     marginBottom: 2,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '900',
   },

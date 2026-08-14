@@ -37,9 +37,9 @@ export function NextMealCard({
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
       <View style={styles.headRow}>
-        <MaterialIcons color="#3182f6" name="restaurant-menu" size={20} />
+        <MaterialIcons color="#2a7d76" name="restaurant-menu" size={20} />
         <Text style={styles.title}>{`${MEAL_TYPE_LABELS[mealType]}, 뭐 드실까요`}</Text>
-        <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+        <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
       </View>
 
       {preview.length === 0 ? (
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   excluded: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
   },
   item: {
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#f7f6f4',
     borderRadius: 6,
     flexDirection: 'row',
     gap: 8,
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   itemKcal: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   itemName: {
-    color: '#191f28',
+    color: '#22211f',
     flex: 1,
     fontSize: 14,
     fontWeight: '700',
@@ -122,11 +122,11 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     flex: 1,
     fontSize: 16,
     fontWeight: '900',

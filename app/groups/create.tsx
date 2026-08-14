@@ -89,7 +89,7 @@ export default function GroupCreateScreen() {
                     maxLength={100}
                     onChangeText={setName}
                     placeholder="우리집"
-                    placeholderTextColor="#b0b8c1"
+                    placeholderTextColor="#a9a6a1"
                     style={styles.input}
                     value={name}
                   />
@@ -132,7 +132,7 @@ export default function GroupCreateScreen() {
                 pressed && styles.pressed,
               ]}>
               {isSaving ? (
-                <ActivityIndicator color="#ffffff" />
+                <ActivityIndicator color="#22211f" />
               ) : (
                 <Text style={styles.primaryButtonText}>만들기</Text>
               )}
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   input: {
-    color: '#191f28',
+    color: '#22211f',
     flex: 1,
     fontSize: 17,
     fontWeight: '700',
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
   inputRow: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderColor: '#e5e8eb',
+    borderColor: '#e4e2de',
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: 'row',
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   label: {
-    color: '#4e5968',
+    color: '#5c5b57',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -190,32 +190,32 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     marginTop: 8,
     paddingVertical: 14,
   },
   primaryButtonDisabled: {
-    backgroundColor: '#b4c7e7',
+    backgroundColor: '#99d2ce',
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
     padding: 20,
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 30,
     fontWeight: '900',
   },

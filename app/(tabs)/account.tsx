@@ -166,7 +166,7 @@ export default function AccountScreen() {
 
           {isLoading ? (
             <View style={styles.stateBox}>
-              <ActivityIndicator color="#3182f6" />
+              <ActivityIndicator color="#2a7d76" />
               <Text style={styles.stateText}>내 정보를 불러오는 중입니다.</Text>
             </View>
           ) : (
@@ -175,7 +175,7 @@ export default function AccountScreen() {
                 onPress={() => router.push('/me/profile')}
                 style={({ pressed }) => [styles.summaryCard, pressed && styles.pressed]}>
                 <View style={styles.summaryIconWrap}>
-                  <MaterialIcons color="#3182f6" name="person-outline" size={22} />
+                  <MaterialIcons color="#2a7d76" name="person-outline" size={22} />
                 </View>
                 <View style={styles.summaryBody}>
                   <Text style={styles.summaryLabel}>프로필</Text>
@@ -183,14 +183,14 @@ export default function AccountScreen() {
                     {profile === null ? '아직 입력하지 않았어요' : buildProfileSummary(profile)}
                   </Text>
                 </View>
-                <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+                <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
               </Pressable>
 
               <Pressable
                 onPress={() => router.push('/me/goal')}
                 style={({ pressed }) => [styles.summaryCard, pressed && styles.pressed]}>
                 <View style={styles.summaryIconWrap}>
-                  <MaterialIcons color="#3182f6" name="flag" size={22} />
+                  <MaterialIcons color="#2a7d76" name="flag" size={22} />
                 </View>
                 <View style={styles.summaryBody}>
                   <Text style={styles.summaryLabel}>목표</Text>
@@ -200,7 +200,7 @@ export default function AccountScreen() {
                       : `${GOAL_LABELS[goal.goal_type]} · 하루 ${goal.target_kcal.toLocaleString()} kcal`}
                   </Text>
                 </View>
-                <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+                <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
               </Pressable>
 
               {/* BMI·권장 활동량은 리포트가 아니라 여기에 둔다 (2026-07-23). 매일 바뀌는 값이
@@ -223,41 +223,41 @@ export default function AccountScreen() {
             <Pressable
               onPress={() => router.push('/plan')}
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-              <MaterialIcons color="#4e5968" name="workspace-premium" size={20} />
+              <MaterialIcons color="#5c5b57" name="workspace-premium" size={20} />
               <Text style={styles.rowLabel}>요금제 · 사진 인식 사용량</Text>
-              <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+              <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
             </Pressable>
 
             <Pressable
               onPress={() => router.push('/payments')}
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-              <MaterialIcons color="#4e5968" name="receipt-long" size={20} />
+              <MaterialIcons color="#5c5b57" name="receipt-long" size={20} />
               <Text style={styles.rowLabel}>결제 내역</Text>
-              <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+              <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
             </Pressable>
 
             <Pressable
               onPress={() => router.push('/me/weights')}
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-              <MaterialIcons color="#4e5968" name="monitor-weight" size={20} />
+              <MaterialIcons color="#5c5b57" name="monitor-weight" size={20} />
               <Text style={styles.rowLabel}>체중 기록</Text>
-              <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+              <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
             </Pressable>
 
             <Pressable
               onPress={() => router.push('/me/conditions')}
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-              <MaterialIcons color="#4e5968" name="medical-services" size={20} />
+              <MaterialIcons color="#5c5b57" name="medical-services" size={20} />
               <Text style={styles.rowLabel}>질병 정보</Text>
-              <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+              <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
             </Pressable>
 
             <Pressable
               onPress={() => router.push('/me/allergies')}
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-              <MaterialIcons color="#4e5968" name="no-food" size={20} />
+              <MaterialIcons color="#5c5b57" name="no-food" size={20} />
               <Text style={styles.rowLabel}>알러지 정보</Text>
-              <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+              <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
             </Pressable>
 
             {/* 온보딩이 "내 정보에서 언제든 철회할 수 있어요"라고 약속한 진입점이다
@@ -265,9 +265,9 @@ export default function AccountScreen() {
             <Pressable
               onPress={() => router.push('/me/consents')}
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-              <MaterialIcons color="#4e5968" name="fact-check" size={20} />
+              <MaterialIcons color="#5c5b57" name="fact-check" size={20} />
               <Text style={styles.rowLabel}>동의 관리</Text>
-              <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+              <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
             </Pressable>
 
             {/* 반려동물 진입점은 2026-07-25에 숨겼다 — 이 앱의 목표(식이요법이 필요한
@@ -277,18 +277,18 @@ export default function AccountScreen() {
             <Pressable
               onPress={() => router.push('/updates')}
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-              <MaterialIcons color="#4e5968" name="campaign" size={20} />
+              <MaterialIcons color="#5c5b57" name="campaign" size={20} />
               <Text style={styles.rowLabel}>업데이트 이력</Text>
-              <MaterialIcons color="#b0b8c1" name="chevron-right" size={20} />
+              <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
             </Pressable>
 
             <Pressable
               disabled={isLoggingOut || isDeletingAccount}
               onPress={confirmLogout}
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-              <MaterialIcons color="#e5484d" name="logout" size={20} />
+              <MaterialIcons color="#b8524e" name="logout" size={20} />
               {isLoggingOut ? (
-                <ActivityIndicator color="#e5484d" size="small" />
+                <ActivityIndicator color="#b8524e" size="small" />
               ) : (
                 <Text style={styles.dangerLabel}>로그아웃</Text>
               )}
@@ -298,9 +298,9 @@ export default function AccountScreen() {
               disabled={isLoggingOut || isDeletingAccount}
               onPress={confirmDeleteAccount}
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-              <MaterialIcons color="#e5484d" name="person-remove" size={20} />
+              <MaterialIcons color="#b8524e" name="person-remove" size={20} />
               {isDeletingAccount ? (
-                <ActivityIndicator color="#e5484d" size="small" />
+                <ActivityIndicator color="#b8524e" size="small" />
               ) : (
                 <Text style={styles.dangerLabel}>회원 탈퇴</Text>
               )}
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   dangerLabel: {
-    color: '#e5484d',
+    color: '#b8524e',
     flex: 1,
     fontSize: 16,
     fontWeight: '700',
@@ -346,13 +346,13 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   rowLabel: {
-    color: '#191f28',
+    color: '#22211f',
     flex: 1,
     fontSize: 16,
     fontWeight: '700',
   },
   safeArea: {
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
   },
   scrollContent: {
@@ -369,11 +369,11 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   stateText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   subtitle: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
   },
   summaryBody: {
@@ -390,25 +390,25 @@ const styles = StyleSheet.create({
   },
   summaryIconWrap: {
     alignItems: 'center',
-    backgroundColor: '#edf6ff',
+    backgroundColor: '#bee2dd',
     borderRadius: 999,
     height: 40,
     justifyContent: 'center',
     width: 40,
   },
   summaryLabel: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '700',
   },
   summaryValue: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
     lineHeight: 21,
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 30,
     fontWeight: '900',
   },

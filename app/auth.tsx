@@ -1,7 +1,15 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Redirect, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SessionLoading } from '@/components/session-loading';
@@ -264,10 +272,12 @@ export default function AuthScreen() {
         showsVerticalScrollIndicator={false}>
         <View style={styles.container}>
           <View style={styles.header}>
-            <View style={styles.logoMark}>
-              <MaterialIcons name="health-and-safety" size={30} color="#ffffff" />
-            </View>
-            <Text style={styles.kicker}>K-Cal AI</Text>
+            <Image
+              accessibilityIgnoresInvertColors
+              source={require('@/assets/images/meal_care_logo.png')}
+              style={styles.logoMark}
+            />
+            <Text style={styles.kicker}>MEAL CARE</Text>
             <Text style={styles.title}>
               {isSignup ? '거의 다 됐어요' : '카카오로\n식단 기록을 시작해요'}
             </Text>
@@ -322,7 +332,7 @@ export default function AuthScreen() {
 
             {errorMessage ? (
               <View style={styles.errorBox}>
-                <MaterialIcons name="error-outline" size={20} color="#e5484d" />
+                <MaterialIcons name="error-outline" size={20} color="#b8524e" />
                 <Text style={styles.errorText}>{errorMessage}</Text>
               </View>
             ) : null}
@@ -338,10 +348,10 @@ export default function AuthScreen() {
                     pressed && canSignup && styles.pressed,
                   ]}>
                   {isSigningUp ? (
-                    <ActivityIndicator color="#ffffff" />
+                    <ActivityIndicator color="#22211f" />
                   ) : (
                     <>
-                      <MaterialIcons name="verified-user" size={20} color="#ffffff" />
+                      <MaterialIcons name="verified-user" size={20} color="#22211f" />
                       <Text style={styles.primaryButtonText}>가입 완료</Text>
                     </>
                   )}
@@ -365,10 +375,10 @@ export default function AuthScreen() {
                     pressed && !isStarting && styles.pressed,
                   ]}>
                   {isStarting ? (
-                    <ActivityIndicator color="#191f28" />
+                    <ActivityIndicator color="#22211f" />
                   ) : (
                     <>
-                      <MaterialIcons name="chat-bubble" size={20} color="#191f28" />
+                      <MaterialIcons name="chat-bubble" size={20} color="#22211f" />
                       <Text style={styles.kakaoButtonText}>카카오로 시작하기</Text>
                     </>
                   )}
@@ -394,7 +404,7 @@ export default function AuthScreen() {
 function CheckBox({ isChecked }: { isChecked: boolean }) {
   return (
     <View style={[styles.checkBox, isChecked && styles.checkBoxChecked]}>
-      <MaterialIcons color={isChecked ? '#ffffff' : '#b0b8c1'} name="check" size={16} />
+      <MaterialIcons color={isChecked ? '#22211f' : '#a9a6a1'} name="check" size={16} />
     </View>
   );
 }
@@ -471,7 +481,7 @@ function formatPlanPrice(priceKrw: number): string {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
   },
   scrollContent: {
     flexGrow: 1,
@@ -488,26 +498,23 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   logoMark: {
-    alignItems: 'center',
-    backgroundColor: '#191f28',
-    borderRadius: 8,
     height: 54,
-    justifyContent: 'center',
+    resizeMode: 'contain',
     width: 54,
   },
   kicker: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 14,
     fontWeight: '900',
   },
   title: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 34,
     fontWeight: '900',
     lineHeight: 42,
   },
   description: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 15,
     lineHeight: 22,
   },
@@ -518,7 +525,7 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   label: {
-    color: '#333d4b',
+    color: '#22211f',
     fontSize: 14,
     fontWeight: '900',
   },
@@ -532,13 +539,13 @@ const styles = StyleSheet.create({
     minHeight: 54,
   },
   kakaoButtonText: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 17,
     fontWeight: '900',
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 8,
@@ -546,10 +553,10 @@ const styles = StyleSheet.create({
     minHeight: 54,
   },
   primaryButtonDisabled: {
-    backgroundColor: '#b4c7e7',
+    backgroundColor: '#99d2ce',
   },
   primaryButtonText: {
-    color: '#ffffff',
+    color: '#22211f',
     fontSize: 17,
     fontWeight: '900',
   },
@@ -562,7 +569,7 @@ const styles = StyleSheet.create({
     minHeight: 40,
   },
   textButtonLabel: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -571,14 +578,14 @@ const styles = StyleSheet.create({
   },
   errorBox: {
     alignItems: 'center',
-    backgroundColor: '#fff5f5',
+    backgroundColor: '#fbeaea',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 8,
     padding: 12,
   },
   errorText: {
-    color: '#e5484d',
+    color: '#b8524e',
     flex: 1,
     fontSize: 14,
     fontWeight: '700',
@@ -589,14 +596,14 @@ const styles = StyleSheet.create({
   },
   agreeAllRow: {
     alignItems: 'center',
-    backgroundColor: '#f2f4f6',
+    backgroundColor: '#e4e2de',
     borderRadius: 8,
     flexDirection: 'row',
     gap: 10,
     padding: 12,
   },
   agreeAllText: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '900',
   },
@@ -618,47 +625,47 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   consentViewText: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
   consentText: {
-    color: '#4e5968',
+    color: '#5c5b57',
     flex: 1,
     fontSize: 14,
     fontWeight: '700',
   },
   checkBox: {
     alignItems: 'center',
-    backgroundColor: '#e5e8eb',
+    backgroundColor: '#e4e2de',
     borderRadius: 999,
     height: 22,
     justifyContent: 'center',
     width: 22,
   },
   checkBoxChecked: {
-    backgroundColor: '#3182f6',
+    backgroundColor: '#60beb8',
   },
   planSection: {
     gap: 8,
   },
   planGuide: {
-    color: '#8b95a1',
+    color: '#a9a6a1',
     fontSize: 13,
     lineHeight: 18,
   },
   planCard: {
-    backgroundColor: '#f2f4f6',
-    borderColor: '#f2f4f6',
+    backgroundColor: '#f7f6f4',
+    borderColor: '#e4e2de',
     borderRadius: 8,
     borderWidth: 1,
     gap: 6,
     padding: 14,
   },
   planCardSelected: {
-    backgroundColor: '#f5f9ff',
-    borderColor: '#3182f6',
+    backgroundColor: '#eef7f5',
+    borderColor: '#2a7d76',
   },
   planCardHeader: {
     alignItems: 'center',
@@ -666,17 +673,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   planCardTitle: {
-    color: '#191f28',
+    color: '#22211f',
     fontSize: 16,
     fontWeight: '900',
   },
   planCardPrice: {
-    color: '#3182f6',
+    color: '#2a7d76',
     fontSize: 15,
     fontWeight: '900',
   },
   planCardDetail: {
-    color: '#6b7684',
+    color: '#5c5b57',
     fontSize: 13,
     lineHeight: 19,
   },

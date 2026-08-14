@@ -4,7 +4,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 export function SessionLoading() {
   return (
     <View style={styles.container}>
-      <ActivityIndicator color="#3182f6" size="large" />
+      <ActivityIndicator color="#2a7d76" size="large" />
     </View>
   );
 }
@@ -12,7 +12,7 @@ export function SessionLoading() {
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f7f6f4',
     flex: 1,
     justifyContent: 'center',
   },
