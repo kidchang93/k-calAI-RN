@@ -19,11 +19,9 @@
 | 인증 가드를 `<Redirect>` 선언형으로 구현 | `app/(tabs)/_layout.tsx`, `app/auth.tsx` | 루트 레이아웃의 `useEffect` + `router.replace()`는 네비게이터 마운트 전에 실행되어 `assertIsReady()` 예외를 던짐 |
 | 기본 API URL에 `Platform.OS === 'android'` 분기 | `services/*.ts` | 에뮬레이터의 `10.0.2.2` 호스트 매핑 |
 | 끼니 구성은 사진마다 초기화가 아니라 **항목을 누적** | `app/meals/compose.tsx` | 한 끼에 반찬 여러 장을 이어 담아야 한다. 사진·검색·직접입력을 섞어 초안 목록에 쌓고 한 번에 저장 |
-| 그룹 진입점은 홈, 반려동물 진입점은 내 정보 | `app/(tabs)/home.tsx`, `app/(tabs)/account.tsx` | 매일 보는 곳이라야 모임이 굴러간다 (기획 목업 확정) |
-| 탭 밖 스택(그룹·펫)은 네이티브 헤더 대신 `BackButton` | `components/back-button.tsx` | 중첩 Stack 헤더의 뒤로가기 귀속 문제를 피하고 기존 화면 골격(headerShown: false) 유지 |
-| 목록 화면은 `useFocusEffect`로 포커스마다 재조회 | `app/groups/index.tsx`, `app/pets/index.tsx`, 상세 화면들 | 생성·수정 화면에서 돌아왔을 때 갱신 (홈 화면 패턴) |
-| 펫 단건 조회는 목록에서 찾는다 | `app/pets/[id]/index.tsx` | 서버에 `GET /api/pets/{id}` 단건 API가 없음 (DATA_MODEL.md 9장) |
-| `PetForm`은 서버 타입을 import 하지 않고 구조적 타입 선언 | `components/pet-form.tsx` | `components/ → services/` 의존 금지. `PetFormValue`는 `PetUpsertRequest`와 구조 호환 |
+| 그룹 진입점은 홈 | `app/(tabs)/home.tsx` | 매일 보는 곳이라야 모임이 굴러간다 (기획 목업 확정) |
+| 탭 밖 스택(그룹·요금제·결제)은 네이티브 헤더 대신 `BackButton` | `components/back-button.tsx` | 중첩 Stack 헤더의 뒤로가기 귀속 문제를 피하고 기존 화면 골격(headerShown: false) 유지 |
+| 목록 화면은 `useFocusEffect`로 포커스마다 재조회 | `app/groups/index.tsx`, 상세 화면들 | 생성·수정 화면에서 돌아왔을 때 갱신 (홈 화면 패턴) |
 | 초대코드 공유는 RN `Share` 시트 | `app/groups/[id].tsx` | 추가 의존성 없이 OS 공유. 취소·미지원(web)은 오류로 취급하지 않음 |
 | predict `foods[]`는 후보가 아니라 **사진 속 서로 다른 음식**이라 전부 초안으로 담는다 | `app/meals/compose.tsx`, `services/calorie-api.ts` | 한 접시의 여러 메뉴를 하나도 버리지 않는다. 각 음식은 개별 항목으로 편집·삭제 (구계약 `predictions`는 전환기 폴백) |
 | 식단 추천 진입점은 홈 (그룹 카드와 같은 행 패턴) | `app/(tabs)/home.tsx`, `app/recommendations/` | 다음 끼니를 정하는 곳은 오늘 요약 옆이다 (기획 목업) |
@@ -37,8 +35,12 @@
 | 온보딩은 **질환을 가장 먼저** 묻는다 (2026-07-25) | `app/onboarding/consent.tsx` → `conditions.tsx` | 이 앱은 식이요법이 필요한 만성질환자를 위한 것이고, **질환 선택이 온보딩의 중심에 있어야 한다**는 것이 방어선이다(서버 `PRODUCT_STRATEGY.md` §3). 예전 순서(동의→신체→혈액형→질병)는 일반 다이어트 앱의 것이라 질환이 4번째 부가 정보처럼 보였다 |
 | 신장 질환을 고르면 **병기를 이어서** 묻는다 | `app/onboarding/conditions.tsx` | 나트륨 1일 상한이 병기에서 갈린다(비투석 2,000 · 투석 3,000). 별도 화면을 만들지 않고 같은 화면에 펼치는 이유는, 질환 선택이 곧바로 무엇을 바꾸는지 사용자가 느끼게 하기 위해서다. 건너뛸 수 있다 — 모르는 사람에게 강요하면 아무거나 고른다 |
 | 혈액형은 **온보딩에서 뺐다** | `app/onboarding/blood.tsx` 삭제, `app/me/conditions.tsx`에 편집만 남김 | 어떤 기능에도 쓰이지 않으면서 민감정보로 수집·암호화되고 있었다(서버 서비스 어디서도 읽지 않는다). 개인정보 최소수집 원칙에 어긋나고, 온보딩 단계만 늘렸다 |
-| 반려동물·그룹 챌린지는 **숨긴다**(삭제 아님, 2026-07-25) | `app/(tabs)/account.tsx`, `app/groups/[id].tsx` | 목표(서버 `PRODUCT_STRATEGY.md` §0-1 — 식이요법이 필요한 사람의 판단 근거)와 연결점이 없고 사용 0건인데 화면·문서 비용을 계속 냈다. **삭제하지 않은 이유**: `users` FK 연쇄와 `account_service.delete_account`, `tests/test_account_service.py`의 handled 집합까지 정리해야 하고 되돌리기 어렵다. 서버 API·테이블·`app/pets/` 화면은 그대로 있고 진입점만 없앴다 — 되살리려면 이 커밋을 되돌리면 된다 |
-| 이번 주 코칭은 리포트가 아니라 내 정보 탭 (2026-07-25) | `app/(tabs)/account.tsx`, `app/(tabs)/trends.tsx` | 리포트는 숫자를 보는 곳이고, 조언은 숫자가 아니라 **내 기준**에 붙는 말이다 — 바로 위 '주당 권장 운동량'이 "권장 주 150분"을 말하면 코칭이 "이번 주 0분"이라 답한다. 기준과 현황이 한 화면에 있어야 조언이 근거를 갖는다 |
+| 반려동물은 **앱에서 제거**, 그룹 챌린지는 숨김 (2026-08-18 / 2026-07-25) | `app/pets/` 삭제, `app/(tabs)/account.tsx`, `app/groups/[id].tsx` | 목표(서버 `PRODUCT_STRATEGY.md` §0-1 — 식이요법이 필요한 사람의 판단 근거)와 연결점이 없고 사용 0건이었다. 2026-07-25에는 진입점만 숨겼으나 **요금제·가입 화면에는 "반려동물 N마리"가 판매 스펙으로 남아 있었다** — 숨김은 돈 받는 화면까지 닿지 않는다는 것이 재발로 확인됐다. 그래서 앱에서는 화면·폼·API 클라이언트를 지웠다. **서버는 그대로 둔다**: `users` FK 연쇄와 `account_service.delete_account`, `tests/test_account_service.py`의 handled 집합까지 정리해야 하고 되돌리기 어렵다. 등록된 반려동물은 0마리라 데이터 손실도 없다 |
+| **체중 진입점은 진료 탭 하나** (2026-08-19) | `app/(tabs)/trends.tsx`의 `WeightSection` | 진료 탭과 내 정보 탭 두 곳에 있어서, 어느 쪽이 최신인지 사용자가 판단해야 했다. 추이를 보는 곳에 남기고 설정 쪽 행을 없앴다 |
+| **뷰 모드(그래프·캘린더)와 무관한 섹션은 분기 밖 공통 블록** (2026-08-19) | 같은 파일 | 체중·고지 문구가 두 블록에 복사돼 있어 한쪽만 고치면 어긋났다. 검사 수치·체성분·조언도 '오늘 무엇을 먹었나'와 독립적이라 함께 공통으로 뺐다 |
+| **다음 진료일은 진료 탭에서 등록하고 홈에는 D-day 만** (2026-08-19) | `app/(tabs)/trends.tsx`의 `VisitCard`, `app/(tabs)/home.tsx`의 `VisitStrip` | 진료일은 케어 루프의 시작과 끝이라(서버 `CARE_LOOP.md` §1) **오늘 기록할 이유**가 여기서 나온다. 등록·수정은 진료 준비를 하는 곳(진료 탭)에 두고, 홈에는 남은 날만 한 줄 띄운다. ⚠️ **등록하지 않은 사람의 홈에는 아무것도 그리지 않는다** — 빈 안내를 띄우면 홈이 할 일 목록이 된다. 지난 날짜도 홈에서는 숨긴다(잔소리가 된다). 날짜 입력은 검사 수치 화면과 같은 YYYY-MM-DD 직접 입력이다 — 날짜 선택 패키지를 새로 들이면 웹·네이티브 분기가 생긴다 |
+| **진료용 리포트·검사 수치는 버튼이 아니라 화면 상단·본문 섹션** (2026-08-19) | `app/(tabs)/trends.tsx`의 `ReportCard`·`LabSection` | 제안서 도식에서 **04번(종착점)**으로 그린 진료용 리포트가 앱에서는 스크롤 맨 아래 회색 행이었다 — 탭→스크롤 끝→버튼→화면 4단계라 가장 찾기 어려운 자리에 결론이 있었다. 카드로 올리면서 **기간·기록 일수·검사 건수를 함께 노출**한다: 3일 기록으로 만든 리포트와 30일로 만든 리포트는 같은 문서가 아니라, 무게를 미리 알려야 한다. 검사 수치도 값이 보여야 '무엇이 쌓였는지'를 들어가 보기 전에 안다. ⚠️ **값에 판정을 붙이지 않는다** — 색·화살표·정상 여부 표시 금지(서버 `CARE_LOOP.md` §4-2) |
+| **체성분·주간 조언은 진료 탭** (2026-08-19, 2026-07-25 배치를 이동) | `app/(tabs)/trends.tsx` | 조언은 그 조언의 **기준**(권장 활동량) 옆에 있어야 근거를 갖는다는 2026-07-25 판단은 그대로다 — 둘의 순서도 유지했다. 바뀐 것은 **어느 탭이냐**뿐이다: 내 정보는 계정·설정을 보는 곳인데 판단 자료가 섞여 있었고, 사용자는 "내 몸이 어떻게 변했나"를 보려고 설정 탭에 들어가지 않는다. 제안서 도식을 여정으로 읽으면 이 둘은 **C(쌓인 걸 본다)** 국면이라 진료 준비를 하는 탭에 속한다 |
 | 같은 고지 문구가 화면에 이미 있으면 코칭 카드는 반복하지 않는다 | `components/weekly-coaching.tsx`의 `shownNotice` | 두 API가 같은 문장을 내려준다. 앱은 문구를 판단하지 않고 **문자열만 비교**한다 — 서버가 문장을 바꾸면 자동으로 다시 보인다(고지 하드코딩·삭제 금지 원칙 유지) |
 | 로그아웃은 서버 폐기 실패에도 로컬 세션을 지운다 | `app/(tabs)/account.tsx` | 오프라인에서도 기기에서 로그아웃할 수 있어야 한다 |
 | 카카오 로그인을 네이티브 SDK 없이 `expo-web-browser`로만 구현 | `services/auth-api.ts` | 카카오는 Redirect URI에 커스텀 스킴을 등록할 수 없고 `client_secret`이 필요하다 — 토큰 교환은 서버가 한다. 네이티브 SDK를 넣으면 iOS/Android 네이티브 설정이 붙고 **웹 빌드가 깨진다** (서버 CLAUDE.md 21장의 같은 판단) |
@@ -54,10 +56,9 @@
 | 끼니 구성의 알러지·질병 경고는 **비차단** — 저장 버튼 동작 불변 | `app/meals/compose.tsx`, `checkFoodWarnings` | 기획이 "기록할 때 경고"로 확정 (HEALTHCARE_EXPANSION 12장). 차단하면 기록 자체를 포기한다 |
 | 경고 조회 실패(401/403/네트워크)는 조용히 스킵 — 배너·에러 UI·스피너 없음 | `app/meals/compose.tsx` `runWarningCheck` | 경고는 부가 기능이라 실패가 기록 흐름을 방해하면 안 된다. 항목 추가·삭제 시 백그라운드 조회 + 시퀀스 경합 차단(늦은 응답 무시) |
 | 끼니 수정은 별도 화면 없이 목록 카드 **인라인 편집** (끼니 종류·항목 이름·kcal만) | `app/meals/index.tsx`, `updateMeal` | 재촬영 없는 간단 수정이 목적. PUT은 전체 교체라 `serving_ratio`·`source`·`confidence`는 보존해 다시 보내고, `logged_at`은 생략해 기록 시각을 유지한다 (DATA_MODEL.md 4장) |
-| 그룹 소유자 판별은 상세 응답 `owner_id` ↔ 세션 `user.id` 비교 | `app/groups/[id].tsx` | 상세 응답에 "내 역할" 필드가 없다. 목록 `role`은 상세 화면에 없으므로 기존 필드 조합으로 판별. 펫 해제 버튼은 `isOwner \|\| 내 펫(myPets 포함 여부)` |
-| 그룹 나가기·삭제·멤버 제거·펫 해제 실패는 서버 한국어 `detail`을 Alert로 그대로 표시 | `app/groups/[id].tsx` | 400/403/404 detail이 사용자용 한국어 문장으로 확정된 계약 (DATA_MODEL.md 17장). 성공 시 나가기·삭제는 `router.back()` — 목록이 `useFocusEffect`로 재조회 |
-| 회원 탈퇴는 **2단계 Alert 확인** 후 성공 시에만 `clearAuthSession()` | `app/(tabs)/account.tsx`, `deleteAccount` | 물리 삭제 파기(DATA_MODEL.md 18장)라 되돌릴 수 없다. 2차 Alert에 파기 항목(기록·반려동물·소유 그룹)을 명시. 로그아웃과 달리 서버 파기가 확인돼야 세션을 지운다 — 실패 시 세션 유지 + 오류 Alert |
-| 펫 `recommended_kcal`이 null이면 숫자 대신 안내 문구 (`other` 종은 미지원, 그 외는 체중 입력 유도) | `app/pets/[id]/index.tsx` | 서버가 `weight_kg` 없음·`other` 종에 null을 준다(18장). 오늘 급여 kcal 합계가 있으면 `오늘 X / 권장 Y kcal`로 나란히 표시 — kcal 미입력 급여는 합계에서 제외 |
+| 그룹 소유자 판별은 상세 응답 `owner_id` ↔ 세션 `user.id` 비교 | `app/groups/[id].tsx` | 상세 응답에 "내 역할" 필드가 없다. 목록 `role`은 상세 화면에 없으므로 기존 필드 조합으로 판별. |
+| 그룹 나가기·삭제·멤버 제거 실패는 서버 한국어 `detail`을 Alert로 그대로 표시 | `app/groups/[id].tsx` | 400/403/404 detail이 사용자용 한국어 문장으로 확정된 계약 (DATA_MODEL.md 17장). 성공 시 나가기·삭제는 `router.back()` — 목록이 `useFocusEffect`로 재조회 |
+| 회원 탈퇴는 **2단계 Alert 확인** 후 성공 시에만 `clearAuthSession()` | `app/(tabs)/account.tsx`, `deleteAccount` | 물리 삭제 파기(DATA_MODEL.md 18장)라 되돌릴 수 없다. 2차 Alert에 파기 항목(끼니·체중·검사 수치 기록·소유 그룹)을 명시. 로그아웃과 달리 서버 파기가 확인돼야 세션을 지운다 — 실패 시 세션 유지 + 오류 Alert |
 | 402(요금제 한도)를 `apiFetch` **한 곳에서** `PlanLimitError`로 변환 | `services/http.ts` | 서버가 어느 라우트에서든 같은 본문을 준다. 각 API 클라이언트가 따로 처리하면 업그레이드 유도가 화면마다 어긋난다 — 호출부는 `instanceof`로만 분기한다 |
 | 402는 `ErrorBanner`(다시 시도)가 아니라 `PlanLimitBanner`(요금제 업그레이드) | `components/plan-limit-banner.tsx` | 한도 초과는 재시도로 풀리지 않는다. 429(기다리면 풀림)와 달리 402는 "결제해야 풀린다"는 뜻이라 다음 행동이 다르다 |
 | 요금제 `code`·`resource`를 앱에서 유니온으로 굳히지 않는다 (`string` 유지) | `services/subscription-api.ts`, `services/http.ts` | 요금제는 서버 참조 테이블(`plans`)이 정본이다. 플랜을 추가할 때 앱을 함께 배포해야 하는 결합을 만들지 않는다 (서버 `subscription_schema.py`의 같은 판단) |

@@ -12,22 +12,15 @@ k-calAI-RN/
 │   │   ├── home.tsx            # 홈 탭 - 오늘 요약 (그룹 진입점)
 │   │   ├── index.tsx           # 기록 탭 - '오늘 기록 만들기' 런처 (사진/검색·직접입력 → compose로 진입)
 │   │   ├── trends.tsx          # 추이 탭 - 주/월 섭취 kcal 바 차트 + 요약 + 체중 변화
-│   │   ├── account.tsx         # 내 정보 탭 (프로필·목표 요약, 체중·질병·알러지·반려동물 진입점, 로그아웃·회원 탈퇴)
+│   │   ├── account.tsx         # 내 정보 탭 (프로필·목표 요약, 체중·질병·알러지 진입점, 로그아웃·회원 탈퇴)
 │   ├── onboarding/             # 온보딩 스택 (consent → body → …)
 │   ├── groups/                 # 그룹 스택 (홈에서 진입)
 │   │   ├── _layout.tsx         # 인증 가드 (온보딩 레이아웃과 같은 패턴)
 │   │   ├── index.tsx           # 내 그룹 목록
 │   │   ├── create.tsx          # 그룹 생성
 │   │   ├── join.tsx            # 초대코드로 참여 (`?code=`로 프리필)
-│   │   └── [id].tsx            # 그룹 상세 (멤버·펫·초대 링크 공유·내 펫 공유·나가기·삭제·멤버 제거·펫 참여 해제)
+│   │   └── [id].tsx            # 그룹 상세 (멤버·초대 링크 공유·나가기·삭제·멤버 제거)
 │   ├── invite.tsx              # 초대 링크 착지점 (`/invite?code=`) — **인증 가드 밖**. 미가입자가 열어도 코드가 유실되지 않게 한다
-│   ├── pets/                   # 반려동물 스택 (내 정보에서 진입)
-│   │   ├── _layout.tsx         # 인증 가드
-│   │   ├── index.tsx           # 내 반려동물 목록
-│   │   ├── new.tsx             # 등록
-│   │   └── [id]/
-│   │       ├── index.tsx       # 상세 + 오늘 급여 기록·목록 + 삭제
-│   │       └── edit.tsx        # 수정 (전체 교체 PUT)
 │   ├── me/                     # 내 정보 하위 스택 (내 정보 탭에서 진입)
 │   │   ├── _layout.tsx         # 인증 가드
 │   │   ├── profile.tsx         # 프로필 수정 (GET/PUT /api/me/profile)
@@ -41,7 +34,7 @@ k-calAI-RN/
 │   │   ├── success.tsx         # successUrl 착지 → POST /api/billing/confirm (마운트 1회, ref 가드)
 │   │   └── fail.tsx            # failUrl 착지 → 실패·취소 안내 (서버 호출 없음)
 │   ├── payments/               # 결제 내역·영수증 스택 (내 정보에서 진입)
-│   │   ├── _layout.tsx         # 인증 가드 (pets 레이아웃과 같은 패턴)
+│   │   ├── _layout.tsx         # 인증 가드 (groups 레이아웃과 같은 패턴)
 │   │   ├── index.tsx           # 결제 내역 목록 (GET /api/payments, 빈 상태·상태 배지)
 │   │   └── [id].tsx            # 영수증 상세 (GET /api/payments/{id}, 404 안내)
 │   ├── meals/                  # 끼니 기록 목록·구성 (홈 끼니 카드·캘린더·기록 탭에서 진입)
@@ -62,7 +55,7 @@ k-calAI-RN/
 │   ├── food-label.ts           # 식약처 라벨 → 화면 표시명. **조회 키는 안 바꾼다**. 언더스코어가 카테고리인지 재료인지 일반 판정이 불가해, 접두사가 뒤에 다시 나올 때만 뗀다
 │   ├── group-invite.ts         # 그룹 초대 링크 생성·공유 문구 + 로그인 전 초대코드 보관(consume 1회). 서버 API 없음
 │   ├── share.ts                # 텍스트 공유 플랫폼 shim — 웹은 Web Share API → 클립보드 폴백 (dialog.ts와 같은 이유)
-│   ├── pet-api.ts              # 반려동물·급여 기록 (9장)
+│   ├── visit-api.ts            # 진료 일정 (31장) + daysUntil() 로컬 자정 기준 D-day 계산
 │   ├── recommendation-api.ts   # 식단 추천 (11·13장)
 │   ├── subscription-api.ts     # 요금제·구독 (GET /api/plans 무인증, GET·PUT /api/me/subscription) + FALLBACK_PLANS + parseMySubscription(billing-api 재사용)
 │   ├── billing-api.ts          # 자동결제 (POST /api/billing/{checkout,confirm,cancel}) + BillingChargeError(502)·BillingUnavailableError(503)
@@ -74,8 +67,7 @@ k-calAI-RN/
 │   ├── session-loading.tsx     # 세션 복원 대기 화면 (인증 가드 깜빡임 방지)
 │   ├── error-banner.tsx        # 오류 배너 + 다시 시도
 │   ├── plan-limit-banner.tsx   # 402 안내 배너 + 요금제 화면 유도 (재시도 대신 업그레이드)
-│   ├── back-button.tsx         # 탭 밖 스택 화면(그룹·펫)의 뒤로가기
-│   ├── pet-form.tsx            # 반려동물 등록·수정 공용 폼 (services 미의존, 구조적 타입)
+│   ├── back-button.tsx         # 탭 밖 스택 화면(그룹·요금제)의 뒤로가기
 │   ├── chip-group.tsx, meal-type-card.tsx, progress-ring.tsx, onboarding-progress.tsx
 │   ├── haptic-tab.tsx          # 탭 햅틱
 │   └── ui/
@@ -114,17 +106,13 @@ expo-router의 파일 기반 라우팅입니다. `app/` 하위 파일이 곧 경
 | `app/(tabs)/home.tsx` | `/home` | 로그인 직후 진입 탭. 그룹 진입점 |
 | `app/(tabs)/index.tsx` | `/` | 그룹 `(tabs)`는 URL에 나타나지 않음 |
 | `app/(tabs)/trends.tsx` | `/trends` | 주/월 토글 + 일별 섭취 바 차트(`GET /api/me/trends`) + 체중 변화(`GET /api/weights` 기간 필터) |
-| `app/(tabs)/account.tsx` | `/account` | 반려동물 진입점 |
+| `app/(tabs)/account.tsx` | `/account` | 프로필·요금제·결제 내역·질병·알러지 진입점 |
 | `app/onboarding/*.tsx` | `/onboarding/…` | 인증 가드 레이아웃 |
 | `app/groups/index.tsx` | `/groups` | 내 그룹 목록 |
 | `app/groups/create.tsx` | `/groups/create` | 그룹 생성 |
 | `app/groups/join.tsx` | `/groups/join?code=XXXXXXXX` | 초대코드로 참여. `code`가 있으면 프리필(초대 링크 경유) — **자동 참여는 하지 않는다** |
 | `app/invite.tsx` | `/invite?code=XXXXXXXX` | 초대 링크 착지점. **인증 가드 밖의 단일 라우트**인 것이 존재 이유다 — 초대받는 사람은 대개 미가입자라, 가드가 걸린 `/groups/join`으로 바로 보내면 로그인으로 튕기며 코드가 유실된다. 로그인 상태면 `/groups/join?code=`로 replace, 아니면 코드를 보관(`group-invite.ts`)하고 로그인 유도 |
 | `app/groups/[id].tsx` | `/groups/:id` | 그룹 상세. `router.push({ pathname: '/groups/[id]', params })` |
-| `app/pets/index.tsx` | `/pets` | 내 반려동물 목록 |
-| `app/pets/new.tsx` | `/pets/new` | 등록 |
-| `app/pets/[id]/index.tsx` | `/pets/:id` | 상세 + 급여 기록 |
-| `app/pets/[id]/edit.tsx` | `/pets/:id/edit` | 수정 |
 | `app/recommendations/index.tsx` | `/recommendations` | 식단 추천 (홈에서 진입, 인증 가드 레이아웃) |
 | `app/me/profile.tsx` | `/me/profile` | 프로필 수정 (내 정보 탭에서 진입) |
 | `app/me/goal.tsx` | `/me/goal` | 목표 수정 (내 정보 탭·홈 목표 CTA에서 진입) |
@@ -140,7 +128,7 @@ expo-router의 파일 기반 라우팅입니다. `app/` 하위 파일이 곧 경
 | `app/payments/[id].tsx` | `/payments/:id` | 영수증 상세 (`GET /api/payments/{id}`). `router.push({ pathname: '/payments/[id]', params })`. 404는 `PaymentNotFoundError` → '영수증을 찾을 수 없어요' 안내 |
 | `app/updates.tsx` | `/updates` | 업데이트 이력(사용자 공지). `constants/changelog.ts`의 정적 배열을 렌더한다 — 서버·API 없음. 내 정보에서 진입 |
 
-`groups/`·`pets/`·`recommendations/`·`me/`·`meals/`·`payments/`·`billing/` 스택은 루트 레이아웃에 등록하지 않고 (expo-router 자동 등록) 각 `_layout.tsx`가
+`groups/`·`recommendations/`·`me/`·`meals/`·`payments/`·`billing/` 스택은 루트 레이아웃에 등록하지 않고 (expo-router 자동 등록) 각 `_layout.tsx`가
 온보딩 레이아웃과 같은 방식으로 자기 헤더를 숨기고 인증 가드를 겁니다. 화면 상단의 뒤로가기는
 네이티브 헤더 대신 `components/back-button.tsx`를 씁니다 (탭 밖 스택 공통).
 
@@ -254,9 +242,14 @@ useAuthSession()      → useState(스냅샷) + useEffect로 listener 등록 →
 앞에 둡니다. 예전에는 추천이 그룹 진입과 나란한 **회색 리스트 행**이어서, 질환별 제외·등급·조리 팁까지
 담긴 가장 밀도 높은 화면이 가장 눈에 띄지 않았습니다.
 
-리포트 탭은 반대로 덜어냈습니다 — **주간 코칭이 최상단**(유일하게 "그래서 뭘 하면 되는지"를 말하는
-카드)이고, **BMI·권장 활동량은 내 정보 탭으로 옮겼습니다**(`components/body-metrics.tsx`). 매일 바뀌는
-값이 아니라 프로필에 딸린 내 몸 정보이기 때문입니다.
+**3번 탭은 2026-08-19에 '리포트' → '진료'로 정체를 바꿨습니다** (서버 `docs/CARE_LOOP.md` §7).
+다음 진료일·검사 수치·식단 추이·진료용 리포트가 모두 진료를 향한 행동인데 '리포트'라는 이름은
+그중 하나만 가리켰습니다. 위에서부터 **다음 진료일 → 진료에 가져갈 기록 → 추이(그래프·캘린더) →
+검사 수치 → 체중 → 체성분·권장 활동량 → 주간 조언** 순이고, 뷰 모드와 무관한 섹션은 분기 밖
+공통 블록에 있습니다. BMI·권장 활동량과 주간 조언은 2026-07-25에 내 정보 탭으로 갔다가 이때
+돌아왔습니다 — 내 정보는 계정·설정을 보는 곳이라 판단 자료가 섞여 있었습니다.
+
+⚠️ **라우트 이름은 `trends` 그대로입니다.** URL(`/trends`)이 바뀌면 저장해 둔 링크가 깨집니다.
 
 기록 확정 화면의 경고 배너에는 **'다음 끼니에 맞는 메뉴 보기'** 액션이 붙습니다. 경고를 막다른 길로
 두지 않기 위한 것이고, 기록을 막지 않으므로 이미 먹은 것을 지우라는 뜻이 아닙니다(그래서 '다음 끼니').
@@ -400,7 +393,7 @@ readErrorMessage(response)
 | `startKakaoLogin` | `GET /api/auth/kakao/start?platform=native\|web` | — (브라우저가 연다) | 302 → 카카오 → 서버 콜백 → 딥링크 `kcalairn://auth?code=…&is_new=…` 또는 `?error=…`. 앱은 `expo-web-browser`만 쓴다 (네이티브 카카오 SDK 없음) |
 | `loginWithKakao` | `POST /api/auth/kakao/login` | `{ link_code }` | `{ access_token, token_type, expires_at, user }`. **404 = 미가입**(`KakaoNotRegisteredError`), **400 = 연동 코드 만료·소비**(`KakaoLinkExpiredError`) |
 | `signupWithKakao` | `POST /api/auth/kakao/signup` | `{ link_code, agreed_terms, agreed_privacy, plan_code \| null }` | 같은 `AuthTokenResponse`. 동의 누락 422, `false` 400. `plan_code` 생략 시 서버가 무료(lite) 부여. 연동 코드 TTL 10분 초과 시 400 |
-| `fetchPlans` | `GET /api/plans` | — | `{ plans: [{ code, label, price_krw, daily_vision_quota, max_group_members, max_pets, max_owned_groups }] }`. **무인증**(가입 화면이 로그인 전에 호출) — 실패 시 `FALLBACK_PLANS`(번들 폴백)로 그린다 |
+| `fetchPlans` | `GET /api/plans` | — | `{ plans: [{ code, label, price_krw, daily_vision_quota, max_group_members, max_pets, max_owned_groups }] }`. `max_pets`는 서버가 계속 주지만 **화면에 그리지 않는다**(2026-08-18). **무인증**(가입 화면이 로그인 전에 호출) — 실패 시 `FALLBACK_PLANS`(번들 폴백)로 그린다 |
 | `fetchMySubscription` / `changePlan` | `GET·PUT /api/me/subscription` | PUT: `{ plan_code }` | `{ plan, vision_usage: { used, limit, remaining, resets_at }, started_at, status, current_period_end, next_billing_at, cancel_at_period_end }`. 뒤 4필드는 2026-07-16 **추가**(기존 3필드 불변)라 `parseMySubscription`이 누락 시 무료 회원 기본값(`'active'`/null/false)으로 흘린다 — 신규 필드 때문에 화면 전체가 막히면 안 된다. `plan`은 **실효 플랜**(만료된 유료 구독은 lite). **PUT은 무료 전환 전용** — 유료 플랜은 400이고, 무료 전환은 남은 유료 기간을 포기시키므로 화면은 대신 `cancelBilling`을 쓴다 |
 | `startCheckout` | `POST /api/billing/checkout` | `{ plan_code }` | `{ customer_key, client_key, plan_code, amount, order_name }`. `client_key`는 공개값이고 **이 응답으로만** 받는다(번들에 두지 않는다). `amount`는 표시 전용 — 실제 청구액은 confirm에서 서버가 다시 정한다. **503** = 결제 키 미설정 → `BillingUnavailableError` |
 | `confirmBilling` | `POST /api/billing/confirm` | `{ auth_key, customer_key, plan_code }` — **금액 필드 없음** | `MySubscriptionResponse`. `auth_key`는 **1회용**이라 호출부가 중복을 막는다. **502** = 결제사 청구 실패 → `BillingChargeError`(이때 구독은 활성화되지 않고, 실패는 `payments` 원장에 `failed`로 남는다), **503** → `BillingUnavailableError` |
@@ -409,18 +402,21 @@ readErrorMessage(response)
 | `updateMeal` | `PUT /api/meals/{meal_id}` | `createMeal`과 동일 구조 (전체 교체) | `MealLog`. `logged_at` 생략 시 기존 기록 시각 유지, `total_kcal`은 서버가 items 합계로 재계산. 남의 끼니·삭제된 끼니 404 (DATA_MODEL.md 4장) |
 | `deleteAccount` | `DELETE /api/me` | — | `{ message }`. **물리 삭제** — 끼니·체중·펫·소유 그룹 전부 파기, 전 토큰 즉시 무효. 성공 시에만 호출부가 `clearAuthSession()` (DATA_MODEL.md 18장) |
 | `createGroup` / `getGroups` / `joinGroup` | `POST·GET /api/groups`, `POST /api/groups/join` | `{ name, kind }` / — / `{ invite_code }` | `GroupSummary` (생성·목록·참여 동일 형태). 초대 링크로 들어온 참여도 이 API 하나를 쓴다 — 링크는 코드 전달 수단일 뿐이라 **서버 API가 늘지 않는다** |
-| `getGroupDetail` | `GET /api/groups/{id}` | — | 상세 + `members[]`(**`nickname`** = 카카오 닉네임. 2026-07-14 이전의 `phone_number_masked`를 대체. 닉네임이 없으면 서버가 '이름 미설정'을 준다) + `pets[]` |
-| `attachPetToGroup` | `POST /api/groups/{id}/pets` | `{ pet_id }` | `{ message }` — 그룹 멤버이면서 펫 소유자만 |
-| `leaveGroup` / `deleteGroup` / `removeMember` / `detachPetFromGroup` | `DELETE /api/groups/{id}/members/me`, `DELETE /api/groups/{id}`, `DELETE /api/groups/{id}/members/{user_id}`, `DELETE /api/groups/{id}/pets/{pet_id}` | — | `{ message }`. 소유자 탈퇴 400("그룹 삭제로 진행" 안내), 비소유 삭제·제거 403, 비멤버는 404 (존재 은닉). 펫·급여 기록은 어떤 라우트에서도 삭제되지 않는다 (DATA_MODEL.md 17장) |
-| `createPet` / `getPets` / `updatePet` / `deletePet` | `POST·GET /api/pets`, `PUT·DELETE /api/pets/{id}` | `PetUpsertRequest` | `PetResponse` — `recommended_kcal`(RER×MER 서버 계산, `weight_kg` 없거나 `other` 종이면 null) 포함 (18장). 남의 펫은 404 (존재 은닉). 단건 조회 API 없음 — 상세 화면은 목록에서 찾는다 |
-| `createFeeding` / `getFeedings` | `POST·GET /api/pets/{id}/feedings` | `{ food_label, amount_g, kcal?, fed_at? }` | `FeedingResponse`. 권한 = 소유자 또는 펫이 참여한 그룹의 멤버 |
+| `getGroupDetail` | `GET /api/groups/{id}` | — | 상세 + `members[]`(**`nickname`** = 카카오 닉네임. 2026-07-14 이전의 `phone_number_masked`를 대체. 닉네임이 없으면 서버가 '이름 미설정'을 준다) + `pets[]`(서버 계약이라 파싱은 유지, 화면에는 그리지 않는다) |
+| `leaveGroup` / `deleteGroup` / `removeMember` | `DELETE /api/groups/{id}/members/me`, `DELETE /api/groups/{id}`, `DELETE /api/groups/{id}/members/{user_id}` | — | `{ message }`. 소유자 탈퇴 400("그룹 삭제로 진행" 안내), 비소유 삭제·제거 403, 비멤버는 404 (존재 은닉) (DATA_MODEL.md 17장) |
 | `getRecommendation` | `GET /api/recommendations?meal_type&date` | 쿼리 파라미터 | `{ meal_type, rec_date, items[], excluded[], cached, disclaimer }`. `excluded`는 판별 유니온(`allergen`/`condition`/`filtered`), `items`는 빈 배열 가능. 미동의 403 → `ConsentRequiredError`. `disclaimer`는 서버 문자열을 그대로 표시 |
 | `getTrends` | `GET /api/me/trends?start_date&end_date` | 쿼리 파라미터 (YYYY-MM-DD) | `{ start_date, end_date, target_kcal: number\|null, days[] }`. `days`는 범위 내 전 날짜 오름차순(빈 날 0). 역순·92일 초과는 400 + 한국어 `detail`. 체중은 포함하지 않음 — 앱이 `getWeights()`를 기간 필터해 병행 표시 (DATA_MODEL.md 15장) |
 | `estimateNutrition` (개정) | `POST /api/nutrition/estimate` | `{ food_label }` | 식약처 DB 유사도 검색(pg_trgm). 응답 `food_label`은 매칭된 DB 이름(요청과 다를 수 있음). 미매칭 404 → `NutritionNotFoundError` (수동 입력 유도) |
 | `checkFoodWarnings` | `POST /api/nutrition/warnings` | `{ food_labels }` (1~10개) | `{ warnings: [{ source: 'condition'\|'allergy', code, label, matched_keyword, matched_label }] }` — 해당 없으면 빈 배열. Bearer + sensitive_health 동의 필수(403). 기록 탭이 라벨 확정 시 백그라운드로 호출해 확정 카드에 경고 배너를 그린다 — 실패는 조용히 스킵, 저장은 막지 않는다 (DATA_MODEL.md 16장) |
 
-그룹·반려동물 계약의 정본은 `kcalAI-model/docs/DATA_MODEL.md` 9장, 그룹 라이프사이클(탈퇴·삭제·제거·해제)은 17장,
-회원 탈퇴·펫 권장 칼로리는 18장입니다.
+그룹 계약의 정본은 `kcalAI-model/docs/DATA_MODEL.md` 9장, 그룹 라이프사이클(탈퇴·삭제·제거·해제)은 17장,
+회원 탈퇴는 18장입니다.
+
+> **2026-08-18 — 반려동물은 앱에서 제거했습니다.** `app/pets/`·`components/pet-form.tsx`·
+> `services/pet-api.ts`와 `attachPetToGroup`·`detachPetFromGroup`을 삭제했습니다. 서버 테이블·
+> 라우트·`plans.max_pets`·`GroupDetail.pets[]`는 **그대로 있습니다** — 응답 파싱은 서버 계약이라
+> 유지하고 화면만 그리지 않습니다. 되살리려면 이 커밋을 되돌립니다. 판단 근거는
+> `docs/DESIGN.md`의 같은 날 행.
 끼니·체중·온보딩(`health-api.ts`, `onboarding-api.ts`, `meta-api.ts`)은 3~5·7·10장을 따릅니다.
 식단 추천(`recommendation-api.ts`)과 영양 조회 유사도·404 규약은 11·13장을 따릅니다.
 
