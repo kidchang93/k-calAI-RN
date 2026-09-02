@@ -1,5 +1,6 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
+import Head from 'expo-router/head';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
@@ -42,6 +43,13 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : NAV_THEME}>
+      {/* 브라우저 탭 제목. **`app/+html.tsx`의 <title>만으로는 안 된다** — expo-router 가
+          react-helmet 으로 문서 head 를 관리해서, 아무도 title 을 주지 않으면 빈 태그로
+          덮어쓴다(2026-08-18 운영에서 빈 제목 확인). Stack 의 `screenOptions.title` 도
+          헤더용이라 문서 제목으로 가지 않는다. 웹 전용이고 네이티브에서는 무시된다. */}
+      <Head>
+        <title>케어테이블</title>
+      </Head>
       <Stack initialRouteName="auth">
         <Stack.Screen name="auth" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

@@ -277,7 +277,7 @@ export default function AuthScreen() {
               source={require('@/assets/images/meal_care_logo.png')}
               style={styles.logoMark}
             />
-            <Text style={styles.kicker}>MEAL CARE</Text>
+            <Text style={styles.kicker}>CARE TABLE</Text>
             <Text style={styles.title}>
               {isSignup ? '거의 다 됐어요' : '카카오로\n식단 기록을 시작해요'}
             </Text>
@@ -468,7 +468,7 @@ function PlanCard({
         <Text style={styles.planCardPrice}>{formatPlanPrice(plan.price_krw)}</Text>
       </View>
       <Text style={styles.planCardDetail}>
-        {`사진 인식 하루 ${plan.daily_vision_quota}건 · 그룹 인원 ${plan.max_group_members}명 · 반려동물 ${plan.max_pets}마리`}
+        {`사진 인식 하루 ${plan.daily_vision_quota}건 · 함께 보기 ${plan.max_group_members}명`}
       </Text>
     </Pressable>
   );

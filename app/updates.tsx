@@ -25,7 +25,7 @@ export default function UpdatesScreen() {
 
           <View style={styles.header}>
             <Text style={styles.title}>업데이트 이력</Text>
-            <Text style={styles.subtitle}>밀케어가 어떻게 좋아지고 있는지 알려드려요.</Text>
+            <Text style={styles.subtitle}>케어테이블이 어떻게 좋아지고 있는지 알려드려요.</Text>
           </View>
 
           {CHANGELOG.length === 0 ? (

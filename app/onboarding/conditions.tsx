@@ -181,7 +181,7 @@ export default function ConditionsScreen() {
 
           <View style={styles.noteBox}>
             <Text style={styles.noteText}>
-              밀케어는 의료 서비스가 아닙니다. 진단·처방을 대신하지 않으며, 치료 중이라면 반드시
+              케어테이블은 의료 서비스가 아닙니다. 진단·처방을 대신하지 않으며, 치료 중이라면 반드시
               의료진과 상의하세요.
             </Text>
           </View>

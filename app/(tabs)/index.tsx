@@ -65,7 +65,7 @@ export default function RecordScreen() {
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.kicker}>MEAL CARE</Text>
+            <Text style={styles.kicker}>CARE TABLE</Text>
             <Text style={styles.title}>사진 한 장으로{'\n'}식단을 기록해요</Text>
           </View>
           <Image
