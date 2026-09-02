@@ -64,11 +64,6 @@ export default function GroupDetailScreen() {
 
     try {
       setDetail(await getGroupDetail(groupId));
-
-      // 내 반려동물 목록은 공유 진입점 표시에만 쓴다. 실패해도 상세 화면을 막지 않는다.
-      try {
-      } catch {
-      }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
@@ -76,7 +71,7 @@ export default function GroupDetailScreen() {
     }
   }, [groupId, isValidId]);
 
-  // 반려동물 등록 화면 등을 다녀왔을 때 갱신되도록 포커스마다 다시 읽는다 (홈 화면 패턴).
+  // 멤버 초대·제거 화면을 다녀왔을 때 갱신되도록 포커스마다 다시 읽는다 (홈 화면 패턴).
   useFocusEffect(
     useCallback(() => {
       void loadDetail();
@@ -104,7 +99,7 @@ export default function GroupDetailScreen() {
   const confirmLeave = async (group: GroupDetail) => {
     const confirmed = await confirmDialog({
       title: '그룹 나가기',
-      message: `'${group.name}' 그룹에서 나갈까요? 공유한 반려동물도 함께 빠져요.`,
+      message: `'${group.name}' 그룹에서 나갈까요?`,
       confirmLabel: '나가기',
       destructive: true,
     });
@@ -131,7 +126,7 @@ export default function GroupDetailScreen() {
   const confirmDeleteGroup = async (group: GroupDetail) => {
     const confirmed = await confirmDialog({
       title: '그룹 삭제',
-      message: `'${group.name}' 그룹을 삭제할까요? 멤버·반려동물 참여가 모두 해제되며 되돌릴 수 없습니다.`,
+      message: `'${group.name}' 그룹을 삭제할까요? 멤버 참여가 모두 해제되며 되돌릴 수 없습니다.`,
       confirmLabel: '삭제',
       destructive: true,
     });
@@ -157,7 +152,7 @@ export default function GroupDetailScreen() {
   const confirmRemoveMember = async (member: GroupMemberItem) => {
     const confirmed = await confirmDialog({
       title: '멤버 제거',
-      message: `${member.nickname} 님을 그룹에서 제거할까요? 이 멤버가 공유한 반려동물도 함께 빠져요.`,
+      message: `${member.nickname} 님을 그룹에서 제거할까요?`,
       confirmLabel: '제거',
       destructive: true,
     });
@@ -254,10 +249,6 @@ export default function GroupDetailScreen() {
 
               {/* 운동 챌린지는 2026-07-25에 숨겼다 — 목표와 연결점이 없고 사용 1건(테스트)뿐.
                   삭제가 아니라 숨김이라 서버 API·컴포넌트는 남아 있다 (docs/DESIGN.md). */}
-
-              {/* 반려동물 관련 섹션(함께하는 반려동물 · 공유하기)은 2026-07-25에 숨겼다 —
-                  내 정보의 진입점과 같은 이유다. 삭제가 아니라 숨김이라 서버 API 와 화면은
-                  그대로 있다 (docs/DESIGN.md). */}
 
               <View style={styles.section}>
                 {isOwner ? (

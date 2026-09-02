@@ -8,7 +8,7 @@ import { apiFetch, readErrorMessage } from '@/services/http';
 //
 // status는 'ready' | 'done' | 'failed' | 'canceled'이지만, 결제 상태는 서버가 정본이라
 // 요금제 code처럼 유니온으로 굳히지 않는다 — 값이 늘어도 앱을 함께 배포하지 않도록 string으로 받는다.
-// amount는 Numeric 직렬화가 계약이지만 pet-api와 같은 이유로 유한수로 강제 변환해 받는다.
+// amount는 Numeric 직렬화가 계약이지만, 문자열·NaN 이 화면에 새지 않도록 유한수로 강제 변환해 받는다.
 
 export type PaymentItem = {
   id: number;

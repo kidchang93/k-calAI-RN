@@ -95,20 +95,6 @@ export async function getGroupDetail(groupId: number): Promise<GroupDetail> {
   return ensure(parseGroupDetail(await parseOk(response, '그룹 조회 실패')));
 }
 
-// 그룹 멤버이면서 펫 소유자만 가능하다. 멤버 아님 403, 펫 없음/남의 펫 404, 이미 참여 400.
-export async function attachPetToGroup(groupId: number, petId: number): Promise<void> {
-  const response = await apiFetch(`${GROUP_API_URL}/${groupId}/pets`, {
-    method: 'POST',
-    headers: JSON_HEADERS,
-    body: JSON.stringify({ pet_id: petId }),
-  });
-
-  if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `반려동물 공유 실패: ${response.status}`);
-  }
-}
-
 // ── 그룹 라이프사이클 (DATA_MODEL.md 17장) ──────────────────────────────────
 // 파괴적 라우트는 비멤버에게 404로 존재를 숨긴다. 서버 detail은 한국어라
 // 화면이 error.message를 Alert로 그대로 보여준다.
@@ -146,18 +132,6 @@ export async function removeMember(groupId: number, userId: number): Promise<voi
   if (!response.ok) {
     const message = await readErrorMessage(response);
     throw new Error(message || `멤버 제거 실패: ${response.status}`);
-  }
-}
-
-// 펫 참여 해제. 펫 소유자 또는 그룹 소유자만 — 그 외 멤버 403, 미참여 펫 404.
-export async function detachPetFromGroup(groupId: number, petId: number): Promise<void> {
-  const response = await apiFetch(`${GROUP_API_URL}/${groupId}/pets/${petId}`, {
-    method: 'DELETE',
-  });
-
-  if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `반려동물 참여 해제 실패: ${response.status}`);
   }
 }
 

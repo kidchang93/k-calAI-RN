@@ -165,7 +165,7 @@ export default function PlanScreen() {
 
           <View style={styles.header}>
             <Text style={styles.title}>요금제</Text>
-            <Text style={styles.subtitle}>사진 인식 건수와 그룹·반려동물 한도가 달라져요.</Text>
+            <Text style={styles.subtitle}>사진 인식 건수와 함께 보기 인원이 달라져요.</Text>
           </View>
 
           {errorMessage ? (
@@ -320,9 +320,8 @@ function PlanCompareCard({
 
       <View style={styles.planSpecs}>
         <PlanSpec label="사진 인식" value={`하루 ${plan.daily_vision_quota}건`} />
-        <PlanSpec label="그룹 인원" value={`본인 외 ${plan.max_group_members}명`} />
-        <PlanSpec label="그룹 개수" value={`${plan.max_owned_groups}개`} />
-        <PlanSpec label="반려동물" value={`${plan.max_pets}마리`} />
+        <PlanSpec label="함께 보기" value={`본인 외 ${plan.max_group_members}명`} />
+        <PlanSpec label="함께 보기 그룹" value={`${plan.max_owned_groups}개`} />
       </View>
 
       {isCurrent ? (

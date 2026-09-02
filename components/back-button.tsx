@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
-// 그룹·반려동물처럼 탭 밖 스택 화면의 상단 뒤로가기.
+// 그룹·요금제처럼 탭 밖 스택 화면의 상단 뒤로가기.
 // 네이티브 헤더를 쓰지 않는 화면 관례(headerShown: false)를 유지하면서 되돌아갈 길을 만든다.
 export function BackButton() {
   const router = useRouter();

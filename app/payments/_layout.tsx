@@ -3,7 +3,7 @@ import { Redirect, Stack } from 'expo-router';
 import { SessionLoading } from '@/components/session-loading';
 import { useAuthSession } from '@/services/auth-session';
 
-// 결제 내역 화면은 인증된 사용자만 진입한다 (반려동물 레이아웃과 같은 선언형 가드 규칙).
+// 결제 내역 화면은 인증된 사용자만 진입한다 (그룹 레이아웃과 같은 선언형 가드 규칙).
 export default function PaymentsLayout() {
   const authState = useAuthSession();
 
