@@ -115,11 +115,15 @@ export default function ConsentsScreen() {
                        확인 없이 통과한다 (결제 해지 확인과 같은 규칙). */
                     <View style={styles.confirmBox}>
                       <Text style={styles.confirmTitle}>동의를 철회할까요?</Text>
+                      {/* **파기 범위가 바뀌면 이 문구도 함께 바꾼다** (2026-08-19).
+                          서버가 지우는 목록은 `services/consent_service._destroy_sensitive_data`
+                          이고, 사용자가 무엇을 잃는지 모르고 누르면 고지의 의미가 없다. */}
                       <Text style={styles.confirmText}>
-                        입력한 혈액형·질병·알러지 정보가 <Text style={styles.confirmStrong}>즉시
-                        삭제</Text>되고 되돌릴 수 없어요. 식단 추천은 개인 맞춤 없이 일반 가이드로
-                        제공되고, 기록할 때 알러지 경고도 뜨지 않아요. 사진 기록과 칼로리 계산은
-                        그대로 쓸 수 있어요.
+                        입력한 혈액형·질병·알러지와 <Text style={styles.confirmStrong}>기록해 둔
+                        검사 수치, 진료에서 들은 메모</Text>가 <Text style={styles.confirmStrong}>즉시
+                        삭제</Text>되고 되돌릴 수 없어요. 다시 동의해도 복구되지 않습니다.
+                        식단 추천은 개인 맞춤 없이 일반 가이드로 제공되고, 기록할 때 알러지·질환
+                        경고도 뜨지 않아요. 사진 기록과 칼로리 계산, 진료 일정은 그대로 쓸 수 있어요.
                       </Text>
                       <View style={styles.confirmActions}>
                         <Pressable

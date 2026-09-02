@@ -122,7 +122,7 @@ export default function RecommendationsScreen() {
           <BackButton />
 
           <View style={styles.header}>
-            <Text style={styles.title}>{`${MEAL_TYPE_LABELS[mealType]} 추천`}</Text>
+            <Text style={styles.title}>{`${MEAL_TYPE_LABELS[mealType]}, 기준에 맞는 메뉴`}</Text>
             <Text style={styles.subtitle}>남은 칼로리와 건강 정보에 맞춰 오늘의 메뉴를 골라드려요.</Text>
           </View>
 
@@ -135,7 +135,7 @@ export default function RecommendationsScreen() {
           {isLoading ? (
             <View style={styles.stateBox}>
               <ActivityIndicator color="#2a7d76" />
-              <Text style={styles.stateText}>추천 메뉴를 불러오는 중입니다.</Text>
+              <Text style={styles.stateText}>메뉴를 불러오는 중입니다.</Text>
             </View>
           ) : errorMessage ? (
             <View style={styles.errorBox}>
@@ -170,7 +170,7 @@ export default function RecommendationsScreen() {
               {recommendation.items.length === 0 ? (
                 <View style={styles.emptyCard}>
                   <MaterialIcons color="#a9a6a1" name="search-off" size={32} />
-                  <Text style={styles.emptyTitle}>추천할 메뉴를 찾지 못했어요</Text>
+                  <Text style={styles.emptyTitle}>조건에 맞는 메뉴를 찾지 못했어요</Text>
                   <Text style={styles.emptyText}>
                     제외 조건과 남은 칼로리 안에서 고를 수 있는 메뉴가 없습니다. 다른 끼니를
                     선택해보세요.

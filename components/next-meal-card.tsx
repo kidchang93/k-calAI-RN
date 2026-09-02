@@ -42,8 +42,11 @@ export function NextMealCard({
         <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
       </View>
 
+      {/* "골라드려요"는 우리가 정해 준다는 뜻이라 이 앱의 원칙(판단을 대행하지 않고 근거를
+          남긴다 — 서버 `PRODUCT_STRATEGY.md` §0-1)과 어긋난다. 고르는 사람은 사용자이고
+          우리는 기준에 맞는 후보를 보여줄 뿐이다 (2026-08-19). */}
       {preview.length === 0 ? (
-        <Text style={styles.subtitle}>남은 칼로리와 건강 정보에 맞춰 골라드려요.</Text>
+        <Text style={styles.subtitle}>남은 칼로리와 내 질환 기준에 맞는 메뉴예요.</Text>
       ) : (
         <>
           <View style={styles.itemList}>

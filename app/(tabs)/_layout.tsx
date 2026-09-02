@@ -89,13 +89,15 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="camera.fill" color={color} />,
         }}
       />
+      {/* '리포트' → '진료' (2026-08-19). 담긴 것이 먼저 바뀌고 이름이 따라왔다 —
+          다음 진료일·검사 수치·식단 추이·진료용 리포트가 모두 진료를 향한 행동이라,
+          '리포트'라는 이름은 그중 하나만 가리켰다 (서버 `docs/CARE_LOOP.md` §7).
+          라우트 이름(`trends`)은 그대로다: URL 이 바뀌면 저장해 둔 링크가 깨진다. */}
       <Tabs.Screen
         name="trends"
         options={{
-          title: '리포트',
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="chart.line.uptrend.xyaxis" color={color} />
-          ),
+          title: '진료',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="stethoscope" color={color} />,
         }}
       />
       <Tabs.Screen

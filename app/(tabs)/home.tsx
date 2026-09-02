@@ -18,6 +18,7 @@ import { NextMealCard } from '@/components/next-meal-card';
 import { ProgressRing } from '@/components/progress-ring';
 import { GuideSummary, listGuides } from '@/services/guide-api';
 import { consumePendingInvite } from '@/services/group-invite';
+import { daysUntil, getNextVisit } from '@/services/visit-api';
 import { DaySummary, formatDateParam, getSummary, MealBreakdown, MealType } from '@/services/health-api';
 import {
   DietRecommendation,
@@ -47,6 +48,8 @@ export default function HomeScreen() {
   const [mealType] = useState<MealType>(() => nextMealType());
   // 질환 가이드 진입점. 콘텐츠는 지침이 바뀔 때만 바뀌므로 마운트 1회만 읽는다.
   const [guides, setGuides] = useState<GuideSummary[]>([]);
+  // 다음 진료일. 등록돼 있을 때만 한 줄 나타난다 — 없는 사람의 홈을 어지럽히지 않는다.
+  const [visitDate, setVisitDate] = useState<string | null>(null);
 
   const loadSummary = useCallback(async () => {
     setIsLoading(true);
@@ -77,6 +80,11 @@ export default function HomeScreen() {
   // 기록 탭에서 끼니를 저장하고 돌아왔을 때 합계를 갱신하기 위함이다.
   useFocusEffect(
     useCallback(() => {
+      void getNextVisit()
+        .then((visit) => setVisitDate(visit.scheduled_on))
+        // 진료일은 부가 정보다 — 실패해도 홈의 나머지를 막지 않는다.
+        .catch(() => setVisitDate(null));
+
       void loadSummary();
     }, [loadSummary])
   );
@@ -126,6 +134,11 @@ export default function HomeScreen() {
             <Text style={styles.title}>오늘</Text>
             <Text style={styles.subtitle}>오늘의 섭취량과 목표를 확인하세요.</Text>
           </View>
+
+          {/* 다음 진료까지 남은 날. **오늘 기록해야 할 이유가 여기서 나온다** — 케어 루프는
+              진료와 진료 사이 한 바퀴이고(서버 `CARE_LOOP.md` §1), 그 끝이 보여야 기록이
+              쌓이는 이유가 생긴다. 등록하지 않았으면 아무것도 그리지 않는다. */}
+          <VisitStrip scheduledOn={visitDate} onPress={() => router.push('/(tabs)/trends')} />
 
           {isLoading ? (
             <View style={styles.stateBox}>
@@ -195,8 +208,8 @@ export default function HomeScreen() {
             style={({ pressed }) => [styles.groupRow, pressed && styles.pressed]}>
             <MaterialIcons color="#2a7d76" name="groups" size={24} />
             <View style={styles.groupRowBody}>
-              <Text style={styles.groupRowTitle}>내 그룹</Text>
-              <Text style={styles.groupRowText}>가족·친구와 함께 기록해요</Text>
+              <Text style={styles.groupRowTitle}>함께 보기</Text>
+              <Text style={styles.groupRowText}>보호자·가족과 식생활을 함께 확인해요</Text>
             </View>
             <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
           </Pressable>
@@ -205,6 +218,45 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+// 다음 진료까지 남은 날 한 줄. 등록되지 않았으면 **아무것도 그리지 않는다** — 진료일이 없는
+// 사람에게 빈 안내를 띄우면 홈이 할 일 목록이 된다. 등록 유도는 진료 탭이 맡는다.
+function VisitStrip({
+  scheduledOn,
+  onPress,
+}: {
+  scheduledOn: string | null;
+  onPress: () => void;
+}) {
+  if (scheduledOn === null) {
+    return null;
+  }
+
+  const remaining = daysUntil(scheduledOn);
+
+  if (remaining === null) {
+    return null;
+  }
+
+  // 지난 날짜는 조용히 숨긴다. "지났어요"를 홈에 계속 띄우면 잔소리가 되고, 갱신은
+  // 진료 탭에서 하면 된다.
+  if (remaining < 0) {
+    return null;
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.visitStrip, pressed && styles.pressed]}>
+      <MaterialIcons color="#2a7d76" name="event" size={18} />
+      <Text style={styles.visitStripText}>
+        {remaining === 0 ? '오늘 진료가 있어요' : `다음 진료까지 ${remaining}일`}
+      </Text>
+      <Text style={styles.visitStripLink}>기록 정리</Text>
+      <MaterialIcons color="#a9a6a1" name="chevron-right" size={18} />
+    </Pressable>
   );
 }
 
@@ -246,6 +298,26 @@ function MealCards({ meals, onPressMeal }: { meals: MealBreakdown; onPressMeal: 
 }
 
 const styles = StyleSheet.create({
+  visitStrip: {
+    alignItems: 'center',
+    backgroundColor: '#e4f1ef',
+    borderRadius: 10,
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  visitStripText: {
+    color: '#22211f',
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  visitStripLink: {
+    color: '#2a7d76',
+    fontSize: 13,
+    fontWeight: '700',
+  },
   container: {
     alignSelf: 'center',
     gap: 20,

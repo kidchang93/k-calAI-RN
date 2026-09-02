@@ -102,7 +102,7 @@ export function KcalCalendar({
             const isSelected = cell.date === selectedDate;
             const isToday = cell.date === todayDate;
             const isFuture = cell.date > todayDate;
-            // 목표가 있으면 초과분을 빨강으로 — 리포트 탭 막대 차트와 같은 규칙.
+            // 목표가 있으면 초과분을 빨강으로 — 진료 탭 막대 차트와 같은 규칙.
             const isOver = targetKcal !== null && cell.kcal > targetKcal;
 
             return (

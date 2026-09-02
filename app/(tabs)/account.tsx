@@ -11,12 +11,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BodyMetrics } from '@/components/body-metrics';
 import { ErrorBanner } from '@/components/error-banner';
-import { WeeklyCoaching } from '@/components/weekly-coaching';
 import { logout } from '@/services/auth-api';
 import { clearAuthSession } from '@/services/auth-session';
-import { Coaching, getWeeklyCoaching } from '@/services/coaching-api';
 import { confirmDialog, notifyDialog } from '@/services/dialog';
 import {
   ActivityLevel,
@@ -46,8 +43,6 @@ export default function AccountScreen() {
   const router = useRouter();
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [goal, setGoal] = useState<GoalResponse | null>(null);
-  // 주간 조언. 동의가 없으면(403) 조용히 비운다 — 내 정보 전체를 막지 않는다.
-  const [coaching, setCoaching] = useState<Coaching | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -58,15 +53,10 @@ export default function AccountScreen() {
     setErrorMessage(null);
 
     try {
-      const [profileResult, goalResult, coachingResult] = await Promise.all([
-        getProfile(),
-        getGoal(),
-        // 조언은 sensitive_health 동의가 필요하다. 없으면 카드만 빠지고 나머지는 그대로 보인다.
-        getWeeklyCoaching().catch(() => null),
-      ]);
+      const [profileResult, goalResult] = await Promise.all([getProfile(), getGoal()]);
+
       setProfile(profileResult);
       setGoal(goalResult);
-      setCoaching(coachingResult);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
@@ -123,7 +113,7 @@ export default function AccountScreen() {
 
     const confirmed = await confirmDialog({
       title: '마지막 확인',
-      message: '모든 끼니·체중 기록, 반려동물, 소유한 그룹이 영구 삭제됩니다. 되돌릴 수 없습니다.',
+      message: '모든 끼니·체중·검사 수치 기록과 소유한 그룹이 영구 삭제됩니다. 되돌릴 수 없습니다.',
       confirmLabel: '영구 삭제',
       destructive: true,
     });
@@ -202,22 +192,11 @@ export default function AccountScreen() {
                 </View>
                 <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
               </Pressable>
-
-              {/* BMI·권장 활동량은 리포트가 아니라 여기에 둔다 (2026-07-23). 매일 바뀌는 값이
-                  아니라 프로필에 딸린 내 몸 정보이고, 리포트는 "오늘·이번 주 무엇을 했나"에
-                  집중시킨다. 프로필이 없으면 컴포넌트가 스스로 사라진다. */}
-              <BodyMetrics profile={profile} />
             </View>
           )}
 
-          {/* 이번 주 코칭은 리포트가 아니라 여기에 둔다 (2026-07-25). 리포트는 숫자를 보는
-              곳이고, 조언은 그 숫자가 아니라 **내 기준**에 붙는 말이다 — 바로 위 몸 지표가
-              "권장 주 150분"을 말하면 이 카드가 "이번 주 0분"이라 답한다. 기준과 현황이
-              한 화면에 있어야 조언이 근거를 갖는다. 조언이 없거나 미동의(403)면 사라진다. */}
-          <WeeklyCoaching
-            coaching={coaching}
-            shownNotice={profile?.activity_guide?.notice ?? null}
-          />
+          {/* 체성분·권장 활동량과 주간 조언은 2026-08-19 에 **진료 탭으로 옮겼다.**
+              내 정보는 계정·설정을 보는 곳인데 판단 자료가 섞여 있었다 (docs/DESIGN.md). */}
 
           <View style={styles.section}>
             <Pressable
@@ -233,14 +212,6 @@ export default function AccountScreen() {
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
               <MaterialIcons color="#5c5b57" name="receipt-long" size={20} />
               <Text style={styles.rowLabel}>결제 내역</Text>
-              <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
-            </Pressable>
-
-            <Pressable
-              onPress={() => router.push('/me/weights')}
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-              <MaterialIcons color="#5c5b57" name="monitor-weight" size={20} />
-              <Text style={styles.rowLabel}>체중 기록</Text>
               <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
             </Pressable>
 
@@ -269,10 +240,6 @@ export default function AccountScreen() {
               <Text style={styles.rowLabel}>동의 관리</Text>
               <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
             </Pressable>
-
-            {/* 반려동물 진입점은 2026-07-25에 숨겼다 — 이 앱의 목표(식이요법이 필요한
-                사람의 판단 근거)와 연결점이 없고 사용 0건인데 화면·문서 비용을 계속 냈다.
-                **삭제가 아니라 숨김**이라 데이터·API·화면은 그대로 있다 (docs/DESIGN.md). */}
 
             <Pressable
               onPress={() => router.push('/updates')}

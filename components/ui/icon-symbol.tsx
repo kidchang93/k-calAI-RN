@@ -19,6 +19,9 @@ const MAPPING = {
   'camera.fill': 'photo-camera',
   'chart.bar.fill': 'bar-chart',
   'chart.line.uptrend.xyaxis': 'show-chart',
+  // 진료 탭 (2026-08-19). 이 탭은 추이만 보는 곳이 아니라 진료를 준비하는 곳이라
+  // 그래프 아이콘으로는 성격이 드러나지 않는다.
+  stethoscope: 'medical-services',
   'person.fill': 'person',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
