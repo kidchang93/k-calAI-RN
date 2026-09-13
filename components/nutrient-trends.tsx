@@ -74,17 +74,19 @@ function AxisCard({ axis }: { axis: NutrientTrendAxis }) {
 
       {/* 상한이 있는 축(나트륨)만 "며칠 넘었나"를 셀 수 있다. 칼륨·인은 지침이 혈청 수치
           기반 개인화라 상한 자체가 없다 — 여기서 임의 기준을 만들면 처방이 된다. */}
+      {/* 0일일 때 체크 표시를 쓰지 않는다 — 합격 도장으로 읽혀 문구가 사실을 말해도 그림이
+          판정을 한다(KCAL-16). 색은 눈에 띄라고 남긴다. */}
       {axis.limit_mg !== null && axis.days_over_limit !== null ? (
         <View style={styles.summaryRow}>
           <MaterialIcons
             color={axis.days_over_limit > 0 ? '#b8524e' : '#2a7d76'}
-            name={axis.days_over_limit > 0 ? 'info' : 'check-circle'}
+            name="info-outline"
             size={16}
           />
           <Text style={styles.summaryText}>
             {axis.recorded_days === 0
               ? '기록한 날이 없어요'
-              : `기록한 ${axis.recorded_days}일 중 ${axis.days_over_limit}일이 하루 기준을 넘었어요`}
+              : `기록한 ${axis.recorded_days}일 중 ${axis.days_over_limit}일이 하루 기준보다 많았어요`}
           </Text>
         </View>
       ) : null}

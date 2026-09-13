@@ -146,12 +146,16 @@ function ReportBody({ report }: { report: MedicalReport }) {
                   ? `기록일 평균 ${Math.round(axis.average_mg).toLocaleString()} mg`
                   : '기록 없음'}
               </Text>
+              {/* 의료진이 보는 종이라 **누가 그은 선인지**를 같은 줄에 적는다. "N일 초과"만
+                  남기면 앱이 환자를 판정한 기록으로 읽힌다 (KCAL-16). */}
               <Text style={styles.axisNote}>
                 {axis.limit_mg !== null && axis.days_over_limit !== null
-                  ? `기준 ${axis.limit_mg.toLocaleString()} mg · ${axis.days_over_limit}일 초과`
+                  ? `${axis.basis ?? `기준 ${axis.limit_mg.toLocaleString()} mg`} · 기준보다 많았던 날 ${axis.days_over_limit}일`
                   : axis.reference_mg !== null
-                    ? `참고치 ${axis.reference_mg.toLocaleString()} mg`
-                    : '기준 없음'}
+                    ? (axis.basis ?? `참고치 ${axis.reference_mg.toLocaleString()} mg`)
+                    : // "기준 없음"은 기준이 없는 것으로 읽힌다. 실제로는 지침이 하루 상한 대신 혈액검사
+                      // 기반 개인화를 권한다(서버 CKD_NUTRITION 3-6) — 그 사실을 적는다.
+                      '하루 상한 없음 · 혈액검사 수치에 따라 개인별로 정함'}
               </Text>
             </View>
           ))}

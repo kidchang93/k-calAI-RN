@@ -260,8 +260,8 @@ export default function TrendsScreen() {
       avgKcal: recorded.length > 0 ? Math.round(totalKcal / recorded.length) : 0,
       recordedDays: recorded.length,
       totalDays: trends.days.length,
-      // 목표 미설정(null)이면 달성일도 계산하지 않는다. 0으로 취급하면 전 일수가 "달성"이 된다.
-      achievedDays:
+      // 목표 미설정(null)이면 세지 않는다. 0으로 취급하면 전 일수가 목표 이내로 잡힌다.
+      withinTargetDays:
         target !== null
           ? recorded.filter((day) => day.consumed_kcal <= target).length
           : null,
@@ -428,10 +428,10 @@ export default function TrendsScreen() {
                         label="기록한 날"
                         value={`${summary.recordedDays} / ${summary.totalDays}일`}
                       />
-                      {summary.achievedDays !== null ? (
+                      {summary.withinTargetDays !== null ? (
                         <SummaryStat
-                          label="목표 달성"
-                          value={`${summary.achievedDays} / ${summary.recordedDays}일`}
+                          label="목표 이내"
+                          value={`${summary.withinTargetDays} / ${summary.recordedDays}일`}
                         />
                       ) : (
                         <SummaryStat label="목표" value="미설정" />
@@ -935,7 +935,7 @@ function KcalBarChart({
           <View style={styles.legendDot} />
           <Text style={styles.legendText}>목표 이내</Text>
           <View style={styles.legendDotOver} />
-          <Text style={styles.legendText}>목표 초과</Text>
+          <Text style={styles.legendText}>목표 위</Text>
         </View>
       ) : null}
     </View>

@@ -335,7 +335,7 @@ function WeeklySummaryCard({
           ) : null}
           {summary.achieved ? (
             <View style={styles.achievedChip}>
-              <Text style={styles.achievedText}>목표 달성</Text>
+              <Text style={styles.achievedText}>목표만큼 했어요</Text>
             </View>
           ) : null}
         </View>

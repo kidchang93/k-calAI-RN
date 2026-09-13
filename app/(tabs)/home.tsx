@@ -272,7 +272,7 @@ function SummaryRing({ targetKcal, consumedKcal }: { targetKcal: number; consume
         size={220}
         strokeWidth={18}>
         <Text style={styles.ringValue}>{Math.abs(remaining).toLocaleString()}</Text>
-        <Text style={styles.ringLabel}>{isOver ? '초과 kcal' : '남은 kcal'}</Text>
+        <Text style={styles.ringLabel}>{isOver ? '목표보다 많은 kcal' : '남은 kcal'}</Text>
       </ProgressRing>
       <Text style={styles.ringSummary}>
         {`오늘 ${consumedKcal.toLocaleString()} / ${targetKcal.toLocaleString()} kcal`}
