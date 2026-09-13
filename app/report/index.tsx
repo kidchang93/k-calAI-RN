@@ -225,6 +225,12 @@ function ReportBody({ report }: { report: MedicalReport }) {
       </View>
 
       <Text style={styles.docNotice}>{report.notice}</Text>
+      {/* 인쇄·PDF 로 **앱 밖에 나가는 결과물**이라 AI 가 관여한 부분을 종이에도 남긴다(AI기본법 제31조②,
+          KCAL-17). 음식명은 사용자가 확인했더라도 출발점이 AI 인식이다. */}
+      <Text style={styles.docNotice}>
+        사진으로 기록한 음식명은 생성형 AI(Google Gemini)가 인식한 뒤 사용자가 확인한 것이며, 식약처 DB에
+        없는 일부 음식의 칼로리는 생성형 AI가 추정한 값입니다.
+      </Text>
 
       {/* 이 문서는 **진료실에서 의료진이 보는 종이**가 된다. 인쇄물에 최종 판단자가 누구인지
           적혀 있지 않으면, 우리가 낸 수치가 판단처럼 읽힐 여지가 남는다 (Apple 1.4.1 이

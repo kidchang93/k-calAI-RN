@@ -10,6 +10,7 @@ import { DayNutrientsCard } from '@/components/day-nutrients-card';
 import { ErrorBanner } from '@/components/error-banner';
 import { NutrientChip, NutrientChips } from '@/components/nutrient-chips';
 import { QuantityEditor, QuantityValue } from '@/components/quantity-editor';
+import { INTAKE_ESTIMATE_NOTICE } from '@/constants/ai-notice';
 import { NUTRIENT_LABELS } from '@/constants/nutrition';
 import { formatFoodLabel } from '@/services/food-label';
 import { confirmDialog } from '@/services/dialog';
@@ -424,7 +425,11 @@ export default function MealListScreen() {
                     meal.items.map((item) => (
                       <View key={item.id} style={styles.itemBlock}>
                         <View style={styles.itemRow}>
-                          <Text style={styles.itemLabel}>{formatFoodLabel(item.food_label)}</Text>
+                          <Text style={styles.itemLabel}>
+                            {formatFoodLabel(item.food_label)}
+                            {/* AI기본법 제31조② — 사진 인식으로 담은 항목은 지난 기록에서도 밝힌다. */}
+                            {item.source === 'ai' ? <Text style={styles.aiTag}>{'  AI 인식'}</Text> : null}
+                          </Text>
                           <Text style={styles.itemMeta}>
                             {`${item.serving_ratio}인분 · ${item.kcal.toLocaleString()} kcal`}
                           </Text>
@@ -438,7 +443,7 @@ export default function MealListScreen() {
             </View>
           )}
 
-          <Text style={styles.disclaimer}>AI 추정값이며 실제와 다를 수 있습니다.</Text>
+          <Text style={styles.disclaimer}>{INTAKE_ESTIMATE_NOTICE}</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -569,6 +574,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 24,
+  },
+  aiTag: {
+    color: '#2a7d76',
+    fontSize: 11,
+    fontWeight: '800',
   },
   itemLabel: {
     color: '#22211f',

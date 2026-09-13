@@ -17,6 +17,7 @@ import { MealTypeCard } from '@/components/meal-type-card';
 import { NextMealCard } from '@/components/next-meal-card';
 import { ProgressRing } from '@/components/progress-ring';
 import { YesterdayCard } from '@/components/yesterday-card';
+import { INTAKE_ESTIMATE_NOTICE } from '@/constants/ai-notice';
 import { GuideSummary, listGuides } from '@/services/guide-api';
 import { consumePendingInvite } from '@/services/group-invite';
 import { daysUntil, getNextVisit } from '@/services/visit-api';
@@ -257,7 +258,7 @@ export default function HomeScreen() {
             <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
           </Pressable>
 
-          <Text style={styles.disclaimer}>AI 추정값이며 실제와 다를 수 있습니다.</Text>
+          <Text style={styles.disclaimer}>{INTAKE_ESTIMATE_NOTICE}</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

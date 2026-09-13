@@ -17,6 +17,7 @@ import { KcalCalendar } from '@/components/kcal-calendar';
 import { NutrientTrends } from '@/components/nutrient-trends';
 import { Segmented } from '@/components/segmented';
 import { WeeklyCoaching } from '@/components/weekly-coaching';
+import { INTAKE_ESTIMATE_NOTICE } from '@/constants/ai-notice';
 import { Coaching, getWeeklyCoaching } from '@/services/coaching-api';
 import { confirmDialog } from '@/services/dialog';
 import { formatFoodLabel } from '@/services/food-label';
@@ -482,7 +483,11 @@ export default function TrendsScreen() {
                 shownNotice={profile?.activity_guide?.notice ?? null}
               />
 
-              <Text style={styles.disclaimer}>AI 추정값이며 실제와 다를 수 있습니다.</Text>
+              {/* 이 탭의 수치는 AI 가 만든 것이 아니다 — 섭취량은 식약처 DB, 체성분·조언은 입력값으로
+                  계산한다. 예전 "AI 추정값" 문구는 사실과 달랐다(KCAL-17). */}
+              <Text style={styles.disclaimer}>
+                {`${INTAKE_ESTIMATE_NOTICE} 체성분·권장 활동량·주간 조언은 입력한 키·몸무게와 기록으로 계산한 참고 정보입니다.`}
+              </Text>
             </>
           ) : null}
         </View>

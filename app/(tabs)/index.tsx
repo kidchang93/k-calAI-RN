@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AI_USE_NOTICE } from '@/constants/ai-notice';
 import { notifyDialog } from '@/services/dialog';
 import { formatDateParam } from '@/services/health-api';
 import { readPhotoTakenAt } from '@/services/photo-time';
@@ -88,8 +89,8 @@ export default function RecordScreen() {
         <View style={styles.introCard}>
           <Text style={styles.introTitle}>한 끼에 여러 메뉴도 담을 수 있어요</Text>
           <Text style={styles.introText}>
-            사진을 고른 뒤 분석을 누르면 음식을 인식해 담아드려요. 검색이나 직접 입력으로 메뉴를
-            더 추가할 수도 있어요.
+            사진을 고른 뒤 분석을 누르면 생성형 AI(Google Gemini)가 음식을 인식해 담아드려요.
+            검색이나 직접 입력으로 메뉴를 더 추가할 수도 있어요.
           </Text>
         </View>
 
@@ -105,7 +106,8 @@ export default function RecordScreen() {
           <Text style={styles.secondaryButtonText}>검색·직접 입력으로 추가</Text>
         </Pressable>
 
-        <Text style={styles.disclaimer}>AI 추정값이며 실제와 다를 수 있습니다.</Text>
+        {/* AI기본법 제31조① 사전고지 — 사진 기록을 시작하기 전 화면이다 (constants/ai-notice.ts). */}
+        <Text style={styles.disclaimer}>{AI_USE_NOTICE}</Text>
       </ScrollView>
     </SafeAreaView>
   );

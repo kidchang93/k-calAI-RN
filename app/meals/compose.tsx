@@ -21,6 +21,7 @@ import { MedicalDisclaimer } from '@/components/medical-disclaimer';
 import { PlanLimitBanner } from '@/components/plan-limit-banner';
 import { QuantityEditor, QuantityValue } from '@/components/quantity-editor';
 import { NutrientChip, NutrientChips } from '@/components/nutrient-chips';
+import { AI_USE_NOTICE } from '@/constants/ai-notice';
 import { NUTRIENT_LABELS, NUTRIENT_TIER_LABELS } from '@/constants/nutrition';
 import { FoodDetection, PhotoAsset, uploadFoodPhoto } from '@/services/calorie-api';
 import { notifyDialog } from '@/services/dialog';
@@ -81,6 +82,9 @@ type Draft = QuantityValue & {
   // 1인분 기준 실측 나트륨·칼륨·인 (estimate 응답). 표시할 때 선택한 양을 곱한다.
   // 미측정·AI 추정 음식이면 null — 그때는 칩을 그리지 않는다.
   nutrients: DraftNutrients | null;
+  // 칼로리가 식약처 DB 실측이 아니라 생성형 AI 추정값인가 (estimate 응답 source === 'llm').
+  // 사용자가 칼로리를 직접 고치면 그 값은 사용자 값이라 false 로 내린다.
+  aiEstimatedKcal: boolean;
 };
 
 type DraftNutrients = {
@@ -311,7 +315,23 @@ export default function MealComposeScreen() {
   // QuantityEditor가 양 편집(이름·kcal·인분/g·basePerServing 절대계산)을 마친 값을 그대로 병합한다.
   // key·source·confidence·portion_g는 QuantityValue 밖이라 보존된다.
   const applyQuantity = (key: string, next: QuantityValue) => {
-    setDrafts((prev) => prev.map((draft) => (draft.key === key ? { ...draft, ...next } : draft)));
+    setDrafts((prev) =>
+      prev.map((draft) => {
+        if (draft.key !== key) {
+          return draft;
+        }
+
+        // 양은 그대로인데 칼로리만 바뀌었으면 사용자가 직접 고친 것이다 — AI 추정 표시를 뗀다.
+        const kcalEditedByUser =
+          next.kcalText !== draft.kcalText && next.serving_ratio === draft.serving_ratio;
+
+        return {
+          ...draft,
+          ...next,
+          aiEstimatedKcal: kcalEditedByUser ? false : draft.aiEstimatedKcal,
+        };
+      })
+    );
   };
 
   const removeDraft = (key: string) => {
@@ -352,6 +372,7 @@ export default function MealComposeScreen() {
                 // 조회로 1회 제공량을 알게 됐으니 g 입력을 열어 준다.
                 serving_size_g: estimate.serving_size_g,
                 nutrients: nutrientsOf(estimate),
+                aiEstimatedKcal: estimate.source === 'llm',
               }
             : item
         )
@@ -534,6 +555,7 @@ export default function MealComposeScreen() {
           serving_size_g: estimate.serving_size_g,
           basePerServing: Math.round(estimate.kcal_per_serving),
           nutrients: nutrientsOf(estimate),
+          aiEstimatedKcal: estimate.source === 'llm',
           unit: 'serving',
         },
       ]);
@@ -553,6 +575,7 @@ export default function MealComposeScreen() {
             serving_size_g: null,
             basePerServing: null,
             nutrients: null,
+            aiEstimatedKcal: false,
             unit: 'serving',
           },
         ]);
@@ -582,6 +605,7 @@ export default function MealComposeScreen() {
         serving_size_g: null,
         basePerServing: null,
         nutrients: null,
+        aiEstimatedKcal: false,
         unit: 'serving',
       },
     ]);
@@ -761,7 +785,7 @@ export default function MealComposeScreen() {
           <View style={styles.addCard}>
             <Text style={styles.addTitle}>항목 추가</Text>
             <Text style={styles.addHint}>
-              한 끼에 여러 메뉴를 담을 수 있어요. 사진은 고른 뒤 분석 버튼을 눌러야 인식되고, 인식 1건당 1건이 차감돼요.
+              한 끼에 여러 메뉴를 담을 수 있어요. 사진은 고른 뒤 분석 버튼을 눌러야 생성형 AI(Google Gemini)가 인식하고, 인식 1건당 1건이 차감돼요.
             </Text>
 
             {visionUsage !== null ? (
@@ -937,6 +961,10 @@ export default function MealComposeScreen() {
                     onLabelBlur={() => void lookupDraftKcal(draft.key)}
                     onRemove={() => removeDraft(draft.key)}
                   />
+                  <AiProvenance
+                    recognized={draft.source === 'ai'}
+                    estimatedKcal={draft.aiEstimatedKcal}
+                  />
                   {/* 먹은 음식의 실측 나트륨·칼륨·인. 미측정 음식은 아무것도 그리지 않는다. */}
                   <NutrientChips chips={draftNutrientChips(draft, tierByLabel)} />
                 </View>
@@ -968,10 +996,36 @@ export default function MealComposeScreen() {
             </Pressable>
           </View>
 
-          <Text style={styles.disclaimer}>AI 추정값이며 실제와 다를 수 있습니다.</Text>
+          <Text style={styles.disclaimer}>{AI_USE_NOTICE}</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+// AI기본법 제31조② — 생성형 AI가 만든 결과물이라는 사실을 **그 결과물 옆에** 표시한다(KCAL-17).
+// 인식은 사진 분석(Gemini), 칼로리 추정은 식약처 DB에 없는 음식을 Gemini 가 1회 추정한 값이다
+// (서버 DATA_MODEL 19장). 식약처 실측값에는 붙이지 않는다 — 전부 AI 라고 쓰면 그것도 틀린 고지다.
+function AiProvenance({ recognized, estimatedKcal }: { recognized: boolean; estimatedKcal: boolean }) {
+  if (!recognized && !estimatedKcal) {
+    return null;
+  }
+
+  return (
+    <View style={styles.aiRow}>
+      {recognized ? (
+        <View style={styles.aiBadge}>
+          <MaterialIcons color="#2a7d76" name="auto-awesome" size={12} />
+          <Text style={styles.aiBadgeText}>AI가 사진에서 인식</Text>
+        </View>
+      ) : null}
+      {estimatedKcal ? (
+        <View style={styles.aiBadge}>
+          <MaterialIcons color="#2a7d76" name="auto-awesome" size={12} />
+          <Text style={styles.aiBadgeText}>칼로리는 AI 추정값 · 식약처 DB에 없는 음식</Text>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -1070,6 +1124,7 @@ async function foodToDraft(food: FoodDetection): Promise<Draft> {
       serving_size_g: estimate.serving_size_g,
       basePerServing: Math.round(estimate.kcal_per_serving),
       nutrients: nutrientsOf(estimate),
+      aiEstimatedKcal: estimate.source === 'llm',
       unit: 'serving',
     };
   } catch {
@@ -1084,6 +1139,7 @@ async function foodToDraft(food: FoodDetection): Promise<Draft> {
       serving_size_g: null,
       basePerServing: null,
       nutrients: null,
+      aiEstimatedKcal: false,
       unit: 'serving',
     };
   }
@@ -1289,6 +1345,25 @@ const styles = StyleSheet.create({
   },
   choiceSection: {
     gap: 8,
+  },
+  aiBadge: {
+    alignItems: 'center',
+    backgroundColor: '#eef7f5',
+    borderRadius: 999,
+    flexDirection: 'row',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  aiBadgeText: {
+    color: '#2a7d76',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  aiRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
   },
   photoTimeBody: {
     flex: 1,

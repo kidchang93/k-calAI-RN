@@ -234,7 +234,7 @@ export default function GoalScreen() {
                 </Pressable>
 
                 <Text style={styles.disclaimer}>
-                  AI 추정값이며 의학적 조언이 아닙니다. 실제 필요량과 다를 수 있습니다.
+                  키·몸무게·나이·활동량을 공식에 넣어 계산한 참고값이며 의학적 조언이 아닙니다. 실제 필요량과 다를 수 있습니다.
                 </Text>
               </>
             )}
