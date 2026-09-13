@@ -20,11 +20,14 @@ import { PlanLimitBanner } from '@/components/plan-limit-banner';
 import { createGroup, GroupKind } from '@/services/group-api';
 import { PlanLimitError } from '@/services/http';
 
+// '챌린지' 종류는 **숨긴다**(2026-09-13, KCAL-18) — 지우지 않는다. 만성질환 관리에 순위·경쟁을 얹으면
+// 기록이 성적표가 되므로 지금은 새로 만들 수 없게 두고, 필요해지면 이 목록에 되살린다.
+// 챌린지 화면(`components/group-challenges.tsx`)·클라이언트(`services/challenge-api.ts`)·서버 API 는
+// 그대로 있다. 이미 있는 챌린지 그룹은 목록·상세에서 이름표만 보인다.
 const KIND_OPTIONS = [
   { value: 'family', label: '가족' },
   { value: 'couple', label: '커플' },
   { value: 'friends', label: '친구' },
-  { value: 'challenge', label: '챌린지' },
 ];
 
 export default function GroupCreateScreen() {
@@ -100,12 +103,7 @@ export default function GroupCreateScreen() {
                 <Text style={styles.label}>어떤 모임인가요?</Text>
                 <ChipGroup
                   onToggle={(value) => {
-                    if (
-                      value === 'family' ||
-                      value === 'couple' ||
-                      value === 'friends' ||
-                      value === 'challenge'
-                    ) {
+                    if (value === 'family' || value === 'couple' || value === 'friends') {
                       setKind(value);
                     }
                   }}
