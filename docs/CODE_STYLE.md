@@ -193,7 +193,7 @@ async function readErrorMessage(response: Response) { ... }
 | 상대 경로 `../../services/x` | `@/services/x` |
 | 응답 JSON을 검증 없이 사용 | `typeof` / `Array.isArray` 가드 |
 | 서버 필드명을 camelCase로 변환 | `snake_case` 그대로 유지 |
-| `EXPO_PUBLIC_*`에 비밀값 | 클라이언트 번들에 평문 노출됨 |
+| `EXPO_PUBLIC_*`에 비밀값 | 클라이언트 번들에 평문 노출됨 (예외: `EXPO_PUBLIC_DEV_AUTH_SESSION` — 로컬 개발 세션, `__DEV__` 가드 안에서만 읽는다) |
 | `Platform.OS` 분기 없는 기본 URL | Android 에뮬레이터에서 `10.0.2.2` 필요 |
 | 새 색상 하드코딩 | `docs/DESIGN.md` 팔레트 사용 |
 | 영어 사용자 문구 | 한국어 |

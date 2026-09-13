@@ -69,6 +69,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 | `EXPO_PUBLIC_SUBSCRIPTION_API_URL` | `/api` (`/plans`, `/me/subscription`) | `services/subscription-api.ts` |
 | `EXPO_PUBLIC_PAYMENT_API_URL` | `/api/payments` | `services/payment-api.ts` |
 | `EXPO_PUBLIC_BILLING_API_URL` | `/api/billing` | `services/billing-api.ts` |
+| `EXPO_PUBLIC_DEV_AUTH_SESSION` | (오버라이드 아님) 로컬 개발 세션 JSON — **`../dev.sh`가 넣는다**. `__DEV__`에서만 읽고 저장된 세션보다 우선한다. 아래 '비밀값 금지'의 **유일한 예외**: 로컬 DB·로컬 pepper에서만 유효하고, 프로덕션 export는 빌드 시점에 값이 있어도 번들에 남지 않는다(2026-09-13 `expo export`로 확인) | `services/auth-session.ts` |
 
 기본 오리진(base)은 `services/api-base.ts`가 결정합니다(위 설명). 새 서비스는 `apiUrl('/api/…', process.env.EXPO_PUBLIC_…)` 패턴을 따르세요 — 호스트 분기를 개별 파일에 두지 않습니다.
 
@@ -164,7 +165,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 |---|------|------|
 | 1 | ~~세션이 메모리에만 저장~~ **해결.** 네이티브는 `expo-secure-store`, **웹은 `localStorage`**로 영속화(`restoreAuthSession`으로 복원). 웹도 새로고침하면 로그인이 유지된다 — 토스 결제창에서 복귀한 `/billing/success`가 Bearer로 confirm을 부를 수 있는 근거다. | `services/auth-session.ts` |
 | 2 | ~~서버에 토큰 검증 코드가 없습니다~~ **해소.** 서버가 `api/dependencies.py`의 `get_current_user`로 Bearer 세션을 검증합니다. `apiFetch`가 세션이 있을 때 헤더를 붙이는 동작은 그대로입니다. | `services/http.ts` |
-| 9 | **Expo Go에서는 카카오 로그인이 동작하지 않습니다.** Expo Go의 스킴은 `exp://`인데 서버는 `kcalairn://auth`로만 되돌립니다. **dev client 또는 스탠드얼론 빌드**로 확인하세요 (`docs/LOCAL_BUILD.md`). 게다가 **로컬 서버에 붙이면 카카오 앱의 허용 IP 제한**에도 걸립니다(서버 알려진 문제 12) — 실기기에서 로그인까지 보려면 개발용 카카오 앱을 따로 두거나 운영 서버를 바라보게 해야 합니다. 대부분의 확인은 **웹 + `scripts/dev_login.py` 우회**로 끝납니다 (`docs/DEVICE_TESTING.md`). | `services/auth-api.ts` |
+| 9 | **Expo Go에서는 카카오 로그인이 동작하지 않습니다.** Expo Go의 스킴은 `exp://`인데 서버는 `kcalairn://auth`로만 되돌립니다. **dev client 또는 스탠드얼론 빌드**로 확인하세요 (`docs/LOCAL_BUILD.md`). 게다가 **로컬 서버에 붙이면 카카오 앱의 허용 IP 제한**에도 걸립니다(서버 알려진 문제 12) — 실기기에서 로그인까지 보려면 개발용 카카오 앱을 따로 두거나 운영 서버를 바라보게 해야 합니다. 대부분의 확인은 **웹 + `scripts/dev_login.py` 우회**로 끝납니다 (`docs/DEVICE_TESTING.md`). **2026-09-13부터 `../dev.sh`가 이 우회를 자동으로 해** 앱이 `local-dev:demo`로 로그인된 채 뜹니다(`EXPO_PUBLIC_DEV_AUTH_SESSION`, 끄기 `DEV_LOGIN=0`). | `services/auth-api.ts` |
 | 10 | **웹 로그인은 FastAPI가 웹 빌드를 서빙하는 프로덕션 구성에서만 성립합니다.** `expo start --web`(:8081) + 서버(:8000)는 오리진이 갈려 콜백 팝업이 막힙니다. | `services/auth-api.ts` |
 | 3 | 칼로리 프롬프트가 **앱에 하드코딩**되어 있습니다. 서버 템플릿화가 예정 항목입니다. | `services/calorie-api.ts:71` |
 | 4 | ~~`readErrorMessage` 중복 정의~~ **해결.** `services/http.ts` 공통 함수로 통일(배열 `detail` 처리 포함). | `services/http.ts` |
@@ -178,7 +179,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 ## 절대 하지 말아야 할 것
 
 - **`npm run reset-project`를 실행하지 않는다.** `app/` 디렉토리를 통째로 옮깁니다.
-- **`EXPO_PUBLIC_*` 환경변수에 비밀값을 넣지 않는다.** 클라이언트 번들에 평문으로 포함됩니다.
+- **`EXPO_PUBLIC_*` 환경변수에 비밀값을 넣지 않는다.** 클라이언트 번들에 평문으로 포함됩니다. (예외는 `EXPO_PUBLIC_DEV_AUTH_SESSION` 하나 — `__DEV__` 가드로만 읽는다는 조건입니다. 가드 없이 읽는 코드를 만들지 마세요.)
 - **서버 API 경로를 앱에서만 바꾸지 않는다.** `kcalAI-model`과 같은 작업 단위에서 함께 수정합니다.
 - **`Platform.OS === 'android'` 분기를 빠뜨리지 않는다.** 에뮬레이터에서 `127.0.0.1`은 에뮬레이터 자신을 가리킵니다.
 - **`app/` 디렉토리에 라우트가 아닌 파일을 두지 않는다.** expo-router가 모든 파일을 라우트로 해석합니다. 컴포넌트는 `components/`에 둡니다.

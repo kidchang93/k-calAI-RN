@@ -68,16 +68,22 @@ npx eas build --platform android --profile preview
 ./dev.sh web          # 워크스페이스 루트: Postgres + 서버(8000) + Expo 웹(8081)
 ```
 
-로그인은 **개발용 우회 스크립트**를 쓴다 (카카오 로그인이 로컬에서 막히는 이유는 아래 참조):
+**로그인된 채로 뜬다** (2026-09-13). 카카오 로그인이 로컬에서 막히므로(아래 참조) `dev.sh`가 개발 계정
+`local-dev:demo`의 세션을 저장해 두고 `EXPO_PUBLIC_DEV_AUTH_SESSION`으로 앱에 넣는다. 앱은 `__DEV__`에서만
+이 값을 읽고, 저장된 세션보다 우선한다(`services/auth-session.ts`의 `readDevSession`).
 
 ```bash
-cd kcalAI-model
-venv/bin/python scripts/dev_login.py --conditions ckd     # 질병 조건도 지정 가능
+./dev.sh web                             # 저장된 세션 재사용, 서버가 거부하면 새로 발급
+DEV_LOGIN_LABEL=ckd ./dev.sh web         # 다른 개발 계정
+DEV_LOGIN=0 ./dev.sh web                 # 자동 로그인 끄기 — 로그인 화면을 볼 때
 ```
 
-출력된 `localStorage.setItem(...)` 한 줄을 **http://localhost:8081 브라우저 콘솔**에 붙여넣으면 로그인 상태가 된다.
-프로필·목표·동의까지 채워져 있어 온보딩으로 튕기지 않는다.
+- 세션은 `kcalAI-model/task-logs/dev-session-<label>.json`에 저장된다(gitignore, 권한 600).
+- **로그아웃하면 서버가 그 세션을 폐기한다.** 같은 Expo 실행 중에는 로그인 화면에 머물고, `dev.sh`를 다시 띄우면 새 세션을 받는다.
+- 이미 있는 계정의 프로필·목표·질병은 덮지 않는다. 질병을 바꾸려면 `DEV_LOGIN_CONDITIONS=ckd,diabetes`(세션을 새로 받을 때만 반영).
 
+`dev.sh` 없이 띄웠다면 수동 우회를 쓴다. `cd kcalAI-model && venv/bin/python scripts/dev_login.py --conditions ckd`가
+출력하는 `localStorage.setItem(...)` 한 줄을 **http://localhost:8081 브라우저 콘솔**에 붙여넣는다.
 ⚠️ `localStorage`는 **오리진마다 따로**다. 8081에 심은 세션은 8000에서 쓸 수 없다(그 반대도 마찬가지).
 
 ## B. `expo run:ios` — 실기기·시뮬레이터
@@ -89,6 +95,9 @@ venv/bin/python scripts/dev_login.py --conditions ckd     # 질병 조건도 지
 
 `dev_login.py`가 내주는 세션은 웹의 `localStorage`에 심는 것이다. 네이티브 앱은 세션을 `expo-secure-store`에
 보관하므로 **붙여넣을 방법이 없다**. 즉 실기기에서는 **카카오 로그인이 실제로 되어야** 로그인 이후 화면을 볼 수 있다.
+
+> 2026-09-13부터 `./dev.sh ios`·`./dev.sh android`로 띄운 **dev 빌드**는 A와 같은 자동 로그인 경로(`EXPO_PUBLIC_DEV_AUTH_SESSION`)를
+> 타므로 이 제약이 풀려야 한다. **아직 기기에서 확인하지 않았다.** `preview`·`production` 빌드는 `__DEV__`가 false라 해당 없음.
 
 그런데 **로컬 서버에 붙이면 카카오 로그인이 실패한다** — 카카오 앱에 허용 IP 제한이 걸려 있어 개발 머신의
 공인 IP가 등록돼 있지 않으면 `-401 ip mismatched`가 난다 (서버 `CLAUDE.md` 알려진 문제 12). 진단:

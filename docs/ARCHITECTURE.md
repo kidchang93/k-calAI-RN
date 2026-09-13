@@ -178,11 +178,12 @@ listeners: Set<() => void>
 
 setAuthSession(s)     → currentSession = s → notify() → 저장(네이티브 SecureStore / 웹 localStorage)
 clearAuthSession()    → currentSession = null → notify() → 저장소 삭제
-restoreAuthSession()  → 저장소 읽기 → currentSession 복원 → hydrated = true → notify()
+restoreAuthSession()  → (__DEV__ 개발 세션 ?? 저장소 읽기) → currentSession 복원 → hydrated = true → notify()
 useAuthSession()      → useState(스냅샷) + useEffect로 listener 등록 → AuthSessionState 반환
 ```
 
 **영속화: 네이티브는 `expo-secure-store`, 웹은 `localStorage`** (`auth-session.ts`가 `Platform.OS`로 분기 — `expo-secure-store`가 web을 지원하지 않기 때문입니다). `setAuthSession`/`clearAuthSession`이 저장·삭제하고, 앱 시작 시 `restoreAuthSession()`이 복원합니다. 저장 전 `isAuthTokenResponse`로 파싱값을 런타임 검증합니다.
+**로컬 개발 세션:** `__DEV__`이고 `EXPO_PUBLIC_DEV_AUTH_SESSION`(`../dev.sh`가 넣는다)이 있으면 저장된 세션보다 먼저 복원합니다(`readDevSession`). 로컬은 카카오 허용 IP 제한으로 로그인할 수 없어서입니다. 저장소에 쓰지 않으므로 기동할 때마다 이 값이 이깁니다. 서버가 401을 주면 평소처럼 `clearAuthSession`으로 로그인 화면이 됩니다 (`docs/DEVICE_TESTING.md` A).
 **웹도 새로고침하면 로그인이 유지됩니다.** 이것이 토스 결제창(브라우저를 통째로 되돌린다)에서 복귀한 `/billing/success`가 Bearer로 `confirm`을 부를 수 있는 이유입니다 — 메모리 전용이었다면 결제 확인이 401로 끊깁니다.
 **토큰 첨부:** `access_token`은 `services/http.ts`의 `apiFetch`가 세션이 있을 때 `Authorization: Bearer`로 붙입니다. 인증 API(`auth-api.ts`)는 순수 `fetch`를 써 헤더를 붙이지 않습니다.
 

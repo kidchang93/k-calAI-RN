@@ -106,7 +106,7 @@ export async function restoreAuthSession() {
 
   try {
     const stored = await readPersistedSession();
-    const parsed = stored ? parseSession(stored) : null;
+    const parsed = readDevSession() ?? (stored ? parseSession(stored) : null);
 
     if (parsed) {
       currentSession = parsed;
@@ -142,6 +142,20 @@ function getStateSnapshot(): AuthSessionState {
   return currentSession
     ? { status: 'authenticated', session: currentSession }
     : { status: 'unauthenticated' };
+}
+
+// 로컬 개발은 카카오 로그인 대신 dev.sh 가 넣어 주는 개발 세션으로 시작한다 — 카카오 앱의 허용 IP
+// 제한 때문에 로컬에서는 로그인이 통과하지 못한다(서버 CLAUDE.md 알려진 문제 12). 저장된 세션보다
+// 우선하는 이유는 예전에 붙여넣은 만료 세션이 남아 있으면 기동하자마자 401 로 로그아웃되기 때문이다.
+// 토큰은 로컬 DB·로컬 pepper 에서만 유효하고, __DEV__ 가드로 프로덕션 번들에서는 제거된다.
+function readDevSession(): AuthTokenResponse | null {
+  if (!__DEV__) {
+    return null;
+  }
+
+  const raw = process.env.EXPO_PUBLIC_DEV_AUTH_SESSION;
+
+  return raw ? parseSession(raw) : null;
 }
 
 function parseSession(raw: string): AuthTokenResponse | null {
