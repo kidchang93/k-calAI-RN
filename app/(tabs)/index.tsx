@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { notifyDialog } from '@/services/dialog';
 import { formatDateParam } from '@/services/health-api';
+import { readPhotoTakenAt } from '@/services/photo-time';
 
 // 기록 탭은 '오늘 기록 만들기'의 진입점이다. 실제 다중 항목 구성·저장은 끼니 구성 화면
 // (app/meals/compose.tsx)이 한 곳에서 담당한다 — 과거 날짜·기존 끼니 추가와 같은 로직을 공유한다.
@@ -53,10 +54,19 @@ export default function RecordScreen() {
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.86,
+      exif: true,
     });
 
     if (!result.canceled) {
-      openCompose(photoParams(result.assets[0]));
+      // 촬영 시각은 **여기서** 읽는다 — 구성 화면에는 URI 만 넘어가 웹에서는 원본 파일을 다시 못 읽는다.
+      const takenAt = await readPhotoTakenAt(result.assets[0]);
+      const params = photoParams(result.assets[0]);
+
+      if (takenAt !== null) {
+        params.photoTakenAt = takenAt.toISOString();
+      }
+
+      openCompose(params);
     }
   };
 

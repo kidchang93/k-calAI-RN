@@ -45,6 +45,7 @@ import {
   updateMeal,
 } from '@/services/health-api';
 import { PlanLimitError } from '@/services/http';
+import { readPhotoTakenAt } from '@/services/photo-time';
 import { nextMealType } from '@/services/recommendation-api';
 
 const MEAL_TYPE_OPTIONS: { value: MealType; label: string }[] = [
@@ -105,9 +106,10 @@ function nutrientsOf(estimate: NutritionEstimate): DraftNutrients | null {
   };
 }
 
-// 현재 시각 기준 끼니 기본값. 사용자가 칩에서 언제든 바꿀 수 있다.
-function defaultMealType(): MealType {
-  const hour = new Date().getHours();
+// 시각 → 끼니 기본값. 앨범 사진이면 **촬영 시각**, 그 외엔 지금 시각을 넣는다(KCAL-20).
+// 사용자가 칩에서 언제든 바꿀 수 있다. 경계(11·16·22시)는 기준과 별개라 여기서 바꾸지 않는다.
+function mealTypeAt(time: Date): MealType {
+  const hour = time.getHours();
 
   if (hour < 11) {
     return 'breakfast';
@@ -162,13 +164,17 @@ export default function MealComposeScreen() {
     photoUri?: string;
     photoName?: string;
     photoMime?: string;
+    photoTakenAt?: string;
   }>();
 
   // 홈·캘린더·기록관리가 넘긴 날짜(YYYY-MM-DD)만 신뢰한다. 형식이 다르면 오늘로 폴백.
-  const date =
-    typeof params.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(params.date)
-      ? params.date
-      : formatDateParam(new Date());
+  const today = formatDateParam(new Date());
+  const paramDate =
+    typeof params.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : null;
+  // 오늘이 아닌 날짜가 넘어왔으면 사용자가 **그날을 골라** 들어온 것이다(캘린더·지난 기록).
+  // 기록 탭은 오늘을 넘기므로 고른 것으로 치지 않는다 — 사진 날짜가 그 기본값을 이긴다.
+  const isDateChosen = paramDate !== null && paramDate !== today;
+  const [date, setDate] = useState(paramDate ?? today);
 
   const mealId =
     typeof params.meal_id === 'string' && /^\d+$/.test(params.meal_id)
@@ -176,11 +182,18 @@ export default function MealComposeScreen() {
       : null;
   const isAppend = mealId !== null;
 
-  const initialMealType = MEAL_TYPE_OPTIONS.some((option) => option.value === params.meal_type)
-    ? (params.meal_type as MealType)
-    : defaultMealType();
+  const isMealTypeChosen = MEAL_TYPE_OPTIONS.some((option) => option.value === params.meal_type);
+  const initialMealType = isMealTypeChosen ? (params.meal_type as MealType) : mealTypeAt(new Date());
 
   const [mealType, setMealType] = useState<MealType>(initialMealType);
+  // 사용자가 끼니를 직접 고른 뒤에는 사진 시각으로 덮지 않는다.
+  const mealTypeTouchedRef = useRef(isMealTypeChosen);
+  // 사진 촬영 시각과 그것으로 **실제로 바꾼 것**. 자동으로 정한 값이라는 사실을 화면에 밝히는 근거다.
+  const [photoTime, setPhotoTime] = useState<{
+    takenAt: Date;
+    appliedMealType: boolean;
+    appliedDate: boolean;
+  } | null>(null);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [searchText, setSearchText] = useState('');
   // 방금 업로드한 사진(로컬 URI). 화면에 보여주기만 하고 서버엔 저장하지 않는다.
@@ -391,6 +404,30 @@ export default function MealComposeScreen() {
     [appendDrafts]
   );
 
+  // 사진 한 장마다 끼니·날짜 기본값을 다시 정한다. 촬영 시각이 없으면(카메라·EXIF 없음) 지금 시각과
+  // 오늘로 되돌린다 — 앞 사진이 옮겨 둔 날짜가 설명 없이 남으면 틀린 날에 저장된다.
+  const applyPhotoTime = useCallback(
+    (takenAt: Date | null) => {
+      if (isAppend) {
+        return;
+      }
+
+      const appliedMealType = !mealTypeTouchedRef.current;
+      const appliedDate = !isDateChosen;
+
+      if (appliedMealType) {
+        setMealType(mealTypeAt(takenAt ?? new Date()));
+      }
+
+      if (appliedDate) {
+        setDate(takenAt !== null ? formatDateParam(takenAt) : formatDateParam(new Date()));
+      }
+
+      setPhotoTime(takenAt !== null ? { takenAt, appliedMealType, appliedDate } : null);
+    },
+    [isAppend, isDateChosen]
+  );
+
   // 사진을 고르면 미리보기만 하고, 분석은 '분석' 버튼을 눌러야 시작한다(자동 요청 안 함).
   const selectPhoto = useCallback((asset: PhotoAsset) => {
     setPreviewUri(asset.uri);
@@ -417,7 +454,16 @@ export default function MealComposeScreen() {
       fileName: typeof params.photoName === 'string' ? params.photoName : null,
       mimeType: typeof params.photoMime === 'string' ? params.photoMime : null,
     });
-  }, [selectPhoto, params.photoMime, params.photoName, params.photoUri]);
+    // 기록 탭 런처가 촬영 시각을 미리 읽어 넘긴다 — 이 화면에는 원본 파일이 오지 않는다.
+    applyPhotoTime(parseTakenAtParam(params.photoTakenAt));
+  }, [
+    applyPhotoTime,
+    selectPhoto,
+    params.photoMime,
+    params.photoName,
+    params.photoTakenAt,
+    params.photoUri,
+  ]);
 
   const pickFromCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -436,6 +482,8 @@ export default function MealComposeScreen() {
 
     if (!result.canceled) {
       selectPhoto(toPhotoAsset(result.assets[0]));
+      // 방금 찍은 사진은 지금이 촬영 시각이다.
+      applyPhotoTime(null);
     }
   };
 
@@ -453,10 +501,12 @@ export default function MealComposeScreen() {
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.86,
+      exif: true,
     });
 
     if (!result.canceled) {
       selectPhoto(toPhotoAsset(result.assets[0]));
+      applyPhotoTime(await readPhotoTakenAt(result.assets[0]));
     }
   };
 
@@ -672,8 +722,26 @@ export default function MealComposeScreen() {
               <ChipGroup
                 options={MEAL_TYPE_OPTIONS}
                 selectedValues={[mealType]}
-                onToggle={(value) => selectMealType(value, setMealType)}
+                onToggle={(value) => {
+                  mealTypeTouchedRef.current = true;
+                  selectMealType(value, setMealType);
+                }}
               />
+              {photoTime !== null ? (
+                <PhotoTimeNotice
+                  photoTime={photoTime}
+                  date={date}
+                  today={today}
+                  onMoveToday={() => {
+                    setDate(today);
+                    setPhotoTime({ ...photoTime, appliedDate: false });
+                  }}
+                  onMoveToPhotoDate={() => {
+                    setDate(formatDateParam(photoTime.takenAt));
+                    setPhotoTime({ ...photoTime, appliedDate: true });
+                  }}
+                />
+              ) : null}
             </View>
           )}
 
@@ -905,6 +973,70 @@ export default function MealComposeScreen() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+// 사진 촬영 시각으로 무엇을 정했는지 밝히고 되돌릴 수 있게 한다. 자동으로 채운 값을 말없이 두면
+// 사용자는 이미 맞춰졌다고 믿고 지나친다(KCAL-20).
+function PhotoTimeNotice({
+  photoTime,
+  date,
+  today,
+  onMoveToday,
+  onMoveToPhotoDate,
+}: {
+  photoTime: { takenAt: Date; appliedMealType: boolean; appliedDate: boolean };
+  date: string;
+  today: string;
+  onMoveToday: () => void;
+  onMoveToPhotoDate: () => void;
+}) {
+  const photoDate = formatDateParam(photoTime.takenAt);
+  const applied = [
+    photoTime.appliedMealType ? '끼니' : null,
+    photoTime.appliedDate && photoDate !== today ? '날짜' : null,
+  ].filter((part): part is string => part !== null);
+  const takenLabel = formatTakenAt(photoTime.takenAt);
+
+  return (
+    <View style={styles.photoTimeNotice}>
+      <MaterialIcons color="#2a7d76" name="schedule" size={16} />
+      <View style={styles.photoTimeBody}>
+        <Text style={styles.photoTimeText}>
+          {applied.length > 0
+            ? `사진 찍은 시각(${takenLabel})으로 ${applied.join('와 ')}를 정했어요.`
+            : `사진은 ${takenLabel}에 찍었어요.`}
+        </Text>
+        {photoTime.appliedDate && date !== today ? (
+          <Pressable onPress={onMoveToday} hitSlop={6}>
+            <Text style={styles.photoTimeLink}>오늘 기록으로 바꾸기</Text>
+          </Pressable>
+        ) : null}
+        {!photoTime.appliedDate && photoDate !== date ? (
+          <Pressable onPress={onMoveToPhotoDate} hitSlop={6}>
+            <Text style={styles.photoTimeLink}>{`사진 찍은 날(${formatDateTitle(photoDate)}) 기록으로 옮기기`}</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function parseTakenAtParam(value: string | undefined): Date | null {
+  if (typeof value !== 'string' || value === '') {
+    return null;
+  }
+
+  const time = new Date(value);
+
+  return Number.isNaN(time.getTime()) ? null : time;
+}
+
+function formatTakenAt(time: Date): string {
+  const hour = time.getHours();
+  const period = hour < 12 ? '오전' : '오후';
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+
+  return `${time.getMonth() + 1}월 ${time.getDate()}일 ${period} ${displayHour}:${String(time.getMinutes()).padStart(2, '0')}`;
 }
 
 function selectMealType(value: string, setMealType: (value: MealType) => void) {
@@ -1157,6 +1289,29 @@ const styles = StyleSheet.create({
   },
   choiceSection: {
     gap: 8,
+  },
+  photoTimeBody: {
+    flex: 1,
+    gap: 4,
+  },
+  photoTimeLink: {
+    color: '#2a7d76',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  photoTimeNotice: {
+    alignItems: 'flex-start',
+    backgroundColor: '#eef7f5',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  photoTimeText: {
+    color: '#22211f',
+    fontSize: 13,
+    lineHeight: 19,
   },
   container: {
     alignSelf: 'center',
