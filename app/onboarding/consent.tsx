@@ -10,9 +10,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ConsentNotice } from '@/components/consent-notice';
 import { ErrorBanner } from '@/components/error-banner';
 import { OnboardingProgress } from '@/components/onboarding-progress';
-import { CONSENT_VERSION } from '@/constants/consent';
+import {
+  CONSENT_VERSION,
+  SENSITIVE_HEALTH_NOTICE_ROWS,
+  SENSITIVE_HEALTH_REFUSAL,
+  SENSITIVE_HEALTH_SUMMARY,
+} from '@/constants/consent';
 import { postConsent } from '@/services/onboarding-api';
 
 export default function ConsentScreen() {
@@ -52,9 +58,12 @@ export default function ConsentScreen() {
 
           <View style={styles.header}>
             <Text style={styles.title}>건강 정보 수집에{'\n'}동의해주세요</Text>
-            <Text style={styles.subtitle}>혈액형·질병·알러지는 법이 정한 민감정보입니다.</Text>
+            <Text style={styles.subtitle}>{SENSITIVE_HEALTH_SUMMARY}</Text>
           </View>
 
+          {/* 개인정보 보호법 제23조①1호가 동의 전에 알리게 한 것(항목·목적·보유 기간·거부권과 불이익)을
+              전부 이 화면에 둔다. 2026-09-13(v1.0)까지는 "식단 추천에서 거르는 데만"이라는 한 문장뿐이었고,
+              실제로 쓰는 검사 수치·진료 메모·경고·주간 조언·리포트가 빠져 있었다(KCAL-22). */}
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>건강 정보 수집·이용</Text>
@@ -62,17 +71,12 @@ export default function ConsentScreen() {
                 <Text style={styles.badgeText}>선택</Text>
               </View>
             </View>
-            <Text style={styles.cardBody}>
-              식단 추천에서 피해야 할 음식을 거르는 데만 씁니다. 제3자에게 제공하지 않습니다.
-            </Text>
+            <ConsentNotice rows={SENSITIVE_HEALTH_NOTICE_ROWS} />
             <Text style={styles.cardMeta}>{`${CONSENT_VERSION} · 내 정보에서 언제든 철회할 수 있어요`}</Text>
           </View>
 
           <View style={styles.noteBox}>
-            <Text style={styles.noteText}>
-              동의하지 않아도 사진 기록과 칼로리 계산은 쓸 수 있어요. 다만 혈액형·질병·알러지
-              입력 단계를 건너뛰고, 식단 추천은 개인 맞춤 없이 일반 가이드로 제공됩니다.
-            </Text>
+            <Text style={styles.noteText}>{SENSITIVE_HEALTH_REFUSAL}</Text>
           </View>
 
           {errorMessage ? (
@@ -127,13 +131,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 8,
-    gap: 8,
+    gap: 14,
     padding: 20,
-  },
-  cardBody: {
-    color: '#5c5b57',
-    fontSize: 14,
-    lineHeight: 20,
   },
   cardHeader: {
     alignItems: 'center',

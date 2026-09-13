@@ -15,6 +15,7 @@ import {
   recentDateRange,
   ReportMeal,
 } from '@/services/health-api';
+import { getConsents, isSensitiveConsentOutdated } from '@/services/onboarding-api';
 
 // 진료·영양상담에 가져가는 기록. 목표 지표의 첫 항목("진료에서 실제로 열어 보였는가",
 // 서버 PRODUCT_STRATEGY §0-2)을 가능하게 하는 화면이다.
@@ -39,6 +40,9 @@ function isPrintSupported(): boolean {
 export default function MedicalReportScreen() {
   const params = useLocalSearchParams<{ start_date?: string; end_date?: string }>();
   const [report, setReport] = useState<MedicalReport | null>(null);
+  // 이전 문구의 건강 정보 동의만 있으면 서버가 질환·검사 수치를 싣지 않는다 — "등록 질환: 없음"으로
+  // 읽히지 않게 가른다. 동의 조회가 실패해도 리포트는 그린다(false 로 둔다).
+  const [isHealthConsentOutdated, setIsHealthConsentOutdated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -51,7 +55,13 @@ export default function MedicalReportScreen() {
     setErrorMessage(null);
 
     try {
-      setReport(await getMedicalReport(startDate, endDate));
+      const [reportResult, consents] = await Promise.all([
+        getMedicalReport(startDate, endDate),
+        getConsents().catch(() => null),
+      ]);
+
+      setReport(reportResult);
+      setIsHealthConsentOutdated(consents !== null && isSensitiveConsentOutdated(consents));
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
@@ -86,7 +96,7 @@ export default function MedicalReportScreen() {
           ) : errorMessage !== null ? (
             <ErrorBanner message={errorMessage} onRetry={() => void load()} />
           ) : report === null ? null : (
-            <ReportBody report={report} />
+            <ReportBody report={report} isHealthConsentOutdated={isHealthConsentOutdated} />
           )}
 
           {!isPrintSupported() ? (
@@ -100,7 +110,13 @@ export default function MedicalReportScreen() {
   );
 }
 
-function ReportBody({ report }: { report: MedicalReport }) {
+function ReportBody({
+  report,
+  isHealthConsentOutdated,
+}: {
+  report: MedicalReport;
+  isHealthConsentOutdated: boolean;
+}) {
   const byDate = groupByDate(report.meals);
 
   return (
@@ -112,9 +128,17 @@ function ReportBody({ report }: { report: MedicalReport }) {
 
       {/* **질환·병기가 수치보다 먼저다.** 읽는 사람이 어떤 기준으로 볼지를 먼저 알아야 한다. */}
       <View style={styles.metaBox}>
+        {/* 진료 문서 맨 위라 "없음"이 가장 먼저 읽힌다. 이전 동의만 있으면 서버가 질환을 싣지 않으므로
+            없는 것이 아니라 싣지 않았다고 적는다(이유는 문서 아래 notice 에 서버가 남긴다). */}
         <MetaRow
           label="등록 질환"
-          value={report.conditions.length > 0 ? report.conditions.join(' · ') : '없음'}
+          value={
+            isHealthConsentOutdated
+              ? '건강 정보 동의가 바뀌어 싣지 않음'
+              : report.conditions.length > 0
+                ? report.conditions.join(' · ')
+                : '없음'
+          }
         />
         {report.ckd_stage_label !== null ? (
           <MetaRow label="신장질환 병기" value={report.ckd_stage_label} />

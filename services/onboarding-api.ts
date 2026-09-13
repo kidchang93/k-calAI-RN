@@ -21,6 +21,10 @@ export type ConsentRecord = {
   version: string;
   agreed_at: string;
   revoked_at: string | null;
+  // 이 행의 버전이 서버의 현재 문서 버전과 같은가 (2026-09-13, KCAL-22). 서버는 철회되지 않았어도
+  // 낡은 민감정보 동의를 무효로 보고 403 을 준다 — 화면이 '동의함'으로 그리면 거짓이 된다.
+  // 옛 서버는 이 필드를 주지 않아 true 로 읽는다(없다고 멀쩡한 동의를 낡았다고 그리지 않는다).
+  is_current: boolean;
 };
 
 // 신장병 병기(투석 여부). 나트륨 하루 상한이 여기서 갈린다 — 비투석 2,000 / 투석 3,000
@@ -74,6 +78,16 @@ export async function getConsents(): Promise<ConsentRecord[]> {
   }
 
   return list.map((item) => ensure(parseConsent(item)));
+}
+
+// 민감정보 동의가 **철회되지 않았지만 이전 문구에 대한 것**인가 (2026-09-13, KCAL-22). 서버는 이 상태에서
+// 질환·병기·검사 수치를 읽지 않고 빈 값으로 준다 — 화면이 빈 값을 "없음"으로 그리면 거짓이 되므로 이걸로 가른다.
+export function isSensitiveConsentOutdated(consents: ConsentRecord[]): boolean {
+  const latest = consents
+    .filter((consent) => consent.kind === 'sensitive_health')
+    .sort((left, right) => right.agreed_at.localeCompare(left.agreed_at))[0];
+
+  return latest !== undefined && latest.revoked_at === null && !latest.is_current;
 }
 
 export async function postConsent(kind: ConsentKind, version: string): Promise<void> {
@@ -258,7 +272,8 @@ function parseConsent(value: unknown): ConsentRecord | null {
     typeof value.agreed_at !== 'string' ||
     (value.revoked_at !== null &&
       value.revoked_at !== undefined &&
-      typeof value.revoked_at !== 'string')
+      typeof value.revoked_at !== 'string') ||
+    (value.is_current !== undefined && typeof value.is_current !== 'boolean')
   ) {
     return null;
   }
@@ -268,6 +283,7 @@ function parseConsent(value: unknown): ConsentRecord | null {
     version: value.version,
     agreed_at: value.agreed_at,
     revoked_at: typeof value.revoked_at === 'string' ? value.revoked_at : null,
+    is_current: typeof value.is_current === 'boolean' ? value.is_current : true,
   };
 }
 

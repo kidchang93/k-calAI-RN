@@ -83,9 +83,11 @@ export default function ConditionsEditScreen() {
     if (savedResult.status === 'rejected') {
       const error = savedResult.reason;
 
-      // 403(동의 없음/철회)은 세션 만료가 아니다. 동의 화면으로 되돌린다.
+      // 403(동의 없음/철회/이전 버전 동의)은 세션 만료가 아니다. 동의 관리로 보낸다.
+      // 온보딩 동의 화면으로 보내면 안 된다(2026-09-13, KCAL-22): 동의 뒤 온보딩 질병·알러지·신체 화면이
+      // 이어지는데 프리필 없는 전체 교체 PUT 이라, 이전 버전 동의자(데이터가 남아 있다)의 값을 덮어쓴다.
       if (error instanceof ConsentRequiredError) {
-        router.replace('/onboarding/consent');
+        router.replace('/me/consents');
         return;
       }
 
@@ -165,9 +167,11 @@ export default function ConditionsEditScreen() {
       // 내 정보 탭은 useFocusEffect로 복귀 시 다시 읽는다.
       router.back();
     } catch (error) {
-      // 403(동의 없음/철회)은 세션 만료가 아니다. 동의 화면으로 되돌린다.
+      // 403(동의 없음/철회/이전 버전 동의)은 세션 만료가 아니다. 동의 관리로 보낸다.
+      // 온보딩 동의 화면으로 보내면 안 된다(2026-09-13, KCAL-22): 동의 뒤 온보딩 질병·알러지·신체 화면이
+      // 이어지는데 프리필 없는 전체 교체 PUT 이라, 이전 버전 동의자(데이터가 남아 있다)의 값을 덮어쓴다.
       if (error instanceof ConsentRequiredError) {
-        router.replace('/onboarding/consent');
+        router.replace('/me/consents');
         return;
       }
 

@@ -5,8 +5,15 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/back-button';
+import { ConsentNotice } from '@/components/consent-notice';
 import { ErrorBanner } from '@/components/error-banner';
-import { CONSENT_VERSION } from '@/constants/consent';
+import {
+  CONSENT_VERSION,
+  SENSITIVE_HEALTH_CHANGE_SUMMARY,
+  SENSITIVE_HEALTH_NOTICE_ROWS,
+  SENSITIVE_HEALTH_REFUSAL,
+  SENSITIVE_HEALTH_SUMMARY,
+} from '@/constants/consent';
 import {
   ConsentRecord,
   getConsents,
@@ -21,6 +28,11 @@ import {
 // 가입 필수 동의(이용약관·개인정보 처리방침)는 **철회 버튼을 두지 않는다.** 서버 revoke는 받아주지만
 // revoked_at만 채울 뿐 서비스 이용은 그대로라, 버튼을 두면 "철회했는데 계속 쓰인다"는 더 나쁜
 // 거짓말이 된다. 이 둘을 그만두는 길은 회원 탈퇴다.
+//
+// 민감정보 동의는 네 상태다 (2026-09-13, KCAL-22). 'outdated'는 철회하지 않았지만 **이전 문구에 동의한**
+// 상태로, 서버가 무효로 보고 403 을 준다 — 그래서 '동의함'으로 그리지 않고 다시 동의를 받는다.
+// 철회는 낡은 동의에도 된다(서버 revoke 는 버전을 보지 않는다).
+type HealthConsentState = 'none' | 'revoked' | 'outdated' | 'current';
 
 export default function ConsentsScreen() {
   const [consents, setConsents] = useState<ConsentRecord[] | null>(null);
@@ -64,7 +76,9 @@ export default function ConsentsScreen() {
   };
 
   const health = consents === null ? null : latestConsent(consents, 'sensitive_health');
-  const hasHealthConsent = health !== null && health.revoked_at === null;
+  const healthState = toHealthConsentState(health);
+  const canRevoke = healthState === 'current' || healthState === 'outdated';
+  const agree = () => void submit(() => postConsent('sensitive_health', CONSENT_VERSION));
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -95,21 +109,36 @@ export default function ConsentsScreen() {
                     <Text style={styles.optionalBadgeText}>선택</Text>
                   </View>
                 </View>
-                <Text style={styles.cardText}>
-                  혈액형·질병·알러지는 법이 정한 민감정보입니다. 식단 추천에서 피해야 할 음식을
-                  거르고, 기록할 때 경고를 띄우는 데만 씁니다. 제3자에게 제공하지 않습니다.
-                </Text>
+                {/* 이 화면에서도 동의를 받으므로(동의하기·다시 동의하기) 온보딩과 같은 고지를 그린다. */}
+                <Text style={styles.cardText}>{SENSITIVE_HEALTH_SUMMARY}</Text>
+                <ConsentNotice rows={SENSITIVE_HEALTH_NOTICE_ROWS} />
 
                 <View style={styles.statusRow}>
                   <MaterialIcons
-                    color={hasHealthConsent ? '#60beb8' : '#a9a6a1'}
-                    name={hasHealthConsent ? 'check-circle' : 'remove-circle-outline'}
+                    color={statusIconColor(healthState)}
+                    name={statusIconName(healthState)}
                     size={16}
                   />
-                  <Text style={styles.statusText}>{describeHealthStatus(health)}</Text>
+                  <Text style={styles.statusText}>{describeHealthStatus(health, healthState)}</Text>
                 </View>
 
-                {hasHealthConsent ? (
+                {healthState === 'outdated' && !isRevokeConfirmVisible ? (
+                  <View style={styles.updateBox}>
+                    <Text style={styles.updateTitle}>동의 내용이 바뀌었어요</Text>
+                    <Text style={styles.updateText}>{SENSITIVE_HEALTH_CHANGE_SUMMARY}</Text>
+                    {/* 서버가 낡은 동의에 403 을 주는 라우트(require_sensitive_consent — 건강 프로필·질병·
+                        알러지, 기록 경고, 식단 추천, 주간 조언, 검사 수치)와 403 없이 **읽지 않는** 곳
+                        (홈·진료 탭의 질환 기준 영양 합계, 리포트의 질환·검사 수치 — 서버 DATA_MODEL 7장). */}
+                    <Text style={styles.updateText}>
+                      다시 동의하기 전까지 질병·알러지 조회와 수정, 기록할 때 음식 경고, 질환 기준 영양
+                      합계, 식단 추천, 주간 조언, 검사 수치를 쓸 수 없고 진료 리포트에도 질환·검사 수치가
+                      빠져요.
+                    </Text>
+                    <AgreeButton isSubmitting={isSubmitting} label="다시 동의하기" onPress={agree} />
+                  </View>
+                ) : null}
+
+                {canRevoke ? (
                   isRevokeConfirmVisible ? (
                     /* 화면 안 2단계 확인 — Alert.alert는 react-native-web에서 no-op이라 웹에서
                        확인 없이 통과한다 (결제 해지 확인과 같은 규칙). */
@@ -117,13 +146,16 @@ export default function ConsentsScreen() {
                       <Text style={styles.confirmTitle}>동의를 철회할까요?</Text>
                       {/* **파기 범위가 바뀌면 이 문구도 함께 바꾼다** (2026-08-19).
                           서버가 지우는 목록은 `services/consent_service._destroy_sensitive_data`
-                          이고, 사용자가 무엇을 잃는지 모르고 누르면 고지의 의미가 없다. */}
+                          (건강 프로필·질병·알러지·검사 수치 행 삭제, 진료 메모만 비움)이고, 사용자가
+                          무엇을 잃는지 모르고 누르면 고지의 의미가 없다.
+                          2026-09-13: "식단 추천은 일반 가이드로 제공"을 뺐다 — 추천은 동의 없이 403 이다. */}
                       <Text style={styles.confirmText}>
-                        입력한 혈액형·질병·알러지와 <Text style={styles.confirmStrong}>기록해 둔
+                        입력한 혈액형·질병(병기 포함)·알러지와 <Text style={styles.confirmStrong}>기록해 둔
                         검사 수치, 진료에서 들은 메모</Text>가 <Text style={styles.confirmStrong}>즉시
                         삭제</Text>되고 되돌릴 수 없어요. 다시 동의해도 복구되지 않습니다.
-                        식단 추천은 개인 맞춤 없이 일반 가이드로 제공되고, 기록할 때 알러지·질환
-                        경고도 뜨지 않아요. 사진 기록과 칼로리 계산, 진료 일정은 그대로 쓸 수 있어요.
+                        저장돼 있던 식단 추천 목록도 함께 지워져요. 식단 추천과 주간 조언을 쓸 수 없고,
+                        기록할 때 알러지·질환 경고도 뜨지 않아요.
+                        사진 기록과 칼로리 계산, 진료 일정은 그대로 쓸 수 있어요.
                       </Text>
                       <View style={styles.confirmActions}>
                         <Pressable
@@ -157,22 +189,10 @@ export default function ConsentsScreen() {
                     </Pressable>
                   )
                 ) : (
-                  <Pressable
-                    disabled={isSubmitting}
-                    onPress={() =>
-                      void submit(() => postConsent('sensitive_health', CONSENT_VERSION))
-                    }
-                    style={({ pressed }) => [
-                      styles.agreeButton,
-                      isSubmitting && styles.buttonDisabled,
-                      pressed && !isSubmitting && styles.pressed,
-                    ]}>
-                    {isSubmitting ? (
-                      <ActivityIndicator color="#22211f" />
-                    ) : (
-                      <Text style={styles.agreeButtonText}>동의하기</Text>
-                    )}
-                  </Pressable>
+                  <>
+                    <Text style={styles.cardText}>{SENSITIVE_HEALTH_REFUSAL}</Text>
+                    <AgreeButton isSubmitting={isSubmitting} label="동의하기" onPress={agree} />
+                  </>
                 )}
               </View>
 
@@ -198,6 +218,33 @@ export default function ConsentsScreen() {
         </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function AgreeButton({
+  isSubmitting,
+  label,
+  onPress,
+}: {
+  isSubmitting: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      disabled={isSubmitting}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.agreeButton,
+        isSubmitting && styles.buttonDisabled,
+        pressed && !isSubmitting && styles.pressed,
+      ]}>
+      {isSubmitting ? (
+        <ActivityIndicator color="#22211f" />
+      ) : (
+        <Text style={styles.agreeButtonText}>{label}</Text>
+      )}
+    </Pressable>
   );
 }
 
@@ -241,13 +288,46 @@ function latestConsent(consents: ConsentRecord[], kind: ConsentRecord['kind']): 
   );
 }
 
-function describeHealthStatus(consent: ConsentRecord | null): string {
+function toHealthConsentState(consent: ConsentRecord | null): HealthConsentState {
+  if (consent === null) {
+    return 'none';
+  }
+
+  if (consent.revoked_at !== null) {
+    return 'revoked';
+  }
+
+  return consent.is_current ? 'current' : 'outdated';
+}
+
+// 낡은 동의는 체크 표시를 달지 않는다 — 서버가 무효로 보는 것을 합격 도장처럼 그리면 안 된다.
+function statusIconName(state: HealthConsentState): keyof typeof MaterialIcons.glyphMap {
+  if (state === 'current') {
+    return 'check-circle';
+  }
+
+  return state === 'outdated' ? 'info-outline' : 'remove-circle-outline';
+}
+
+function statusIconColor(state: HealthConsentState): string {
+  if (state === 'current') {
+    return '#60beb8';
+  }
+
+  return state === 'outdated' ? '#a4603f' : '#a9a6a1';
+}
+
+function describeHealthStatus(consent: ConsentRecord | null, state: HealthConsentState): string {
   if (consent === null) {
     return '아직 동의하지 않았어요';
   }
 
   if (consent.revoked_at !== null) {
     return `${formatDay(consent.revoked_at)}에 철회함`;
+  }
+
+  if (state === 'outdated') {
+    return `${formatDay(consent.agreed_at)}에 이전 내용(${consent.version})으로 동의함`;
   }
 
   return `${formatDay(consent.agreed_at)}에 동의함 · ${consent.version}`;
@@ -439,6 +519,22 @@ const styles = StyleSheet.create({
   title: {
     color: '#22211f',
     fontSize: 30,
+    fontWeight: '900',
+  },
+  updateBox: {
+    backgroundColor: '#fbeee7',
+    borderRadius: 8,
+    gap: 8,
+    padding: 14,
+  },
+  updateText: {
+    color: '#5c5b57',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  updateTitle: {
+    color: '#22211f',
+    fontSize: 15,
     fontWeight: '900',
   },
 });

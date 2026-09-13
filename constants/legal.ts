@@ -31,7 +31,8 @@ const DRAFT_NOTICE =
 
 export const TERMS: LegalDocument = {
   title: '서비스 이용약관',
-  version: '1.0',
+  // 1.1 (2026-09-13, KCAL-22): 제2조·제14조 — 생성형 인공지능 이용 사전고지(AI기본법 제31조①).
+  version: '1.1',
   effectiveDate: '[[시행일자]]',
   draftNotice: DRAFT_NOTICE,
   sections: [
@@ -44,7 +45,9 @@ export const TERMS: LegalDocument = {
     {
       title: '제2조 (정의)',
       paragraphs: [
-        '"서비스"란 회원이 촬영·선택한 음식 사진을 인공지능으로 인식하고, 식품의약품안전처 등 공공 데이터베이스를 조회해 예상 칼로리·영양 정보를 제공하며, 식단·체중 기록과 식단 추천을 제공하는 일체의 서비스를 말합니다.',
+        // 근거: AI기본법 제31조①·시행령 제23조①(약관 기재로 사전고지) — 서버 docs/LEGAL_COMPLIANCE.md §7-1.
+        // "생성형"을 빼고 "인공지능"만 써도 고지로 인정되는지 확인하지 못해(§7-5) 명시한다.
+        '"서비스"란 회원이 촬영·선택한 음식 사진을 생성형 인공지능으로 인식하고, 식품의약품안전처 등 공공 데이터베이스를 조회해 예상 칼로리·영양 정보를 제공하며, 식단·체중 기록과 식단 추천을 제공하는 일체의 서비스를 말합니다.',
         '"회원"이란 이 약관에 동의하고 카카오 계정으로 가입해 서비스를 이용하는 자를 말합니다.',
         '"유료 서비스"란 회사가 정한 요금을 지급해야 이용할 수 있는 요금제(Pro, Premium)를 말합니다.',
         '"사진 인식"이란 회원이 올린 사진 1장에서 음식을 인식하는 기능을 말하며, 요금제별로 1일 이용 횟수가 정해져 있습니다.',
@@ -161,13 +164,30 @@ export const TERMS: LegalDocument = {
       ],
     },
     {
-      title: '제14조 (인공지능 추정의 한계)',
+      title: '제14조 (생성형 인공지능의 이용과 한계)',
       paragraphs: [
+        // 근거: AI기본법 제31조①(사전고지), 서버 docs/LEGAL_COMPLIANCE.md §7-2(무엇이 AI이고 무엇이 아닌가).
+        // ① 인식 = 서버 services/gemini_vision_service.identify_food — 음식명과 1인분 추정 무게(portion_g)를
+        //   돌려주고, 앱이 "대략 Ng 정도로 보여요"로 보여준다(components/quantity-editor.tsx). 그래서 "대략적인 양"을 쓴다.
+        // ② 추정 = services/gemini_nutrition_service.estimate_by_label — kcal·탄수화물·단백질·지방만 추정한다
+        //   (나트륨·칼륨·인은 추정하지 않는다). DB 조회가 전부 실패했을 때만 부르고 source='llm' 으로 저장해 동결.
+        // 그 밖의 기능에는 LLM 호출 경로가 없다 — gemini_client.generate_json 호출부는 위 두 곳뿐(2026-09-13 grep).
+        // 경고·합계·조언·추천(recommendation_service source="rule")·가이드(nutrition_guide 정적 콘텐츠)·
+        // 목표 칼로리(Mifflin-St Jeor).
+        '회사는 생성형 인공지능(Google LLC의 Gemini)을 이용해 ① 회원이 올린 사진 속 음식과 대략적인 양을 인식하고, ② 식품의약품안전처 등 공공 데이터베이스에 없는 음식의 칼로리와 탄수화물·단백질·지방을 1회 추정합니다. 이 두 가지 외의 기능(기록 경고, 하루·기간 영양 합계, 주간 조언, 식단 추천, 질환별 식이 가이드, 목표 칼로리 계산)은 인공지능이 아니라 정해진 규칙·공개 지침·계산식으로 제공합니다.',
         // 근거: services/gemini_vision_service.py, DATA_MODEL 19장
         '음식 인식은 인공지능이 수행하며 실제와 다를 수 있습니다. 회원은 인식 결과를 직접 수정할 수 있습니다.',
         // 근거: DATA_MODEL 13·19장 — 식약처 DB 조회 원칙, 미등록 라벨만 LLM 1회 추정 후 동결
         '칼로리·영양 정보는 식품의약품안전처 등이 공개한 데이터베이스 조회를 원칙으로 합니다. 데이터베이스에 없는 음식은 인공지능이 1회 추정한 값을 사용하며, 이 경우 실제 값과 차이가 클 수 있습니다.',
         '제공되는 칼로리는 일반적인 1인분 기준의 추정치로, 실제 조리 방법·재료·양에 따라 달라집니다.',
+        // 근거: AI기본법 제31조②·시행령 제23조②(결과물 표시). 화면 문구와 문자 그대로 맞춘다.
+        //   기록 화면 — app/meals/compose.tsx AiProvenance: "AI가 사진에서 인식"·"칼로리는 AI 추정값 · 식약처 DB에 없는 음식"
+        //   지난 기록 — app/meals/index.tsx: source === 'ai' 항목에 "AI 인식"
+        //   합계 화면 — constants/ai-notice.ts INTAKE_ESTIMATE_NOTICE(홈·지난 기록·진료 탭)
+        //   리포트   — app/report/index.tsx 하단 고지(인쇄·PDF로 앱 밖에 나가는 결과물)
+        // ⚠️ 지난 기록·리포트는 항목별로 칼로리가 AI 추정이었는지 모른다(meal_items 에 영양 출처 스냅샷이 없다 —
+        //   서버 LEGAL_COMPLIANCE §7-3). 그래서 "항목마다"는 기록 화면에만 쓰고, 합계·리포트는 "포함되어 있다는 사실"로 쓴다.
+        '회사는 인공지능이 인식하거나 추정한 결과를 서비스 화면에 표시합니다. 기록하는 화면에서는 항목마다 "AI가 사진에서 인식", "칼로리는 AI 추정값"으로, 지난 기록에서는 사진으로 인식한 항목에 "AI 인식"으로 표시합니다. 섭취량 합계를 보여주는 화면과 인쇄·PDF로 저장하는 리포트에는 인공지능이 인식하거나 추정한 값이 포함되어 있다는 사실을 적습니다.',
       ],
     },
     {
@@ -207,14 +227,18 @@ export const TERMS: LegalDocument = {
     },
     {
       title: '부칙',
-      paragraphs: ['이 약관은 [[시행일자]]부터 시행합니다.'],
+      paragraphs: [
+        '이 약관은 [[시행일자]]부터 시행합니다.',
+        '1.1 개정: 제2조·제14조 — 생성형 인공지능 이용 고지.',
+      ],
     },
   ],
 };
 
 export const PRIVACY_POLICY: LegalDocument = {
   title: '개인정보 처리방침',
-  version: '1.0',
+  // 1.1 (2026-09-13, KCAL-22): 민감정보 항목·목적·보유 기간, 국외 이전의 법적 근거·연락처, 수집·파기 범위.
+  version: '1.1',
   effectiveDate: '[[시행일자]]',
   draftNotice: DRAFT_NOTICE,
   sections: [
@@ -233,14 +257,23 @@ export const PRIVACY_POLICY: LegalDocument = {
         // 근거: schemas/health_schema.py:13-18 — 전부 필수
         '[서비스 이용을 위한 프로필 — 필수] 성별, 태어난 해, 키, 몸무게, 활동량. 목표 칼로리 산출에 사용됩니다.',
         '[선택 입력] 목표 유형, 목표 칼로리, 목표 체중.',
-        // 근거: models/health_model.py, pet_model.py, group_model.py
-        '[서비스 이용 과정에서 생성] 식단 기록(끼니 종류, 음식명, 칼로리, 기록 시각), 체중 기록, 반려동물 정보(이름, 종류, 품종·태어난 해·몸무게·중성화 여부는 선택), 반려동물 급여 기록, 그룹 정보(그룹명, 목적).',
+        // 근거(2026-09-13 테이블 대조): models/health_model.py — meal_logs·meal_items(serving_ratio·source·confidence,
+        //   기록 당시 스냅샷 sodium_mg·potassium_mg·phosphorus_mg·sugar_g), weight_logs, exercise_logs(종류·시간·강도·kcal·memo),
+        //   exercise_goals, care_visits.scheduled_on / recommendation_model.py — diet_recommendations /
+        //   subscription_model.py — vision_usage_daily / pet_model.py / group_model.py — groups·group_challenges.
+        // care_visits 의 clinic_label(병원명)·questions(질문 메모)는 **컬럼만 있고 API 가 받지 않는다**
+        //   (schemas/visit_schema.NextVisitRequest = scheduled_on·outcome) — 수집하지 않으므로 적지 않는다. 여는 순간 이 줄을 고친다.
+        //   outcome(진료 메모)은 내용이 있으면 민감정보 동의가 필요해(api/visit_api.put_next_visit) 아래 [민감정보]에 둔다.
+        // 반려동물·그룹 챌린지는 앱에서 기능을 숨겼을 뿐 테이블과 기존 행이 남아 있어 그대로 적는다(앱 docs/DESIGN.md '반려동물은 앱에서 제거, 그룹 챌린지는 숨김' 행).
+        // diet_recommendations.excluded 에는 추천에 반영한 질병·알러지 라벨이 {type, code, label}로 들어간다 — 민감정보의
+        //   파생값이라 2026-09-13 부터 동의 철회 때 consent_service._destroy_sensitive_data 가 추천 캐시를 행째 지운다(KCAL-22).
+        '[서비스 이용 과정에서 생성] 식단 기록(끼니 종류, 음식명, 먹은 양, 칼로리, 기록 시각, 사진 인식 여부와 인식 신뢰도, 기록 당시 음식의 나트륨·칼륨·인·당류 수치), 체중 기록(측정 일시, 체중), 운동 기록(운동 종류, 시간, 강도, 소모 칼로리, 메모)과 주간 운동 목표, 진료 예정일, 식단 추천 결과(추천 날짜·끼니, 추천 음식, 추천에서 제외한 음식과 제외 조건), 사진 인식 이용 횟수, 반려동물 정보(이름, 종류, 품종·태어난 해·몸무게·중성화 여부는 선택), 반려동물 급여 기록, 그룹 정보(그룹명, 목적), 그룹 챌린지(제목, 목표 운동 시간, 기간).',
         // 근거: api/predict_api.py:58 — image_bytes 메모리 처리 후 폐기. 저장 코드 없음, meal_logs.photo_s3_key 라이브 0행
         '[사진 인식 시 — 저장하지 않음] 회원이 촬영하거나 선택한 음식 사진. 사진은 음식을 인식하는 동안에만 처리되고 저장하지 않습니다. 회사의 서버, 데이터베이스, 별도 저장소 어디에도 남지 않으며 인식이 끝나면 즉시 폐기됩니다. 사진에서 인식한 음식명과 칼로리만 회원의 식단 기록으로 저장됩니다. 다만 인식 처리를 위해 사진이 인공지능 서비스로 전송되므로(5·6항 참조), 사진을 전송하고 싶지 않으시면 음식명을 직접 입력해 기록하실 수 있습니다.',
         // 근거: models/subscription_model.py — payments, billing_keys
         '[유료 서비스 이용 시] 결제 기록(주문번호, 요금제, 금액, 결제 상태, 결제 일시, 결제수단), 마스킹된 카드번호(앞 6자리·뒤 4자리), 카드사명, 카드 종류. 카드번호 전체와 비밀번호는 수집하지 않습니다.',
         // 근거: 3항 참조
-        '[민감정보 — 별도 동의 시에만] 혈액형, Rh 인자, 질병 정보, 알러지 정보. 자세한 내용은 3항을 참조하십시오.',
+        '[민감정보 — 별도 동의 시에만] 혈액형, Rh 인자, 질병 정보(신장질환 병기 포함), 알러지 정보, 검사 수치, 진료에서 들은 내용 메모. 자세한 내용은 3항을 참조하십시오.',
         // 근거: main.py:107-116 실측 — 메서드/경로/상태/시간만. IP·쿠키·UA 수집 0건
         '[자동 수집] 회사는 서비스 운영을 위해 접속 기록(요청 경로, 응답 상태, 처리 시간)을 남깁니다. IP 주소, 쿠키, 브라우저 정보(User-Agent)는 수집하지 않습니다.',
       ],
@@ -248,20 +281,44 @@ export const PRIVACY_POLICY: LegalDocument = {
     {
       title: '3. 민감정보의 처리',
       paragraphs: [
-        '회사는 다음의 민감정보를 정보주체의 별도 동의를 받은 경우에만 수집·이용합니다: 혈액형, Rh 인자, 질병 정보(당뇨, 임신, 만성신장질환, 암, 고혈압 등), 알러지 정보(알레르겐 및 중증도).',
-        // 근거: services/recommendation_service, nutrition_api /warnings
-        '이용 목적: 식단 추천에서 피해야 할 음식을 제외하고, 식단을 기록할 때 주의가 필요한 음식에 경고를 표시하는 목적으로만 사용합니다. 다른 목적으로 이용하거나 제3자에게 제공하지 않습니다.',
-        // 근거: crypto.py — AES-256-GCM (혈액형·Rh), consent_model.py:53-54 (질병·알러지 평문)
-        '보호조치: 혈액형과 Rh 인자는 암호화(AES-256-GCM)해 저장합니다. 질병·알러지 정보는 추천·경고 기능이 조회 조건으로 사용해야 하는 항목이라 암호화하지 않고 저장하며, 접근 통제로 보호합니다.',
-        // 근거: app/me/consents.tsx, consent_service.revoke_consent → _destroy_sensitive_data
-        '동의 철회: 정보주체는 언제든지 서비스 내 [내 정보 → 동의 관리]에서 이 동의를 철회할 수 있습니다. 철회 시 위 민감정보는 즉시 파기되며, 식단 추천은 개인 맞춤 없이 제공되고 알러지 경고는 표시되지 않습니다.',
-        '민감정보 수집에 동의하지 않아도 사진 기록과 칼로리 계산 등 나머지 서비스는 이용할 수 있습니다.',
+        // 근거: models/consent_model.py — user_health_profiles(blood_type·rh·ckd_stage)·user_conditions·user_allergies(allergen·severity),
+        //   models/health_model.py — lab_results(measured_on·panel·value·unit·note)·care_visits.outcome.
+        //   단위는 회원이 고르지 않고 서버가 항목별로 정한다(schemas/lab_schema.LabResultRequest). 혈압 항목이 있다(services/lab_panels.py).
+        //   동의 화면 고지(constants/consent.ts SENSITIVE_HEALTH_NOTICE_ROWS)와 같은 내용이어야 한다.
+        '회사는 다음의 민감정보를 정보주체의 별도 동의를 받은 경우에만 수집·이용합니다: 혈액형, Rh 인자, 질병 정보(당뇨, 임신, 만성신장질환과 그 병기, 암, 고혈압 등), 알러지 정보(알레르겐 및 중증도), 검사 수치(회원이 검사 결과지 등을 보고 직접 입력한 검사 항목·수치·검사일·메모와 그 단위, 혈압 포함), 진료에서 들은 내용 메모.',
+        // 근거: api/nutrition_api.read_record_warnings(경고), services/day_nutrition.py(질환 축 하루·기간 합계),
+        //   api/coaching_api(주간 조언 — coaching_service 가 질병을 읽는다), services/recommendation_service(제외),
+        //   api/lab_api(검사 수치 — _NOTICE "정상 여부를 판단하지 않습니다"), api/visit_api(진료 메모),
+        //   services/medical_report_service.build_report(리포트에 질환·병기·검사 수치). 진료 메모는 리포트에 싣지 않는다.
+        //   검사 수치 화면은 날짜별 목록이고 추이 그래프가 없어(app/labs/index.tsx) "추이"라고 쓰지 않는다.
+        '이용 목적: 식단을 기록할 때 주의가 필요한 음식에 경고를 표시하고, 질환 기준으로 영양 합계와 주간 조언을 제공하며, 식단 추천에서 피해야 할 음식을 제외하고, 검사 수치와 진료 메모를 기록해 보여주고, 진료에 가져갈 리포트에 질환과 검사 수치를 싣는 목적으로만 사용합니다. 다른 목적으로 이용하거나 제3자에게 제공하지 않습니다. 회사는 검사 수치를 측정하거나 정상 여부를 판정하지 않습니다.',
+        // 근거: 개인정보 보호법 제15조②3호(제23조①1호 준용). consent_service.revoke_consent → _destroy_sensitive_data(철회),
+        //   account_service.delete_account(탈퇴).
+        '보유·이용 기간: 동의를 철회하거나 회원 탈퇴할 때까지 보유·이용하며, 그때 즉시 파기합니다.',
+        // 근거: crypto.py EncryptedString(AES-256-GCM) — consent_model.UserHealthProfile.blood_type·rh 만.
+        //   평문: user_health_profiles.ckd_stage(String), user_conditions, user_allergies, lab_results.value(Numeric)·note(String),
+        //   care_visits.outcome(Text). 진료 메모는 조회·계산에 쓰이지 않는데도 암호화하지 않았다 — "조회에 써야 해서"로 묶으면
+        //   사실과 달라 문장을 나눴다.
+        '보호조치: 혈액형과 Rh 인자는 암호화(AES-256-GCM)해 저장합니다. 질병(신장질환 병기 포함)·알러지·검사 수치는 경고·영양 합계·추천·리포트가 조회하고 계산하는 데 사용해야 하는 항목이라 암호화하지 않고 저장하며, 진료 메모도 암호화하지 않고 저장합니다. 이 정보들은 접근 통제로 보호합니다.',
+        // 근거: app/me/consents.tsx, consent_service.revoke_consent → _destroy_sensitive_data — user_health_profiles·
+        //   user_conditions·user_allergies·lab_results 행 삭제, care_visits 는 outcome 만 비우고 scheduled_on(날짜)은 남긴다.
+        //   철회 후 이용 불가 = require_sensitive_consent 403 라우트(경고·추천·주간 조언·검사 수치) + 질병이 지워져 비는 영양 합계.
+        //   2026-09-13 전 문구의 "식단 추천은 개인 맞춤 없이 제공"은 사실이 아니었다 — 추천은 동의 없이 403 이다.
+        '동의 철회: 정보주체는 언제든지 서비스 내 [내 정보 → 동의 관리]에서 이 동의를 철회할 수 있습니다. 철회 시 위 민감정보(혈액형·Rh 인자, 질병과 병기, 알러지, 검사 수치, 진료 메모)와 이를 반영해 저장해 둔 식단 추천 결과는 즉시 파기됩니다. 진료 예정일은 민감정보가 아니므로 삭제하지 않습니다. 철회 후에는 기록할 때의 음식 경고, 질환 기준 영양 합계, 주간 조언, 식단 추천, 검사 수치 기록을 이용할 수 없고, 진료 리포트에 질환·검사 수치가 실리지 않습니다.',
+        // 근거: 개인정보 보호법 제23조①(알린 범위에서만 처리). 서버 consent_service 가 버전이 낡은 민감정보 동의를 무효로 보고
+        //   require_sensitive_consent 가 403 을 준다(KCAL-22 서버 계약), 앱은 app/me/consents.tsx 가 '동의 내용이 바뀌었어요'를 그린다.
+        //   403 을 주지 않는 summary·trends·report·guides 도 동의가 ACTIVE 가 아니면 질병·병기·검사 수치를 읽지 않는다
+        //   (2026-09-13 서버 day_nutrition·medical_report_service·guide_service, DATA_MODEL 7장 '읽기도 동의 상태를 따른다').
+        '수집 항목이나 이용 목적이 바뀌면 다시 동의를 받으며, 다시 동의하기 전에는 이전 동의만으로 민감정보를 이용하지 않고 해당 기능 이용이 제한됩니다.',
+        // 근거: 개인정보 보호법 제15조②4호(거부권과 불이익). constants/consent.ts SENSITIVE_HEALTH_REFUSAL 과 같은 내용.
+        '민감정보 수집·이용에 동의하지 않을 수 있으며, 동의하지 않아도 사진 기록·칼로리 계산, 체중·운동 기록, 진료 일정 등 나머지 서비스는 이용할 수 있습니다. 다만 위 이용 목적의 기능(기록할 때의 음식 경고, 질환 기준 영양 합계, 주간 조언, 식단 추천, 검사 수치·진료 메모 기록, 진료 리포트의 질환·검사 수치 수록)은 이용할 수 없습니다.',
       ],
     },
     {
       title: '4. 개인정보의 이용 목적',
       paragraphs: [
-        '회원 식별 및 로그인, 서비스 제공(사진 인식, 칼로리·영양 정보 제공, 식단·체중 기록 및 통계), 목표 섭취량 산출, 식단 추천 및 건강 관련 경고 표시(민감정보 동의 시), 유료 서비스의 결제·정산·이용 한도 관리, 문의 응대.',
+        // 민감정보 동의 시 목적은 3항 이용 목적과 같다(근거 주석 3항).
+        '회원 식별 및 로그인, 서비스 제공(사진 인식, 칼로리·영양 정보 제공, 식단·체중·운동 기록 및 통계, 진료 일정 기록, 진료용 리포트), 목표 섭취량 산출, 민감정보 동의 시 기록할 때의 음식 경고·질환 기준 영양 합계·주간 조언·식단 추천·검사 수치와 진료 메모 기록·진료 리포트에 질환과 검사 수치 수록, 유료 서비스의 결제·정산·이용 한도 관리, 문의 응대.',
         '회사는 위 목적 외의 용도로 개인정보를 이용하지 않으며, 목적이 변경되는 경우 별도의 동의를 받습니다.',
         '회사는 개인정보를 마케팅·광고에 이용하지 않습니다.',
       ],
@@ -270,8 +327,10 @@ export const PRIVACY_POLICY: LegalDocument = {
       title: '5. 개인정보의 처리 위탁',
       paragraphs: [
         '회사는 서비스 제공을 위해 다음과 같이 개인정보 처리를 위탁하고 있습니다.',
-        // 근거: services/gemini_vision_service.py — image_bytes만 전송, user_id 미포함
-        '[Google LLC] 위탁 업무: 음식 사진의 인공지능 인식 및 영양 정보 추정. 제공 항목: 회원이 업로드한 음식 사진, 음식명. 회원을 식별할 수 있는 정보(회원번호, 닉네임 등)는 함께 전송되지 않습니다.',
+        // 근거: services/gemini_vision_service.identify_food — 이미지 바이트 + 고정 프롬프트만 전송.
+        //   services/gemini_nutrition_service.estimate_by_label — 음식명 1개를 넣은 고정 프롬프트만 전송.
+        //   두 호출 모두 user_id·닉네임·질병·알러지·검사 수치를 싣지 않는다(gemini_client.generate_json 호출부 전수, 2026-09-13).
+        '[Google LLC] 위탁 업무: 음식 사진의 인공지능 인식, 데이터베이스에 없는 음식의 영양 정보 추정. 제공 항목: 회원이 업로드한 음식 사진, 음식명. 회원을 식별할 수 있는 정보(회원번호, 닉네임 등)와 질병·검사 수치 등 민감정보는 함께 전송되지 않습니다.',
         // 근거: services/toss_client.py:181-220 — {authKey, customerKey} / {customerKey, amount, orderId, orderName}
         '토스페이먼츠 주식회사 위탁 업무: 신용카드 자동결제 처리. 제공 항목: 결제 식별자(무작위로 생성한 값으로 회원 정보를 포함하지 않습니다), 결제 금액, 주문번호, 요금제명. 이름·연락처·이메일은 제공하지 않습니다.',
         // 근거: services/kakao_client.py
@@ -286,12 +345,22 @@ export const PRIVACY_POLICY: LegalDocument = {
     {
       title: '6. 개인정보의 국외 이전',
       paragraphs: [
-        // 근거: gemini_client.py:61 — genai.Client(api_key=...), Vertex/리전 지정 없음
-        '회사는 음식 사진 인식을 위해 Google LLC의 인공지능 서비스를 이용하며, 이 과정에서 사진이 국외의 서버로 전송될 수 있습니다.',
+        // 근거: gemini_client.py:61 — genai.Client(api_key=...), Vertex/리전 지정 없음.
+        //   영양 추정(gemini_nutrition_service.estimate_by_label)도 같은 클라이언트로 음식명을 보낸다 — 1.0 에는 사진만 적혀 있었다.
+        '회사는 음식 사진 인식과 데이터베이스에 없는 음식의 영양 정보 추정을 위해 Google LLC의 인공지능 서비스를 이용하며, 이 과정에서 사진과 음식명이 국외의 서버로 전송될 수 있습니다.',
+        // 근거: 개인정보 보호법 제28조의8 제1항 제3호 — 정보주체와의 계약 체결·이행에 필요한 처리위탁·보관으로서
+        //   같은 조 제2항 각 호를 처리방침에 공개한 경우(가목). 제2항 각 호 = 이 항의 이전 항목·국가·일시와 방법·
+        //   이전받는 자와 연락처·이용 목적과 보유 기간·거부 방법과 효과.
+        // ⚠️ 3호(처리위탁)는 Google 이 수탁자로 행동하는 유료(Paid Services) 이용일 때 성립한다 — 운영 Gemini 키의
+        //   유료 여부는 미확인(KCAL-22, 서버 LEGAL_COMPLIANCE §7-5). 무료면 입력이 학습에 쓰여 위탁이 아니게 된다.
+        '이전의 법적 근거: 개인정보 보호법 제28조의8 제1항 제3호(서비스 제공 계약의 이행을 위한 처리위탁으로서 이 처리방침에 공개).',
         // 근거: Google 「Gemini API Additional Terms of Service」(ai.google.dev/gemini-api/terms) —
         // 유료 서비스는 프롬프트·응답을 제품 개선에 사용하지 않으며, 금지된 사용 정책 위반 탐지 목적으로만
         // 제한된 기간 로깅한다. 저장 위치는 "any country in which Google or its agents maintain facilities".
-        '이전받는 자: Google LLC. 이전 국가: Google 또는 그 대리인이 시설을 운영하는 국가(Google의 정책상 특정 국가로 한정되지 않으며, 데이터가 일시적으로 저장되거나 캐시될 수 있습니다). 이전 항목: 음식 사진, 음식명. 이전 일시 및 방법: 회원이 사진 분석을 요청하는 시점에 네트워크를 통해 전송. 이전받는 자의 이용 목적: 사진 속 음식 인식 및 영양 정보 추정. 보유·이용 기간: Google은 유료 서비스에서 전송된 사진과 응답을 인공지능 모델의 학습·제품 개선에 사용하지 않으며, 금지된 사용 정책 위반 여부를 확인하기 위한 목적으로만 제한된 기간 동안 기록한 뒤 파기합니다.',
+        '이전받는 자: Google LLC. 이전 국가: Google 또는 그 대리인이 시설을 운영하는 국가(Google의 정책상 특정 국가로 한정되지 않으며, 데이터가 일시적으로 저장되거나 캐시될 수 있습니다). 이전 항목: 음식 사진, 음식명. 이전 일시 및 방법: 회원이 사진 분석을 요청하거나 데이터베이스에 없는 음식의 영양 정보를 조회하는 시점에 네트워크를 통해 전송. 이전받는 자의 이용 목적: 사진 속 음식 인식 및 영양 정보 추정. 보유·이용 기간: Google은 유료 서비스에서 전송된 사진과 응답을 인공지능 모델의 학습·제품 개선에 사용하지 않으며, 금지된 사용 정책 위반 여부를 확인하기 위한 목적으로만 제한된 기간 동안 기록한 뒤 파기합니다.',
+        // 근거: policies.google.com/privacy — 한국어판(이메일)·영문판(문의 양식) 2026-09-13 조회. 우편 주소는 원문에 없어
+        //   적지 않았다. 개인정보 보호법 제28조의8 제2항 제3호(이전받는 자의 성명과 연락처).
+        '이전받는 자의 연락처: Google 개인정보 문의 양식(https://support.google.com/policies?p=privpol_privts), 이메일 googlekrsupport@google.com',
         // 근거: predict_api.py:58 — image_bytes 메모리 처리, 저장 코드 없음. meal_logs.photo_s3_key 라이브 0행
         '회사는 회원이 업로드한 사진을 저장하지 않습니다. 사진은 인식 처리를 위해 메모리에서만 사용된 뒤 즉시 폐기되며, 회사의 서버·데이터베이스·별도 저장소 어디에도 남지 않습니다. 회사가 보관하는 것은 사진에서 인식한 음식명과 칼로리뿐입니다.',
         '국외 이전을 원하지 않는 경우 사진 인식 기능을 이용하지 않고 음식명을 직접 입력하는 방식으로 서비스를 이용할 수 있습니다. 이 경우 사진은 전송되지 않습니다.',
@@ -322,9 +391,14 @@ export const PRIVACY_POLICY: LegalDocument = {
       title: '9. 개인정보의 파기 절차 및 방법',
       paragraphs: [
         '파기 절차: 회원이 탈퇴하면 개인정보와 서비스 이용 기록을 즉시 파기합니다. 별도의 보관 기간을 두거나 삭제 표시만 남기지 않습니다.',
-        // 근거: account_service.delete_account 전체
-        '파기 범위: 회원 정보, 프로필(성별·태어난 해·키·몸무게·활동량), 목표, 식단 기록과 그 항목, 체중 기록, 민감정보(혈액형·Rh·질병·알러지), 동의 이력, 반려동물과 급여 기록, 소유한 그룹, 구독 정보, 사진 인식 사용량, 결제수단 정보, 로그인 세션.',
-        '소유한 그룹은 그룹 자체가 삭제되며, 다른 회원이 만든 그룹에 참여한 기록은 참여 기록만 삭제되고 그룹은 유지됩니다.',
+        // 근거: account_service.delete_account 전체(2026-09-13 대조) — auth_sessions·kakao_link_codes, user_subscriptions·
+        //   vision_usage_daily, billing_keys, user_consents, user_health_profiles·user_conditions·user_allergies, meal_items·meal_logs,
+        //   weight_logs, lab_results, care_visits, exercise_logs·exercise_goals, user_goals, user_profiles, diet_recommendations,
+        //   pet_feeding_logs·group_pets·pets, 소유 그룹의 group_members·group_challenges·groups, 남의 그룹 멤버십, users.
+        //   payments 는 파기하지 않고 user_id 를 끊는다(8항).
+        '파기 범위: 회원 정보, 로그인 세션과 카카오 연동 코드, 프로필(성별·태어난 해·키·몸무게·활동량), 목표, 식단 기록과 그 항목, 체중 기록, 운동 기록과 주간 운동 목표, 진료 예정일과 진료 메모, 검사 수치, 식단 추천 결과, 민감정보(혈액형·Rh·질병·신장질환 병기·알러지), 동의 이력, 반려동물과 급여 기록, 소유한 그룹, 구독 정보, 사진 인식 사용량, 결제수단 정보.',
+        // 근거: 같은 함수 5)·6) — 소유 그룹은 멤버·챌린지째 삭제, 남의 그룹에 만든 챌린지는 created_by 만 null.
+        '소유한 그룹은 그룹의 멤버 목록과 챌린지를 포함해 그룹 자체가 삭제되며, 다른 회원이 만든 그룹에 참여한 기록은 참여 기록만 삭제되고 그룹은 유지됩니다. 다른 회원의 그룹에 회원이 만든 챌린지는 그 그룹에 남고, 회원과의 연결(작성자 정보)만 삭제됩니다.',
         '파기 방법: 데이터베이스에서 물리적으로 삭제합니다.',
         // 근거: account_service.py:66-72
         '탈퇴 시 회사는 카카오 계정과의 연결을 해제합니다.',
@@ -334,10 +408,18 @@ export const PRIVACY_POLICY: LegalDocument = {
       title: '10. 정보주체의 권리와 행사 방법',
       paragraphs: [
         '정보주체는 언제든지 다음의 권리를 행사할 수 있습니다: 개인정보 열람, 정정·삭제, 처리정지, 동의 철회.',
-        '[열람·정정] 서비스 내 [내 정보] 화면에서 프로필, 목표, 식단·체중 기록, 질병·알러지 정보를 직접 확인하고 수정할 수 있습니다. 결제 내역은 [내 정보 → 결제 내역]에서 확인할 수 있습니다.',
+        // 근거: app/(tabs)/account.tsx — 프로필·목표·질병·알러지·결제 내역 진입.
+        //   app/(tabs)/trends.tsx(진료 탭) — VisitCard(진료 예정일·메모), LabSection → app/labs(검사 수치 추가·삭제),
+        //   WeightSection → app/me/weights, body-metrics → app/exercises, 캘린더 → app/meals. 홈 끼니 카드 → app/meals.
+        //   1.0 은 식단·체중 기록이 [내 정보]에 있다고 적었지만 2026-08-19 부터 진료 탭에 있다.
+        //   고칠 수 있는 것: 식단(app/meals/index.tsx updateMeal), 진료 예정일·메모(visit-api setNextVisit).
+        //   검사 수치·운동은 앱이 추가·삭제만 한다(lab-api·exercise-api — 검사 수치는 같은 날 같은 항목이면 서버가 덮어쓴다).
+        //   체중은 서버에 수정·삭제 라우트가 없다(api/health_api.py — POST·GET /api/weights 뿐).
+        '[열람·정정] 서비스 내 [내 정보] 화면에서 프로필, 목표, 질병·알러지 정보를 직접 확인하고 수정할 수 있습니다. [진료] 탭에서는 진료 예정일과 진료 메모, 검사 수치, 체중·운동 기록을, 홈과 [진료] 탭의 캘린더에서는 식단 기록을 확인할 수 있습니다. 식단 기록과 진료 예정일·메모는 고칠 수 있고, 검사 수치와 운동 기록은 지운 뒤 다시 입력할 수 있습니다. 결제 내역은 [내 정보 → 결제 내역]에서 확인할 수 있습니다.',
         // 근거: app/me/consents.tsx (2026-07-16 추가)
         '[동의 철회] 민감정보 수집·이용 동의는 [내 정보 → 동의 관리]에서 철회할 수 있으며, 철회 시 해당 정보는 즉시 파기됩니다.',
-        '[삭제] 개별 기록은 각 화면에서 삭제할 수 있고, 전체 삭제는 [내 정보 → 회원 탈퇴]로 가능합니다.',
+        // 근거: 위 [열람·정정] 주석. 1.0 의 "개별 기록은 각 화면에서 삭제할 수 있고"는 체중 기록에 대해 사실이 아니었다.
+        '[삭제] 식단·운동·검사 수치 기록과 진료 일정은 각 화면에서 개별로 삭제할 수 있고, 전체 삭제는 [내 정보 → 회원 탈퇴]로 가능합니다. 체중 기록은 서비스 화면에서 개별로 삭제할 수 없으므로 아래 문의처로 요청해 주십시오.',
         '[문의] 그 밖의 권리 행사는 [[고객문의 이메일]]로 요청하실 수 있으며, 회사는 지체 없이 조치합니다.',
       ],
     },
@@ -386,6 +468,7 @@ export const PRIVACY_POLICY: LegalDocument = {
       paragraphs: [
         '이 방침을 변경하는 경우 변경 사항을 시행 7일 전부터 서비스 내에 공지합니다. 다만 정보주체의 권리에 중대한 변경이 있는 경우에는 30일 전에 공지합니다.',
         '이 방침은 [[시행일자]]부터 적용됩니다.',
+        '개정 이력: 1.1 — 민감정보 항목(검사 수치·진료 메모)·이용 목적·보유 기간 명시, 국외 이전의 법적 근거·이전받는 자 연락처 명시, 수집 항목·파기 범위 갱신.',
       ],
     },
   ],
