@@ -16,10 +16,24 @@ import { DayNutrientsCard } from '@/components/day-nutrients-card';
 import { MealTypeCard } from '@/components/meal-type-card';
 import { NextMealCard } from '@/components/next-meal-card';
 import { ProgressRing } from '@/components/progress-ring';
+import { YesterdayCard } from '@/components/yesterday-card';
 import { GuideSummary, listGuides } from '@/services/guide-api';
 import { consumePendingInvite } from '@/services/group-invite';
 import { daysUntil, getNextVisit } from '@/services/visit-api';
-import { DaySummary, formatDateParam, getSummary, MealBreakdown, MealType } from '@/services/health-api';
+import {
+  DaySummary,
+  formatDateParam,
+  getSummary,
+  getTrends,
+  MealBreakdown,
+  MealType,
+  TrendsResponse,
+} from '@/services/health-api';
+import {
+  dismissYesterday,
+  isYesterdayDismissed,
+  yesterdayDateParam,
+} from '@/services/yesterday-summary';
 import {
   DietRecommendation,
   getRecommendation,
@@ -50,6 +64,9 @@ export default function HomeScreen() {
   const [guides, setGuides] = useState<GuideSummary[]>([]);
   // 다음 진료일. 등록돼 있을 때만 한 줄 나타난다 — 없는 사람의 홈을 어지럽히지 않는다.
   const [visitDate, setVisitDate] = useState<string | null>(null);
+  // 어제 하루. 요약 API(summary)가 아니라 추이 API를 하루 범위로 읽는다 — 끼니 수(meal_count)가
+  // 있어야 "기록 없는 날"과 "0 kcal 기록"을 가를 수 있다. 닫았거나 실패하면 null.
+  const [yesterday, setYesterday] = useState<TrendsResponse | null>(null);
 
   const loadSummary = useCallback(async () => {
     setIsLoading(true);
@@ -84,6 +101,17 @@ export default function HomeScreen() {
         .then((visit) => setVisitDate(visit.scheduled_on))
         // 진료일은 부가 정보다 — 실패해도 홈의 나머지를 막지 않는다.
         .catch(() => setVisitDate(null));
+
+      const yesterdayDate = yesterdayDateParam();
+
+      if (isYesterdayDismissed(yesterdayDate)) {
+        setYesterday(null);
+      } else {
+        void getTrends(yesterdayDate, yesterdayDate)
+          .then(setYesterday)
+          // 어제 요약도 부가 정보다 — 실패하면 카드만 빠진다.
+          .catch(() => setYesterday(null));
+      }
 
       void loadSummary();
     }, [loadSummary])
@@ -139,6 +167,21 @@ export default function HomeScreen() {
               진료와 진료 사이 한 바퀴이고(서버 `CARE_LOOP.md` §1), 그 끝이 보여야 기록이
               쌓이는 이유가 생긴다. 등록하지 않았으면 아무것도 그리지 않는다. */}
           <VisitStrip scheduledOn={visitDate} onPress={() => router.push('/(tabs)/trends')} />
+
+          {/* 어제를 닫는 자리. 오늘을 보기 전에 한 번 지나가고, 닫으면 그날은 다시 안 뜬다
+              (서버 `CARE_LOOP.md` §6). 기록이 없던 날도 그 사실을 말한다. */}
+          {yesterday !== null ? (
+            <YesterdayCard
+              trends={yesterday}
+              onPress={() =>
+                router.push({ pathname: '/meals', params: { date: yesterday.start_date } })
+              }
+              onDismiss={() => {
+                dismissYesterday(yesterday.start_date);
+                setYesterday(null);
+              }}
+            />
+          ) : null}
 
           {isLoading ? (
             <View style={styles.stateBox}>

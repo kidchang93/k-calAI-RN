@@ -119,9 +119,14 @@ function ReportBody({ report }: { report: MedicalReport }) {
         {report.ckd_stage_label !== null ? (
           <MetaRow label="신장질환 병기" value={report.ckd_stage_label} />
         ) : null}
+        {/* 기록 없는 날을 **숫자로 따로** 적는다. "13일 / 44일"은 비율로 읽혀 빈 31일이 눈에 안 띈다 —
+            3일 기록한 리포트와 30일 기록한 리포트가 같은 무게로 보이면 진료에 가져갈 근거로 정직하지
+            않다 (서버 `CARE_LOOP.md` §6). */}
         <MetaRow
           label="기록"
-          value={`${report.kcal.recorded_days}일 / ${report.kcal.total_days}일`}
+          value={`${report.kcal.recorded_days}일 기록 · 기록 없는 날 ${
+            report.kcal.total_days - report.kcal.recorded_days
+          }일 (전체 ${report.kcal.total_days}일)`}
         />
         <MetaRow
           label="일평균 섭취"
