@@ -1,28 +1,18 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useEffect, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { ChipGroup } from '@/components/chip-group';
-import { ErrorBanner } from '@/components/error-banner';
+import { AllergyForm } from '@/components/allergy-form';
 import { OnboardingProgress } from '@/components/onboarding-progress';
+import { Screen } from '@/components/screen';
 import { FALLBACK_ALLERGEN_OPTIONS, getMetaOptions, MetaOption } from '@/services/meta-api';
 import {
   AllergyEntry,
+  AllergyInput,
   ConsentRequiredError,
   getAllergies,
   putAllergies,
 } from '@/services/onboarding-api';
-
-// '없음'은 서버 값이 아니라 replace-all PUT의 빈 배열로 표현한다.
-const NONE_VALUE = 'none';
 
 export default function AllergiesScreen() {
   const router = useRouter();
@@ -67,56 +57,16 @@ export default function AllergiesScreen() {
     };
   }, []);
 
-  // 저장값(표준 code)을 label로 표시한다. 메타 목록에 없는 code는 code 그대로 칩을 만든다.
-  const chipOptions = useMemo(() => {
-    const knownCodes = new Set(allergenOptions.map((option) => option.code));
-    const unknownSaved = savedEntries
-      .map((entry) => entry.allergen)
-      .filter((code) => !knownCodes.has(code) && code !== NONE_VALUE)
-      .map((code) => ({ value: code, label: code }));
-
-    return [
-      ...allergenOptions.map((option) => ({ value: option.code, label: option.label })),
-      ...unknownSaved,
-      { value: NONE_VALUE, label: '없음' },
-    ];
-  }, [allergenOptions, savedEntries]);
-
-  const toggle = (value: string) => {
-    setSelectedValues((previous) => {
-      if (value === NONE_VALUE) {
-        return previous.includes(NONE_VALUE) ? [] : [NONE_VALUE];
-      }
-
-      const withoutNone = previous.filter((item) => item !== NONE_VALUE);
-
-      return withoutNone.includes(value)
-        ? withoutNone.filter((item) => item !== value)
-        : [...withoutNone, value];
-    });
-  };
-
   const goNext = () => {
     router.push({ pathname: '/onboarding/body', params: { consented: '1' } });
   };
 
-  const saveAndNext = async () => {
+  const saveAndNext = async (allergies: AllergyInput[]) => {
     setIsSaving(true);
     setErrorMessage(null);
 
     try {
-      // '없음'은 앱 전용 값 — 서버로는 표준 code만 보낸다.
-      // replace-all PUT이므로 기존 저장값의 severity를 유실하지 않게 함께 보낸다.
-      const severityByAllergen = new Map(
-        savedEntries.map((entry) => [entry.allergen, entry.severity]),
-      );
-      const allergens = selectedValues.filter((value) => value !== NONE_VALUE);
-      await putAllergies(
-        allergens.map((allergen) => ({
-          allergen,
-          severity: severityByAllergen.get(allergen) ?? null,
-        })),
-      );
+      await putAllergies(allergies);
       goNext();
     } catch (error) {
       // 403(동의 없음/철회)은 세션 만료가 아니다. 동의 화면으로 되돌린다.
@@ -132,119 +82,33 @@ export default function AllergiesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.container}>
-          <OnboardingProgress current={3} total={5} />
+    <Screen>
+      <OnboardingProgress current={3} total={5} />
 
-          <View style={styles.header}>
-            <Text style={styles.title}>알러지가 있는{'\n'}재료가 있나요?</Text>
-            <Text style={styles.subtitle}>추천 식단에서 완전히 제외합니다.</Text>
-          </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>알러지가 있는{'\n'}재료가 있나요?</Text>
+        <Text style={styles.subtitle}>추천 식단에서 완전히 제외합니다.</Text>
+      </View>
 
-          {isLoadingOptions ? (
-            <ActivityIndicator color="#2a7d76" />
-          ) : (
-            <ChipGroup onToggle={toggle} options={chipOptions} selectedValues={selectedValues} />
-          )}
-
-          <View style={styles.noteBox}>
-            <Text style={styles.noteText}>
-              사진 분석 결과에 제외 재료가 보이면 기록할 때 경고합니다.
-            </Text>
-          </View>
-
-          {errorMessage ? (
-            <ErrorBanner message={errorMessage} onRetry={() => void saveAndNext()} />
-          ) : null}
-
-          <View style={styles.buttonGroup}>
-            <Pressable
-              disabled={selectedValues.length === 0 || isSaving}
-              onPress={() => void saveAndNext()}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                (selectedValues.length === 0 || isSaving) && styles.primaryButtonDisabled,
-                pressed && styles.pressed,
-              ]}>
-              {isSaving ? (
-                <ActivityIndicator color="#22211f" />
-              ) : (
-                <Text style={styles.primaryButtonText}>다음</Text>
-              )}
-            </Pressable>
-
-            <Pressable
-              disabled={isSaving}
-              onPress={goNext}
-              style={({ pressed }) => [styles.ghostButton, pressed && styles.pressed]}>
-              <Text style={styles.ghostButtonText}>건너뛰기</Text>
-            </Pressable>
-          </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+      <AllergyForm
+        errorMessage={errorMessage}
+        isLoadingOptions={isLoadingOptions}
+        isSaving={isSaving}
+        onChange={setSelectedValues}
+        onSave={(allergies) => void saveAndNext(allergies)}
+        onSkip={goNext}
+        options={allergenOptions}
+        saveLabel="다음"
+        savedEntries={savedEntries}
+        selectedValues={selectedValues}
+      />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  buttonGroup: {
-    gap: 8,
-    marginTop: 8,
-  },
-  container: {
-    alignSelf: 'center',
-    gap: 20,
-    maxWidth: 720,
-    width: '100%',
-  },
-  ghostButton: {
-    alignItems: 'center',
-    backgroundColor: '#e4e2de',
-    borderRadius: 8,
-    paddingVertical: 14,
-  },
-  ghostButtonText: {
-    color: '#5c5b57',
-    fontSize: 16,
-    fontWeight: '700',
-  },
   header: {
     gap: 6,
-  },
-  noteBox: {
-    backgroundColor: '#eef7f5',
-    borderRadius: 8,
-    padding: 16,
-  },
-  noteText: {
-    color: '#5c5b57',
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  pressed: {
-    opacity: 0.74,
-  },
-  primaryButton: {
-    alignItems: 'center',
-    backgroundColor: '#60beb8',
-    borderRadius: 8,
-    paddingVertical: 14,
-  },
-  primaryButtonDisabled: {
-    backgroundColor: '#99d2ce',
-  },
-  primaryButtonText: {
-    color: '#22211f',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  safeArea: {
-    backgroundColor: '#f7f6f4',
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
   },
   subtitle: {
     color: '#5c5b57',

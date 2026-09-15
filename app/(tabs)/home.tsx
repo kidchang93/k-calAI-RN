@@ -1,23 +1,19 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ConditionGuideCard } from '@/components/condition-guide-card';
 import { DayNutrientsCard } from '@/components/day-nutrients-card';
+import { ErrorBanner } from '@/components/error-banner';
+import { LoadingState } from '@/components/loading-state';
 import { MealTypeCard } from '@/components/meal-type-card';
 import { NextMealCard } from '@/components/next-meal-card';
 import { ProgressRing } from '@/components/progress-ring';
+import { Screen } from '@/components/screen';
 import { YesterdayCard } from '@/components/yesterday-card';
 import { INTAKE_ESTIMATE_NOTICE } from '@/constants/ai-notice';
+import { MEAL_TYPE_LABELS } from '@/constants/meal';
 import { GuideSummary, listGuides } from '@/services/guide-api';
 import { consumePendingInvite } from '@/services/group-invite';
 import { daysUntil, getNextVisit } from '@/services/visit-api';
@@ -41,15 +37,11 @@ import {
   nextMealType,
 } from '@/services/recommendation-api';
 
-const MEAL_ORDER: {
-  meal_type: MealType;
-  label: string;
-  icon: keyof typeof MaterialIcons.glyphMap;
-}[] = [
-  { meal_type: 'breakfast', label: '아침', icon: 'wb-sunny' },
-  { meal_type: 'lunch', label: '점심', icon: 'restaurant' },
-  { meal_type: 'dinner', label: '저녁', icon: 'dinner-dining' },
-  { meal_type: 'snack', label: '간식', icon: 'cookie' },
+const MEAL_ORDER: { meal_type: MealType; icon: keyof typeof MaterialIcons.glyphMap }[] = [
+  { meal_type: 'breakfast', icon: 'wb-sunny' },
+  { meal_type: 'lunch', icon: 'restaurant' },
+  { meal_type: 'dinner', icon: 'dinner-dining' },
+  { meal_type: 'snack', icon: 'cookie' },
 ];
 
 export default function HomeScreen() {
@@ -156,112 +148,95 @@ export default function HomeScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <Text style={styles.title}>오늘</Text>
-            <Text style={styles.subtitle}>오늘의 섭취량과 목표를 확인하세요.</Text>
-          </View>
+    <Screen>
+      <View style={styles.header}>
+        <Text style={styles.title}>오늘</Text>
+        <Text style={styles.subtitle}>오늘의 섭취량과 목표를 확인하세요.</Text>
+      </View>
 
-          {/* 다음 진료까지 남은 날. **오늘 기록해야 할 이유가 여기서 나온다** — 케어 루프는
-              진료와 진료 사이 한 바퀴이고(서버 `CARE_LOOP.md` §1), 그 끝이 보여야 기록이
-              쌓이는 이유가 생긴다. 등록하지 않았으면 아무것도 그리지 않는다. */}
-          <VisitStrip scheduledOn={visitDate} onPress={() => router.push('/(tabs)/trends')} />
+      {/* 다음 진료까지 남은 날. **오늘 기록해야 할 이유가 여기서 나온다** — 케어 루프는
+          진료와 진료 사이 한 바퀴이고(서버 `CARE_LOOP.md` §1), 그 끝이 보여야 기록이
+          쌓이는 이유가 생긴다. 등록하지 않았으면 아무것도 그리지 않는다. */}
+      <VisitStrip scheduledOn={visitDate} onPress={() => router.push('/(tabs)/trends')} />
 
-          {/* 어제를 닫는 자리. 오늘을 보기 전에 한 번 지나가고, 닫으면 그날은 다시 안 뜬다
-              (서버 `CARE_LOOP.md` §6). 기록이 없던 날도 그 사실을 말한다. */}
-          {yesterday !== null ? (
-            <YesterdayCard
-              trends={yesterday}
-              onPress={() =>
-                router.push({ pathname: '/meals', params: { date: yesterday.start_date } })
-              }
-              onDismiss={() => {
-                dismissYesterday(yesterday.start_date);
-                setYesterday(null);
-              }}
-            />
-          ) : null}
+      {/* 어제를 닫는 자리. 오늘을 보기 전에 한 번 지나가고, 닫으면 그날은 다시 안 뜬다
+          (서버 `CARE_LOOP.md` §6). 기록이 없던 날도 그 사실을 말한다. */}
+      {yesterday !== null ? (
+        <YesterdayCard
+          trends={yesterday}
+          onPress={() =>
+            router.push({ pathname: '/meals', params: { date: yesterday.start_date } })
+          }
+          onDismiss={() => {
+            dismissYesterday(yesterday.start_date);
+            setYesterday(null);
+          }}
+        />
+      ) : null}
 
-          {isLoading ? (
-            <View style={styles.stateBox}>
-              <ActivityIndicator color="#2a7d76" />
-              <Text style={styles.stateText}>오늘 기록을 불러오는 중입니다.</Text>
-            </View>
-          ) : errorMessage ? (
-            <View style={styles.errorBox}>
-              <MaterialIcons color="#b8524e" name="error-outline" size={20} />
-              <View style={styles.errorBody}>
-                <Text style={styles.errorText}>{errorMessage}</Text>
-                <Pressable
-                  onPress={() => void loadSummary()}
-                  style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}>
-                  <Text style={styles.retryButtonText}>다시 시도</Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : summary === null ? null : summary.target_kcal === null || summary.target_kcal === 0 ? (
-            <View style={styles.emptyGoalCard}>
-              <MaterialIcons color="#2a7d76" name="flag" size={28} />
-              <Text style={styles.emptyGoalTitle}>목표를 설정해주세요</Text>
-              <Text style={styles.emptyGoalText}>
-                하루 목표 칼로리를 정하면 진행률을 볼 수 있습니다.
-              </Text>
-              <Pressable
-                onPress={() => router.push('/me/goal')}
-                style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
-                <Text style={styles.primaryButtonText}>목표 설정하기</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <SummaryRing targetKcal={summary.target_kcal} consumedKcal={summary.consumed_kcal} />
-          )}
-
-          {/* 질환 축 하루 누적. 질환이 없으면 서버가 null 을 주고 카드는 나타나지 않는다.
-              칼로리 링 **바로 아래**인 것이 핵심이다 — 만성질환자에게는 kcal 보다 이 숫자가
-              중요하다(kcalAI-model/docs/PRODUCT_STRATEGY.md §1). */}
-          {summary !== null ? <DayNutrientsCard nutrients={summary.nutrients} /> : null}
-
-          {/* 수치 **바로 다음**이 "이게 무슨 뜻이지"가 이어지는 자리다. 여기를 놓치면
-              가이드는 아무도 찾지 않는 화면이 된다 (서버 `docs/CARE_LOOP.md` §5-2). */}
-          <ConditionGuideCard guides={guides} />
-
-          {/* "다음에 뭘 먹지"가 "끼니별 기록 조회"보다 먼저다. 예전에는 그룹 진입과 나란한
-              회색 행이어서, 가장 쓸모 있는 화면이 가장 눈에 안 띄었다. */}
-          {summary !== null ? (
-            <NextMealCard
-              mealType={mealType}
-              recommendation={recommendation}
-              onPress={() =>
-                router.push({ pathname: '/recommendations', params: { meal_type: mealType } })
-              }
-            />
-          ) : null}
-
-          {summary !== null && summary.target_kcal !== null && summary.target_kcal !== 0 ? (
-            <MealCards
-              meals={summary.meals}
-              onPressMeal={() => router.push({ pathname: '/meals', params: { date: summary.date } })}
-            />
-          ) : null}
-
-          {/* 그룹은 내 정보가 아니라 홈에서 진입한다 — 매일 보는 곳이라야 모임이 굴러간다. */}
+      {isLoading ? (
+        <LoadingState label="오늘 기록을 불러오는 중입니다." />
+      ) : errorMessage ? (
+        <ErrorBanner message={errorMessage} onRetry={() => void loadSummary()} />
+      ) : summary === null ? null : summary.target_kcal === null || summary.target_kcal === 0 ? (
+        <View style={styles.emptyGoalCard}>
+          <MaterialIcons color="#2a7d76" name="flag" size={28} />
+          <Text style={styles.emptyGoalTitle}>목표를 설정해주세요</Text>
+          <Text style={styles.emptyGoalText}>
+            하루 목표 칼로리를 정하면 진행률을 볼 수 있습니다.
+          </Text>
           <Pressable
-            onPress={() => router.push('/groups')}
-            style={({ pressed }) => [styles.groupRow, pressed && styles.pressed]}>
-            <MaterialIcons color="#2a7d76" name="groups" size={24} />
-            <View style={styles.groupRowBody}>
-              <Text style={styles.groupRowTitle}>함께 보기</Text>
-              <Text style={styles.groupRowText}>보호자·가족과 식생활을 함께 확인해요</Text>
-            </View>
-            <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
+            onPress={() => router.push('/me/goal')}
+            style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
+            <Text style={styles.primaryButtonText}>목표 설정하기</Text>
           </Pressable>
-
-          <Text style={styles.disclaimer}>{INTAKE_ESTIMATE_NOTICE}</Text>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      ) : (
+        <SummaryRing targetKcal={summary.target_kcal} consumedKcal={summary.consumed_kcal} />
+      )}
+
+      {/* 질환 축 하루 누적. 질환이 없으면 서버가 null 을 주고 카드는 나타나지 않는다.
+          칼로리 링 **바로 아래**인 것이 핵심이다 — 만성질환자에게는 kcal 보다 이 숫자가
+          중요하다(kcalAI-model/docs/PRODUCT_STRATEGY.md §1). */}
+      {summary !== null ? <DayNutrientsCard nutrients={summary.nutrients} /> : null}
+
+      {/* 수치 **바로 다음**이 "이게 무슨 뜻이지"가 이어지는 자리다. 여기를 놓치면
+          가이드는 아무도 찾지 않는 화면이 된다 (서버 `docs/CARE_LOOP.md` §5-2). */}
+      <ConditionGuideCard guides={guides} />
+
+      {/* "다음에 뭘 먹지"가 "끼니별 기록 조회"보다 먼저다. 예전에는 그룹 진입과 나란한
+          회색 행이어서, 가장 쓸모 있는 화면이 가장 눈에 안 띄었다. */}
+      {summary !== null ? (
+        <NextMealCard
+          mealType={mealType}
+          recommendation={recommendation}
+          onPress={() =>
+            router.push({ pathname: '/recommendations', params: { meal_type: mealType } })
+          }
+        />
+      ) : null}
+
+      {summary !== null && summary.target_kcal !== null && summary.target_kcal !== 0 ? (
+        <MealCards
+          meals={summary.meals}
+          onPressMeal={() => router.push({ pathname: '/meals', params: { date: summary.date } })}
+        />
+      ) : null}
+
+      {/* 그룹은 내 정보가 아니라 홈에서 진입한다 — 매일 보는 곳이라야 모임이 굴러간다. */}
+      <Pressable
+        onPress={() => router.push('/groups')}
+        style={({ pressed }) => [styles.groupRow, pressed && styles.pressed]}>
+        <MaterialIcons color="#2a7d76" name="groups" size={24} />
+        <View style={styles.groupRowBody}>
+          <Text style={styles.groupRowTitle}>함께 보기</Text>
+          <Text style={styles.groupRowText}>보호자·가족과 식생활을 함께 확인해요</Text>
+        </View>
+        <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
+      </Pressable>
+
+      <Text style={styles.disclaimer}>{INTAKE_ESTIMATE_NOTICE}</Text>
+    </Screen>
   );
 }
 
@@ -332,7 +307,7 @@ function MealCards({ meals, onPressMeal }: { meals: MealBreakdown; onPressMeal: 
         <MealTypeCard
           key={meal.meal_type}
           icon={meal.icon}
-          label={meal.label}
+          label={MEAL_TYPE_LABELS[meal.meal_type]}
           kcal={meals[meal.meal_type]}
           onPress={onPressMeal}
         />
@@ -362,12 +337,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  container: {
-    alignSelf: 'center',
-    gap: 20,
-    maxWidth: 720,
-    width: '100%',
-  },
   disclaimer: {
     color: '#a9a6a1',
     fontSize: 13,
@@ -389,21 +358,6 @@ const styles = StyleSheet.create({
     color: '#22211f',
     fontSize: 19,
     fontWeight: '900',
-  },
-  errorBody: {
-    flex: 1,
-    gap: 10,
-  },
-  errorBox: {
-    backgroundColor: '#fbeaea',
-    borderRadius: 8,
-    flexDirection: 'row',
-    gap: 10,
-    padding: 16,
-  },
-  errorText: {
-    color: '#b8524e',
-    fontSize: 14,
   },
   groupRow: {
     alignItems: 'center',
@@ -448,19 +402,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
-  retryButton: {
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  retryButtonText: {
-    color: '#b8524e',
-    fontSize: 14,
-    fontWeight: '700',
-  },
   ringCard: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
@@ -482,24 +423,6 @@ const styles = StyleSheet.create({
     color: '#22211f',
     fontSize: 40,
     fontWeight: '900',
-  },
-  safeArea: {
-    backgroundColor: '#f7f6f4',
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-  },
-  stateBox: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    gap: 12,
-    padding: 32,
-  },
-  stateText: {
-    color: '#5c5b57',
-    fontSize: 14,
   },
   subtitle: {
     color: '#5c5b57',

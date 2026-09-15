@@ -1,14 +1,16 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { LoadingState } from '@/components/loading-state';
+import { Screen } from '@/components/screen';
 import {
   BillingChargeError,
   BillingUnavailableError,
   confirmBilling,
 } from '@/services/billing-api';
+import { formatIsoMonthDay, formatPlanPrice } from '@/services/format';
 import { fetchMySubscription, MySubscription } from '@/services/subscription-api';
 
 // 토스 결제창의 successUrl 착지점. 결제창이 `?authKey=…&customerKey=…`를 덧붙여 되돌린다
@@ -17,7 +19,7 @@ import { fetchMySubscription, MySubscription } from '@/services/subscription-api
 // 뒤로가기(BackButton)를 두지 않는다 — 뒤는 토스 결제창이고, 이 화면으로 되돌아오면 이미 소비된
 // authKey로 confirm을 다시 부르게 된다. 이동은 전부 router.replace로 끊는다.
 
-type FailureKind = 'charge' | 'unavailable' | 'general';
+const DEFAULT_FAILURE_TITLE = '결제를 완료하지 못했어요';
 
 export default function BillingSuccessScreen() {
   const router = useRouter();
@@ -29,7 +31,8 @@ export default function BillingSuccessScreen() {
   const [subscription, setSubscription] = useState<MySubscription | null>(null);
   const [isConfirming, setIsConfirming] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [failureKind, setFailureKind] = useState<FailureKind>('general');
+  // 502(청구 실패)·503(미설정)·그 외에 따라 다른 제목을 쓴다. 본문은 서버가 준 한국어 detail이다.
+  const [failureTitle, setFailureTitle] = useState(DEFAULT_FAILURE_TITLE);
   const hasRequestedRef = useRef(false);
 
   useEffect(() => {
@@ -62,7 +65,13 @@ export default function BillingSuccessScreen() {
           return;
         }
 
-        setFailureKind(toFailureKind(error));
+        setFailureTitle(
+          error instanceof BillingChargeError
+            ? '결제하지 못했어요'
+            : error instanceof BillingUnavailableError
+              ? '결제 서비스를 준비 중이에요'
+              : DEFAULT_FAILURE_TITLE
+        );
         setErrorMessage(
           error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.'
         );
@@ -77,58 +86,51 @@ export default function BillingSuccessScreen() {
   const hasParams = authKey !== null && customerKey !== null && planCode !== null;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.container}>
-          {isConfirming ? (
-            <View style={styles.stateBox}>
-              <ActivityIndicator color="#2a7d76" />
-              <Text style={styles.stateText}>결제를 확인하고 있어요. 잠시만 기다려주세요.</Text>
-            </View>
-          ) : !hasParams ? (
-            <ResultCard
-              accent="#b8524e"
-              accentBackground="#fbeaea"
-              icon="link-off"
-              message="결제 정보가 확인되지 않았어요. 요금제 화면에서 다시 시도해주세요."
-              title="잘못된 접근이에요"
-            />
-          ) : errorMessage !== null ? (
-            <ResultCard
-              accent="#b8524e"
-              accentBackground="#fbeaea"
-              icon="error-outline"
-              message={errorMessage}
-              title={failureTitle(failureKind)}
-            />
-          ) : subscription !== null ? (
-            <SuccessCard subscription={subscription} />
-          ) : null}
+    <Screen contentStyle={{ justifyContent: 'center' }}>
+      {isConfirming ? (
+        <LoadingState label="결제를 확인하고 있어요. 잠시만 기다려주세요." />
+      ) : !hasParams ? (
+        <ResultCard
+          accent="#b8524e"
+          accentBackground="#fbeaea"
+          icon="link-off"
+          message="결제 정보가 확인되지 않았어요. 요금제 화면에서 다시 시도해주세요."
+          title="잘못된 접근이에요"
+        />
+      ) : errorMessage !== null ? (
+        <ResultCard
+          accent="#b8524e"
+          accentBackground="#fbeaea"
+          icon="error-outline"
+          message={errorMessage}
+          title={failureTitle}
+        />
+      ) : subscription !== null ? (
+        <SuccessCard subscription={subscription} />
+      ) : null}
 
-          {isConfirming ? null : (
-            <View style={styles.actions}>
-              <Pressable
-                onPress={() => router.replace('/plan')}
-                style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
-                <Text style={styles.primaryButtonText}>
-                  {errorMessage !== null || !hasParams ? '요금제로 돌아가 다시 시도' : '요금제 보기'}
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => router.replace('/payments')}
-                style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
-                <Text style={styles.secondaryButtonText}>결제 내역 보기</Text>
-              </Pressable>
-            </View>
-          )}
+      {isConfirming ? null : (
+        <View style={styles.actions}>
+          <Pressable
+            onPress={() => router.replace('/plan')}
+            style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
+            <Text style={styles.primaryButtonText}>
+              {errorMessage !== null || !hasParams ? '요금제로 돌아가 다시 시도' : '요금제 보기'}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.replace('/payments')}
+            style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
+            <Text style={styles.secondaryButtonText}>결제 내역 보기</Text>
+          </Pressable>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      )}
+    </Screen>
   );
 }
 
 function SuccessCard({ subscription }: { subscription: MySubscription }) {
-  const nextBilling = formatDay(subscription.next_billing_at);
+  const nextBilling = formatIsoMonthDay(subscription.next_billing_at);
 
   return (
     <View style={styles.resultCard}>
@@ -142,14 +144,7 @@ function SuccessCard({ subscription }: { subscription: MySubscription }) {
 
       <View style={styles.detailBox}>
         <DetailRow label="요금제" value={subscription.plan.label} />
-        <DetailRow
-          label="결제 금액"
-          value={
-            subscription.plan.price_krw === 0
-              ? '무료'
-              : `월 ${subscription.plan.price_krw.toLocaleString()}원`
-          }
-        />
+        <DetailRow label="결제 금액" value={formatPlanPrice(subscription.plan.price_krw)} />
         <DetailRow
           label="사진 인식"
           value={`하루 ${subscription.plan.daily_vision_quota}건`}
@@ -210,68 +205,16 @@ async function fetchActivePaidSubscription(planCode: string): Promise<MySubscrip
   }
 }
 
-// 502(청구 실패)·503(미설정)·그 외를 제목으로 구분한다. 본문은 서버가 준 한국어 detail을 쓴다.
-function toFailureKind(error: unknown): FailureKind {
-  if (error instanceof BillingChargeError) {
-    return 'charge';
-  }
-
-  if (error instanceof BillingUnavailableError) {
-    return 'unavailable';
-  }
-
-  return 'general';
-}
-
-function failureTitle(kind: FailureKind): string {
-  if (kind === 'charge') {
-    return '결제하지 못했어요';
-  }
-
-  if (kind === 'unavailable') {
-    return '결제 서비스를 준비 중이에요';
-  }
-
-  return '결제를 완료하지 못했어요';
-}
-
 // 쿼리 파라미터는 string | string[]로 온다. 빈 값은 없는 것으로 취급한다.
 function singleParam(value: string | string[] | undefined): string | null {
-  if (Array.isArray(value)) {
-    return singleParam(value[0]);
-  }
+  const single = Array.isArray(value) ? value[0] : value;
 
-  if (typeof value !== 'string' || value.trim() === '') {
-    return null;
-  }
-
-  return value;
-}
-
-// ISO → 'M월 D일' (plan 화면의 표기와 같은 규칙).
-function formatDay(isoText: string | null): string | null {
-  if (isoText === null) {
-    return null;
-  }
-
-  const date = new Date(isoText);
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return `${date.getMonth() + 1}월 ${date.getDate()}일`;
+  return typeof single === 'string' && single.trim() !== '' ? single : null;
 }
 
 const styles = StyleSheet.create({
   actions: {
     gap: 10,
-  },
-  container: {
-    alignSelf: 'center',
-    gap: 20,
-    maxWidth: 720,
-    width: '100%',
   },
   detailBox: {
     backgroundColor: '#e4e2de',
@@ -334,14 +277,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     textAlign: 'center',
   },
-  safeArea: {
-    backgroundColor: '#f7f6f4',
-    flex: 1,
-  },
-  scrollContent: {
-    justifyContent: 'center',
-    padding: 20,
-  },
   secondaryButton: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
@@ -353,17 +288,5 @@ const styles = StyleSheet.create({
     color: '#5c5b57',
     fontSize: 15,
     fontWeight: '800',
-  },
-  stateBox: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    gap: 12,
-    padding: 32,
-  },
-  stateText: {
-    color: '#5c5b57',
-    fontSize: 14,
-    textAlign: 'center',
   },
 });

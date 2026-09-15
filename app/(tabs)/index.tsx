@@ -1,12 +1,12 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import * as ImagePicker from 'expo-image-picker';
+import type * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AI_USE_NOTICE } from '@/constants/ai-notice';
-import { notifyDialog } from '@/services/dialog';
 import { formatDateParam } from '@/services/health-api';
+import { pickPhoto } from '@/services/photo-picker';
 import { readPhotoTakenAt } from '@/services/photo-time';
 
 // 기록 탭은 '오늘 기록 만들기'의 진입점이다. 실제 다중 항목 구성·저장은 끼니 구성 화면
@@ -21,54 +21,23 @@ export default function RecordScreen() {
     });
   };
 
-  const pickFromCamera = async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
+  // 촬영 시각은 **앨범일 때만** 읽는다 — 카메라로 방금 찍은 사진은 현재 시각과 같아 의미가 없고,
+  // 구성 화면에는 URI만 넘어가 웹에서는 원본 파일을 다시 못 읽는다.
+  const pickAndCompose = async (source: 'camera' | 'library') => {
+    const asset = await pickPhoto(source);
 
-    if (!permission.granted) {
-      notifyDialog('카메라 권한 필요', '음식 사진을 촬영하려면 카메라 권한을 허용해주세요.');
-
+    if (asset === null) {
       return;
     }
 
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.86,
-    });
+    const params = photoParams(asset);
+    const takenAt = source === 'library' ? await readPhotoTakenAt(asset) : null;
 
-    if (!result.canceled) {
-      openCompose(photoParams(result.assets[0]));
-    }
-  };
-
-  const pickFromLibrary = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permission.granted) {
-      notifyDialog('사진 권한 필요', '앨범에서 음식 사진을 선택하려면 사진 접근 권한을 허용해주세요.');
-
-      return;
+    if (takenAt !== null) {
+      params.photoTakenAt = takenAt.toISOString();
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.86,
-      exif: true,
-    });
-
-    if (!result.canceled) {
-      // 촬영 시각은 **여기서** 읽는다 — 구성 화면에는 URI 만 넘어가 웹에서는 원본 파일을 다시 못 읽는다.
-      const takenAt = await readPhotoTakenAt(result.assets[0]);
-      const params = photoParams(result.assets[0]);
-
-      if (takenAt !== null) {
-        params.photoTakenAt = takenAt.toISOString();
-      }
-
-      openCompose(params);
-    }
+    openCompose(params);
   };
 
   return (
@@ -95,8 +64,8 @@ export default function RecordScreen() {
         </View>
 
         <View style={styles.actionGrid}>
-          <ActionButton icon="photo-camera" label="촬영" onPress={() => void pickFromCamera()} />
-          <ActionButton icon="photo-library" label="앨범" onPress={() => void pickFromLibrary()} />
+          <ActionButton icon="photo-camera" label="촬영" onPress={() => void pickAndCompose('camera')} />
+          <ActionButton icon="photo-library" label="앨범" onPress={() => void pickAndCompose('library')} />
         </View>
 
         <Pressable

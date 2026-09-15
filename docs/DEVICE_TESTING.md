@@ -110,7 +110,7 @@ cd kcalAI-model && venv/bin/python scripts/check_kakao_config.py
 
 1. **카카오 콘솔 > 앱 설정 > 보안 > 허용 IP**에 지금 공인 IP 추가 — 유동 IP라 바뀌면 또 막힌다.
 2. **개발용 카카오 앱을 따로** 만들어 IP 제한 없이 쓰고, 로컬 `.env`의 키 3종만 그 앱 것으로 교체. (재발 없음)
-3. `.env`의 `EXPO_PUBLIC_*_API_URL`을 **운영 서버**(`https://api.kcalai.link`)로 지정.
+3. `.env`의 `EXPO_PUBLIC_API_ORIGIN`을 **운영 서버**(`https://api.kcalai.link`)로 지정.
    ⚠️ 이때 만드는 기록·결제는 **운영 데이터**다. 읽기 위주 확인에만 쓴다.
 
 ## C. Expo Go — 지금은 반쪽만 된다
@@ -130,7 +130,7 @@ cd kcalAI-model && venv/bin/python scripts/check_kakao_config.py
 꺼내** `http://<LAN_IP>:8000`으로 백엔드를 호출한다. 폰이 붙은 그 IP를 그대로 쓰므로 별도 설정 없이 닿는다.
 
 - 시뮬레이터/에뮬레이터는 `127.0.0.1`(iOS)·`10.0.2.2`(Android)로 폴백.
-- 특정 서버로 강제하려면 `.env`에 `EXPO_PUBLIC_*_API_URL` 지정(오버라이드 우선). `.env.example` 참조.
+- 특정 서버로 강제하려면 `.env`에 `EXPO_PUBLIC_API_ORIGIN` 지정(오버라이드 우선). `.env.example` 참조.
 
 ## 백엔드 준비 (B·C 공통)
 
@@ -150,7 +150,7 @@ curl -sf http://<LAN_IP>:8000/openapi.json >/dev/null && echo OK
 | 로그인 후 8000 화면으로 떨어짐 | 서버가 `/auth`로 **상대 경로** 리다이렉트해서다(운영은 같은 오리진이라 정상). 로컬 웹 개발에서는 A 경로(우회 로그인)를 쓴다 |
 | QR 스캔 후 앱이 안 뜸 | iPhone·Mac이 **같은 Wi-Fi**인지 확인. VPN 끄기 |
 | 앱은 뜨는데 네트워크 오류 | 백엔드 미기동 또는 방화벽. `curl http://<LAN_IP>:8000/openapi.json`. macOS 방화벽에서 python/uvicorn 허용 |
-| 회사/게스트 Wi-Fi라 기기 격리 | `npx expo start --tunnel`(느림). 이때는 백엔드도 폰에서 못 닿으므로 `EXPO_PUBLIC_*_API_URL`을 공개 주소로 지정. 개인 핫스팟 권장 |
+| 회사/게스트 Wi-Fi라 기기 격리 | `npx expo start --tunnel`(느림). 이때는 백엔드도 폰에서 못 닿으므로 `EXPO_PUBLIC_API_ORIGIN`을 공개 주소로 지정. 개인 핫스팟 권장 |
 | LAN IP가 바뀜 | `expo start` 재기동하면 새 IP가 반영된다(앱이 hostUri에서 자동 도출) |
 
 ## 검증 상태

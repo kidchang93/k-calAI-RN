@@ -37,7 +37,7 @@
 - `multipart/form-data`의 `file` 필드로 이미지 서버 업로드
 - `/api/predict` 응답의 `predictions` 배열을 신뢰도 순으로 표시
 - 사용자가 음식 후보를 선택하면 `/api/nutrition/estimate`로 칼로리·영양 추정 요청(식약처 DB)
-- 서버 연결 주소를 `EXPO_PUBLIC_CALORIE_API_URL` 등 환경변수로 교체 가능
+- 서버 연결 주소는 `EXPO_PUBLIC_API_ORIGIN` 환경변수로 교체 가능 (모든 서비스가 공유, `services/api-base.ts`)
 
 ## 핵심 사용자 흐름
 

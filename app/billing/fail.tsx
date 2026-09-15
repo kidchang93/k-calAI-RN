@@ -1,8 +1,8 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Screen } from '@/components/screen';
 import { isBillingSupported } from '@/services/toss-sdk';
 
 // 토스 결제창의 failUrl 착지점. 결제창이 `?code=…&message=…`를 붙여 되돌린다.
@@ -22,71 +22,59 @@ export default function BillingFailScreen() {
   const isCanceled = code !== null && CANCEL_CODES.includes(code);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.container}>
-          <View style={styles.resultCard}>
-            <View style={[styles.iconWrap, isCanceled ? styles.iconWrapInfo : styles.iconWrapError]}>
-              <MaterialIcons
-                color={isCanceled ? '#2a7d76' : '#b8524e'}
-                name={isCanceled ? 'info-outline' : 'error-outline'}
-                size={32}
-              />
-            </View>
-
-            <Text style={styles.resultTitle}>
-              {isCanceled ? '결제를 취소했어요' : '결제를 완료하지 못했어요'}
-            </Text>
-            <Text style={styles.resultMessage}>
-              {isCanceled
-                ? '카드는 등록되지 않았고 결제된 금액도 없어요. 필요할 때 다시 시작할 수 있어요.'
-                : (message ?? '결제 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.')}
-            </Text>
-
-            {/* 취소가 아닐 때만 코드를 보여준다 — 문의 시 식별용. 취소에는 노이즈다. */}
-            {!isCanceled && code !== null ? (
-              <View style={styles.codeBox}>
-                <Text style={styles.codeText}>{`오류 코드 ${code}`}</Text>
-              </View>
-            ) : null}
-          </View>
-
-          {/* 네이티브에서 이 화면에 도달할 경로 자체가 없지만(결제 버튼을 그리지 않는다),
-              도달하더라도 **다른 결제수단을 가리키지 않는다** — App Store 3.1.3.
-              예전 문구는 "결제는 웹에서 진행해주세요"였다. */}
-          {isBillingSupported() ? null : (
-            <Text style={styles.note}>앱 내 구독은 준비 중이에요.</Text>
-          )}
-
-          <View style={styles.actions}>
-            <Pressable
-              onPress={() => router.replace('/plan')}
-              style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
-              <Text style={styles.primaryButtonText}>요금제로 돌아가기</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => router.replace('/home')}
-              style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
-              <Text style={styles.secondaryButtonText}>홈으로</Text>
-            </Pressable>
-          </View>
+    <Screen contentStyle={{ justifyContent: 'center' }}>
+      <View style={styles.resultCard}>
+        <View style={[styles.iconWrap, isCanceled ? styles.iconWrapInfo : styles.iconWrapError]}>
+          <MaterialIcons
+            color={isCanceled ? '#2a7d76' : '#b8524e'}
+            name={isCanceled ? 'info-outline' : 'error-outline'}
+            size={32}
+          />
         </View>
-      </ScrollView>
-    </SafeAreaView>
+
+        <Text style={styles.resultTitle}>
+          {isCanceled ? '결제를 취소했어요' : '결제를 완료하지 못했어요'}
+        </Text>
+        <Text style={styles.resultMessage}>
+          {isCanceled
+            ? '카드는 등록되지 않았고 결제된 금액도 없어요. 필요할 때 다시 시작할 수 있어요.'
+            : (message ?? '결제 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.')}
+        </Text>
+
+        {/* 취소가 아닐 때만 코드를 보여준다 — 문의 시 식별용. 취소에는 노이즈다. */}
+        {!isCanceled && code !== null ? (
+          <View style={styles.codeBox}>
+            <Text style={styles.codeText}>{`오류 코드 ${code}`}</Text>
+          </View>
+        ) : null}
+      </View>
+
+      {/* 네이티브에서 이 화면에 도달할 경로 자체가 없지만(결제 버튼을 그리지 않는다),
+          도달하더라도 **다른 결제수단을 가리키지 않는다** — App Store 3.1.3.
+          예전 문구는 "결제는 웹에서 진행해주세요"였다. */}
+      {isBillingSupported() ? null : <Text style={styles.note}>앱 내 구독은 준비 중이에요.</Text>}
+
+      <View style={styles.actions}>
+        <Pressable
+          onPress={() => router.replace('/plan')}
+          style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
+          <Text style={styles.primaryButtonText}>요금제로 돌아가기</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => router.replace('/home')}
+          style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
+          <Text style={styles.secondaryButtonText}>홈으로</Text>
+        </Pressable>
+      </View>
+    </Screen>
   );
 }
 
 // 쿼리 파라미터는 string | string[]로 온다. 빈 값은 없는 것으로 취급한다.
 function singleParam(value: string | string[] | undefined): string | null {
-  if (Array.isArray(value)) {
-    return singleParam(value[0]);
-  }
+  const single = Array.isArray(value) ? value[0] : value;
 
-  if (typeof value !== 'string' || value.trim() === '') {
-    return null;
-  }
-
-  return value;
+  return typeof single === 'string' && single.trim() !== '' ? single : null;
 }
 
 const styles = StyleSheet.create({
@@ -103,12 +91,6 @@ const styles = StyleSheet.create({
     color: '#5c5b57',
     fontSize: 12,
     fontWeight: '700',
-  },
-  container: {
-    alignSelf: 'center',
-    gap: 20,
-    maxWidth: 720,
-    width: '100%',
   },
   iconWrap: {
     alignItems: 'center',
@@ -161,14 +143,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '900',
     textAlign: 'center',
-  },
-  safeArea: {
-    backgroundColor: '#f7f6f4',
-    flex: 1,
-  },
-  scrollContent: {
-    justifyContent: 'center',
-    padding: 20,
   },
   secondaryButton: {
     alignItems: 'center',

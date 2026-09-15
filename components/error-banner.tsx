@@ -2,7 +2,16 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 // 저장·조회 실패 배너. 홈 화면의 errorBox 패턴(#fbeaea / #b8524e)을 공용화한 것.
-export function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+// 402(요금제 한도)는 재시도로 풀리지 않으므로 actionLabel="요금제 업그레이드" + onRetry 에 /plan 이동을 넘긴다.
+export function ErrorBanner({
+  message,
+  onRetry,
+  actionLabel = '다시 시도',
+}: {
+  message: string;
+  onRetry: () => void;
+  actionLabel?: string;
+}) {
   return (
     <View style={styles.errorBox}>
       <MaterialIcons color="#b8524e" name="error-outline" size={20} />
@@ -11,7 +20,7 @@ export function ErrorBanner({ message, onRetry }: { message: string; onRetry: ()
         <Pressable
           onPress={onRetry}
           style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}>
-          <Text style={styles.retryButtonText}>다시 시도</Text>
+          <Text style={styles.retryButtonText}>{actionLabel}</Text>
         </Pressable>
       </View>
     </View>

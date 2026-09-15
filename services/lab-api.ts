@@ -1,5 +1,5 @@
 import { apiUrl } from '@/services/api-base';
-import { apiFetch, readErrorMessage } from '@/services/http';
+import { apiFetch, ensureOk, isRecord, JSON_HEADERS, readOk } from '@/services/http';
 import { ConsentRequiredError } from '@/services/onboarding-api';
 
 // 검사 수치 (서버 `docs/CARE_LOOP.md` §4).
@@ -39,11 +39,14 @@ export type LabPanel = {
   is_mine: boolean;
 };
 
-export const LAB_API_URL = apiUrl('/api', process.env.EXPO_PUBLIC_HEALTH_API_URL);
+const LAB_API_URL = apiUrl('/api');
+
+// 403 은 민감정보 미동의다 — 일반 오류와 구분해야 화면이 '동의하러 가기'로 유도할 수 있다.
+const LAB_ERRORS = { 403: ConsentRequiredError };
 
 export async function listLabPanels(): Promise<{ panels: LabPanel[]; notice: string }> {
   const response = await apiFetch(`${LAB_API_URL}/me/lab-panels`);
-  const payload = await parseOrThrow(response, '검사 항목 조회 실패');
+  const payload = await readOk(response, '검사 항목 조회 실패', LAB_ERRORS);
 
   if (!isRecord(payload) || !Array.isArray(payload.panels)) {
     return { panels: [], notice: '' };
@@ -68,7 +71,7 @@ export async function listLabResults(params?: {
 
   const suffix = query.toString() ? `?${query.toString()}` : '';
   const response = await apiFetch(`${LAB_API_URL}/me/labs${suffix}`);
-  const payload = await parseOrThrow(response, '검사 수치 조회 실패');
+  const payload = await readOk(response, '검사 수치 조회 실패', LAB_ERRORS);
 
   if (!isRecord(payload) || !Array.isArray(payload.results)) {
     return { results: [], notice: '' };
@@ -88,11 +91,11 @@ export async function saveLabResult(input: {
 }): Promise<LabResult> {
   const response = await apiFetch(`${LAB_API_URL}/me/labs`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: JSON_HEADERS,
     body: JSON.stringify(input),
   });
 
-  const payload = await parseOrThrow(response, '검사 수치 저장 실패');
+  const payload = await readOk(response, '검사 수치 저장 실패', LAB_ERRORS);
 
   if (!isLabResult(payload)) {
     throw new Error('저장 응답 형식이 올바르지 않습니다.');
@@ -104,32 +107,7 @@ export async function saveLabResult(input: {
 export async function deleteLabResult(id: number): Promise<void> {
   const response = await apiFetch(`${LAB_API_URL}/me/labs/${id}`, { method: 'DELETE' });
 
-  if (response.status === 403) {
-    throw new ConsentRequiredError(await readErrorMessage(response));
-  }
-
-  if (!response.ok && response.status !== 204) {
-    throw new Error((await readErrorMessage(response)) || `삭제 실패: ${response.status}`);
-  }
-}
-
-async function parseOrThrow(response: Response, fallback: string): Promise<unknown> {
-  // 403 은 민감정보 미동의다 — 일반 오류와 구분해야 화면이 '동의하러 가기'로 유도할 수 있다.
-  if (response.status === 403) {
-    throw new ConsentRequiredError(
-      (await readErrorMessage(response)) || '민감정보 수집 동의가 필요합니다.'
-    );
-  }
-
-  if (!response.ok) {
-    throw new Error((await readErrorMessage(response)) || `${fallback}: ${response.status}`);
-  }
-
-  return response.json();
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  await ensureOk(response, '삭제 실패', LAB_ERRORS);
 }
 
 function isLabResult(value: unknown): value is LabResult {

@@ -1,5 +1,5 @@
 import { apiUrl } from '@/services/api-base';
-import { apiFetch, readErrorMessage } from '@/services/http';
+import { apiFetch, ensure, ensureOk, isRecord, JSON_HEADERS, readOk } from '@/services/http';
 
 // 그룹 운동 챌린지 (kcalAI-model/docs/ACTIVITY_GUIDANCE.md 3-4).
 //
@@ -41,19 +41,19 @@ export type ChallengeInput = {
   end_date: string;
 };
 
-export const CHALLENGE_API_URL = apiUrl('/api/groups', process.env.EXPO_PUBLIC_GROUP_API_URL);
-
-const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
+const CHALLENGE_API_URL = apiUrl('/api/groups');
 
 export async function getChallenges(groupId: number): Promise<ChallengeSummary[]> {
   const response = await apiFetch(`${CHALLENGE_API_URL}/${groupId}/challenges`);
-  const parsed = (await parseOk(response, '챌린지 조회 실패')) as unknown;
+  const parsed = await readOk(response, '챌린지 조회 실패');
 
-  if (!isRecord(parsed) || !Array.isArray(parsed.challenges)) {
-    throw new Error('서버 응답 형식이 올바르지 않습니다.');
-  }
-
-  return parsed.challenges.map(ensureSummary);
+  return ensure(
+    isRecord(parsed) &&
+      Array.isArray(parsed.challenges) &&
+      parsed.challenges.every(isChallengeSummary)
+      ? parsed.challenges
+      : null
+  );
 }
 
 export async function getChallengeDetail(
@@ -61,30 +61,9 @@ export async function getChallengeDetail(
   challengeId: number
 ): Promise<ChallengeDetail> {
   const response = await apiFetch(`${CHALLENGE_API_URL}/${groupId}/challenges/${challengeId}`);
-  const parsed = (await parseOk(response, '챌린지 조회 실패')) as unknown;
+  const parsed = await readOk(response, '챌린지 조회 실패');
 
-  if (!isRecord(parsed)) {
-    throw new Error('서버 응답 형식이 올바르지 않습니다.');
-  }
-
-  const summary = ensureSummary(parsed);
-
-  if (
-    typeof parsed.participant_count !== 'number' ||
-    typeof parsed.member_count !== 'number' ||
-    typeof parsed.i_am_sharing !== 'boolean' ||
-    !Array.isArray(parsed.entries)
-  ) {
-    throw new Error('서버 응답 형식이 올바르지 않습니다.');
-  }
-
-  return {
-    ...summary,
-    participant_count: parsed.participant_count,
-    member_count: parsed.member_count,
-    i_am_sharing: parsed.i_am_sharing,
-    entries: parsed.entries.map(ensureEntry),
-  };
+  return ensure(isChallengeDetail(parsed) ? parsed : null);
 }
 
 export async function createChallenge(
@@ -97,7 +76,9 @@ export async function createChallenge(
     body: JSON.stringify(input),
   });
 
-  return ensureSummary(await parseOk(response, '챌린지 생성 실패'));
+  const parsed = await readOk(response, '챌린지 생성 실패');
+
+  return ensure(isChallengeSummary(parsed) ? parsed : null);
 }
 
 export async function deleteChallenge(groupId: number, challengeId: number): Promise<void> {
@@ -106,69 +87,46 @@ export async function deleteChallenge(groupId: number, challengeId: number): Pro
   });
 
   // 204 No Content. 403(권한 없음)·404(없음)는 메시지를 그대로 올린다.
-  if (!response.ok) {
-    throw new Error((await readErrorMessage(response)) || '챌린지 삭제 실패');
-  }
+  await ensureOk(response, '챌린지 삭제 실패');
 }
 
 // ── 내부 헬퍼 ──────────────────────────────────────────────────────────────
 
-async function parseOk(response: Response, fallback: string): Promise<unknown> {
-  if (!response.ok) {
-    throw new Error((await readErrorMessage(response)) || fallback);
-  }
-
-  return response.json();
+function isChallengeSummary(value: unknown): value is ChallengeSummary {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'number' &&
+    typeof value.group_id === 'number' &&
+    typeof value.title === 'string' &&
+    typeof value.target_minutes === 'number' &&
+    typeof value.start_date === 'string' &&
+    typeof value.end_date === 'string' &&
+    typeof value.is_active === 'boolean'
+  );
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+function isChallengeDetail(value: unknown): value is ChallengeDetail {
+  // isChallengeSummary가 value를 ChallengeSummary로 좁혀 버리므로 나머지 필드는 별도 참조로 본다.
+  const record: Record<string, unknown> = isRecord(value) ? value : {};
+
+  return (
+    isChallengeSummary(value) &&
+    typeof record.participant_count === 'number' &&
+    typeof record.member_count === 'number' &&
+    typeof record.i_am_sharing === 'boolean' &&
+    Array.isArray(record.entries) &&
+    record.entries.every(isChallengeEntry)
+  );
 }
 
-function ensureSummary(value: unknown): ChallengeSummary {
-  if (
-    !isRecord(value) ||
-    typeof value.id !== 'number' ||
-    typeof value.group_id !== 'number' ||
-    typeof value.title !== 'string' ||
-    typeof value.target_minutes !== 'number' ||
-    typeof value.start_date !== 'string' ||
-    typeof value.end_date !== 'string' ||
-    typeof value.is_active !== 'boolean'
-  ) {
-    throw new Error('서버 응답 형식이 올바르지 않습니다.');
-  }
-
-  return {
-    id: value.id,
-    group_id: value.group_id,
-    title: value.title,
-    target_minutes: value.target_minutes,
-    start_date: value.start_date,
-    end_date: value.end_date,
-    is_active: value.is_active,
-  };
-}
-
-function ensureEntry(value: unknown): ChallengeEntry {
-  if (
-    !isRecord(value) ||
-    typeof value.user_id !== 'number' ||
-    typeof value.nickname !== 'string' ||
-    typeof value.minutes !== 'number' ||
-    typeof value.achieved !== 'boolean' ||
-    typeof value.rank !== 'number' ||
-    typeof value.is_me !== 'boolean'
-  ) {
-    throw new Error('서버 응답 형식이 올바르지 않습니다.');
-  }
-
-  return {
-    user_id: value.user_id,
-    nickname: value.nickname,
-    minutes: value.minutes,
-    achieved: value.achieved,
-    rank: value.rank,
-    is_me: value.is_me,
-  };
+function isChallengeEntry(value: unknown): value is ChallengeEntry {
+  return (
+    isRecord(value) &&
+    typeof value.user_id === 'number' &&
+    typeof value.nickname === 'string' &&
+    typeof value.minutes === 'number' &&
+    typeof value.achieved === 'boolean' &&
+    typeof value.rank === 'number' &&
+    typeof value.is_me === 'boolean'
+  );
 }

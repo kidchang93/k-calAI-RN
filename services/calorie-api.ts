@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
 import { apiUrl } from '@/services/api-base';
-import { apiFetch, readErrorMessage } from '@/services/http';
+import { apiFetch, isRecord, readOk } from '@/services/http';
 
 // 사진 1장에서 인식된 **서로 다른 음식** 한 건 (한 음식의 후보 나열이 아니다 — 서버 22장).
 // portion_g는 서버가 추정한 대략적 섭취량 힌트로, 없을 수 있어 null로 좁혀 받는다.
@@ -26,7 +26,7 @@ export type PredictResult = {
   vision_limit: number | null;
 };
 
-export const CALORIE_API_URL = apiUrl('/api/predict', process.env.EXPO_PUBLIC_CALORIE_API_URL);
+const CALORIE_API_URL = apiUrl('/api/predict');
 
 // 한도를 넘으면 apiFetch가 402를 PlanLimitError로 바꿔 던진다 (services/http.ts).
 export async function uploadFoodPhoto(asset: PhotoAsset): Promise<PredictResult> {
@@ -51,12 +51,7 @@ export async function uploadFoodPhoto(asset: PhotoAsset): Promise<PredictResult>
     body: formData,
   });
 
-  if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `업로드 실패: ${response.status}`);
-  }
-
-  const data = (await response.json()) as {
+  const data = (await readOk(response, '업로드 실패')) as {
     foods?: unknown;
     predictions?: unknown;
     vision_used?: unknown;
@@ -83,10 +78,6 @@ export async function uploadFoodPhoto(asset: PhotoAsset): Promise<PredictResult>
 }
 
 // ── 내부 헬퍼 (export 안 함) ────────────────────────────────────────────────
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
 
 function toFood(value: unknown): FoodDetection {
   if (!isRecord(value)) {

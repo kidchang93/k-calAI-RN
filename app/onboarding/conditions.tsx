@@ -1,18 +1,11 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useEffect, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { ChipGroup } from '@/components/chip-group';
-import { ErrorBanner } from '@/components/error-banner';
+import { ConditionForm } from '@/components/condition-form';
 import { OnboardingProgress } from '@/components/onboarding-progress';
+import { Screen } from '@/components/screen';
 import {
   FALLBACK_CKD_STAGE_OPTIONS,
   FALLBACK_CONDITION_OPTIONS,
@@ -25,9 +18,6 @@ import {
   putConditions,
   putHealthProfile,
 } from '@/services/onboarding-api';
-
-// '해당 없음'은 서버 값이 아니라 replace-all PUT의 빈 배열로 표현한다.
-const NONE_VALUE = 'none';
 
 // 신장 질환 코드 (condition_types.code). 이 값이 선택되면 병기를 이어서 묻는다.
 const CKD_CODE = 'ckd';
@@ -75,41 +65,17 @@ export default function ConditionsScreen() {
     };
   }, []);
 
-  const chipOptions = useMemo(
-    () => [
-      ...conditionOptions.map((option) => ({ value: option.code, label: option.label })),
-      { value: NONE_VALUE, label: '해당 없음' },
-    ],
-    [conditionOptions],
-  );
-
   const isCkdSelected = selectedValues.includes(CKD_CODE);
-
-  const toggle = (value: string) => {
-    setSelectedValues((previous) => {
-      if (value === NONE_VALUE) {
-        return previous.includes(NONE_VALUE) ? [] : [NONE_VALUE];
-      }
-
-      const withoutNone = previous.filter((item) => item !== NONE_VALUE);
-
-      return withoutNone.includes(value)
-        ? withoutNone.filter((item) => item !== value)
-        : [...withoutNone, value];
-    });
-  };
 
   const goNext = () => {
     router.push({ pathname: '/onboarding/allergies', params: { consented: '1' } });
   };
 
-  const saveAndNext = async () => {
+  const saveAndNext = async (conditions: string[]) => {
     setIsSaving(true);
     setErrorMessage(null);
 
     try {
-      // '해당 없음'은 앱 전용 값 — 서버로는 표준 code만 보낸다.
-      const conditions = selectedValues.filter((value) => value !== NONE_VALUE);
       await putConditions(conditions);
 
       // 병기는 다른 API(PUT /me/health-profile)다. 온보딩에서는 아직 혈액형을 묻지 않으므로
@@ -133,114 +99,59 @@ export default function ConditionsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.container}>
-          <OnboardingProgress current={2} total={5} />
+    <Screen>
+      <OnboardingProgress current={2} total={5} />
 
-          <View style={styles.header}>
-            <Text style={styles.title}>해당하는 것을{'\n'}모두 골라주세요</Text>
-            {/* 예전 문구는 "추천에서 피해야 할 음식을 거르는 데만 씁니다"였다. 사실이지만
-                **질환을 고르는 사람이 알고 싶은 것**은 그게 아니다 — 방금 진단받은 사람은
-                무엇을 어떻게 먹어야 하는지를 알고 싶어 한다. 이 화면이 앱에서 질환을 언급하는
-                첫 자리인데 배울 것이 있다는 사실조차 알리지 않았다 (서버 `docs/CARE_LOOP.md` §0-3). */}
-            <Text style={styles.subtitle}>
-              고른 질환의 식단 가이드를 볼 수 있고, 먹은 음식에 주의할 성분이 있으면 알려드려요.
+      <View style={styles.header}>
+        <Text style={styles.title}>해당하는 것을{'\n'}모두 골라주세요</Text>
+        {/* 예전 문구는 "추천에서 피해야 할 음식을 거르는 데만 씁니다"였다. 사실이지만
+            **질환을 고르는 사람이 알고 싶은 것**은 그게 아니다 — 방금 진단받은 사람은
+            무엇을 어떻게 먹어야 하는지를 알고 싶어 한다. 이 화면이 앱에서 질환을 언급하는
+            첫 자리인데 배울 것이 있다는 사실조차 알리지 않았다 (서버 `docs/CARE_LOOP.md` §0-3). */}
+        <Text style={styles.subtitle}>
+          고른 질환의 식단 가이드를 볼 수 있고, 먹은 음식에 주의할 성분이 있으면 알려드려요.
+        </Text>
+      </View>
+
+      <ConditionForm
+        errorMessage={errorMessage}
+        isLoadingOptions={isLoadingOptions}
+        isSaving={isSaving}
+        onChange={setSelectedValues}
+        onSave={(conditions) => void saveAndNext(conditions)}
+        onSkip={goNext}
+        options={conditionOptions}
+        saveLabel="다음"
+        selectedValues={selectedValues}>
+        {/* 신장 질환을 골랐을 때만 나타난다. 나트륨 1일 상한이 병기에서 갈리므로
+            (비투석 2,000 · 투석 3,000) 여기서 묻지 않으면 그 사용자에게는 상한을 제시할 수
+            없다. 건너뛸 수 있게 두는 이유는 모르는 사람에게 강요하면 아무거나 고르기 때문이다 —
+            서버는 병기가 없으면 상한 대신 안내를 준다 (서버 CKD_NUTRITION.md 3-6). */}
+        {isCkdSelected ? (
+          <View style={styles.stageBlock}>
+            <Text style={styles.stageTitle}>투석을 받고 계신가요?</Text>
+            <Text style={styles.stageHint}>
+              투석 여부에 따라 하루 나트륨 기준이 2,000~3,000mg으로 달라요. 모르시면 건너뛰고
+              나중에 내 정보에서 입력하셔도 됩니다.
             </Text>
+            <ChipGroup
+              onToggle={(value) =>
+                setCkdStage((current) => (current === value ? null : (value as CkdStage)))
+              }
+              options={stageOptions.map((option) => ({
+                value: option.code,
+                label: option.label,
+              }))}
+              selectedValues={ckdStage === null ? [] : [ckdStage]}
+            />
           </View>
-
-          {isLoadingOptions ? (
-            <ActivityIndicator color="#2a7d76" />
-          ) : (
-            <ChipGroup onToggle={toggle} options={chipOptions} selectedValues={selectedValues} />
-          )}
-
-          {/* 신장 질환을 골랐을 때만 나타난다. 나트륨 1일 상한이 병기에서 갈리므로
-              (비투석 2,000 · 투석 3,000) 여기서 묻지 않으면 그 사용자에게는 상한을 제시할 수
-              없다. 건너뛸 수 있게 두는 이유는 모르는 사람에게 강요하면 아무거나 고르기 때문이다 —
-              서버는 병기가 없으면 상한 대신 안내를 준다 (서버 CKD_NUTRITION.md 3-6). */}
-          {isCkdSelected ? (
-            <View style={styles.stageBlock}>
-              <Text style={styles.stageTitle}>투석을 받고 계신가요?</Text>
-              <Text style={styles.stageHint}>
-                투석 여부에 따라 하루 나트륨 기준이 2,000~3,000mg으로 달라요. 모르시면 건너뛰고
-                나중에 내 정보에서 입력하셔도 됩니다.
-              </Text>
-              <ChipGroup
-                onToggle={(value) =>
-                  setCkdStage((current) => (current === value ? null : (value as CkdStage)))
-                }
-                options={stageOptions.map((option) => ({
-                  value: option.code,
-                  label: option.label,
-                }))}
-                selectedValues={ckdStage === null ? [] : [ckdStage]}
-              />
-            </View>
-          ) : null}
-
-          <View style={styles.noteBox}>
-            <Text style={styles.noteText}>
-              케어테이블은 의료 서비스가 아닙니다. 진단·처방을 대신하지 않으며, 치료 중이라면 반드시
-              의료진과 상의하세요.
-            </Text>
-          </View>
-
-          {errorMessage ? (
-            <ErrorBanner message={errorMessage} onRetry={() => void saveAndNext()} />
-          ) : null}
-
-          <View style={styles.buttonGroup}>
-            <Pressable
-              disabled={selectedValues.length === 0 || isSaving}
-              onPress={() => void saveAndNext()}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                (selectedValues.length === 0 || isSaving) && styles.primaryButtonDisabled,
-                pressed && styles.pressed,
-              ]}>
-              {isSaving ? (
-                <ActivityIndicator color="#22211f" />
-              ) : (
-                <Text style={styles.primaryButtonText}>다음</Text>
-              )}
-            </Pressable>
-
-            <Pressable
-              disabled={isSaving}
-              onPress={goNext}
-              style={({ pressed }) => [styles.ghostButton, pressed && styles.pressed]}>
-              <Text style={styles.ghostButtonText}>건너뛰기</Text>
-            </Pressable>
-          </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        ) : null}
+      </ConditionForm>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  buttonGroup: {
-    gap: 8,
-    marginTop: 8,
-  },
-  container: {
-    alignSelf: 'center',
-    gap: 20,
-    maxWidth: 720,
-    width: '100%',
-  },
-  ghostButton: {
-    alignItems: 'center',
-    backgroundColor: '#e4e2de',
-    borderRadius: 8,
-    paddingVertical: 14,
-  },
-  ghostButtonText: {
-    color: '#5c5b57',
-    fontSize: 16,
-    fontWeight: '700',
-  },
   header: {
     gap: 6,
   },
@@ -256,40 +167,6 @@ const styles = StyleSheet.create({
     color: '#22211f',
     fontSize: 16,
     fontWeight: '800',
-  },
-  noteBox: {
-    backgroundColor: '#eef7f5',
-    borderRadius: 8,
-    padding: 16,
-  },
-  noteText: {
-    color: '#5c5b57',
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  pressed: {
-    opacity: 0.74,
-  },
-  primaryButton: {
-    alignItems: 'center',
-    backgroundColor: '#60beb8',
-    borderRadius: 8,
-    paddingVertical: 14,
-  },
-  primaryButtonDisabled: {
-    backgroundColor: '#99d2ce',
-  },
-  primaryButtonText: {
-    color: '#22211f',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  safeArea: {
-    backgroundColor: '#f7f6f4',
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
   },
   subtitle: {
     color: '#5c5b57',

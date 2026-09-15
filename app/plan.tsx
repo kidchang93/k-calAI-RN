@@ -1,14 +1,17 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Redirect, Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
 import { ErrorBanner } from '@/components/error-banner';
+import { LoadingState } from '@/components/loading-state';
+import { Screen } from '@/components/screen';
 import { SessionLoading } from '@/components/session-loading';
 import { useAuthSession } from '@/services/auth-session';
 import { cancelBilling, startCheckout } from '@/services/billing-api';
+import { confirmDialog } from '@/services/dialog';
+import { formatIsoMonthDay, formatPlanPrice, formatResetAt } from '@/services/format';
 import {
   FALLBACK_PLANS,
   fetchMySubscription,
@@ -29,9 +32,6 @@ export default function PlanScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [checkoutPlanCode, setCheckoutPlanCode] = useState<string | null>(null);
   const [isCanceling, setIsCanceling] = useState(false);
-  const [isCancelConfirmVisible, setIsCancelConfirmVisible] = useState(false);
-  // 유료 기간이 남은 채 다른 유료 플랜을 사려는 경우에만 세운다 (아래 changeCostNotice).
-  const [changeConfirmPlan, setChangeConfirmPlan] = useState<Plan | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const isAuthenticated = authState.status === 'authenticated';
@@ -107,18 +107,26 @@ export default function PlanScreen() {
   // '오늘부터 한 달'로 재설정하기 때문이다(billing_service._activate_subscription). 전액
   // 재청구는 감수한 결정이지만(서버 DATA_MODEL.md 24장), 그 사실을 모르고 누르게 두지는 않는다.
   // 결제창은 확인을 거친 뒤에만 띄운다 — 결제창이 뜬 뒤에는 되돌릴 안내를 넣을 자리가 없다.
-  const requestSubscribe = (plan: Plan) => {
-    if (changeCostNotice(subscription, plan) === null) {
-      void subscribe(plan.code);
+  const requestSubscribe = async (plan: Plan) => {
+    const notice = changeCostNotice(subscription, plan);
+
+    if (notice === null) {
+      await subscribe(plan.code);
       return;
     }
 
-    setChangeConfirmPlan(plan);
-  };
+    // 조사는 라벨에 붙이지 않는다 — plan.label이 영어('Pro'·'Premium')라 받침을 코드로
+    // 판정할 수 없다("Pro으로"가 된다). '요금제'를 끼우면 항상 맞다.
+    const confirmed = await confirmDialog({
+      title: `${plan.label} 요금제로 바꿀까요?`,
+      message: `${notice.currentLabel} 이용 기간이 ${notice.periodEnd}까지 ${notice.remainingDays}일 남아 있어요. 지금 바꾸면 남은 기간은 사라지고 환불되지 않아요.\n\n${plan.price_krw.toLocaleString()}원이 바로 결제되고, 이용 기간은 오늘부터 다시 한 달이 돼요.`,
+      confirmLabel: '바꾸기',
+      cancelLabel: '유지하기',
+    });
 
-  const confirmChangePlan = (plan: Plan) => {
-    setChangeConfirmPlan(null);
-    void subscribe(plan.code);
+    if (confirmed) {
+      await subscribe(plan.code);
+    }
   };
 
   const cancelSubscription = async () => {
@@ -127,11 +135,27 @@ export default function PlanScreen() {
 
     try {
       setSubscription(await cancelBilling());
-      setIsCancelConfirmVisible(false);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
       setIsCanceling(false);
+    }
+  };
+
+  // 해지 확인을 Alert.alert로 직접 묻지 않는다 — react-native-web의 Alert.alert는 **아무것도
+  // 하지 않는 no-op**이라 결제 주 무대인 웹에서 확인 없이 해지된다. confirmDialog는 웹에서
+  // window.confirm으로 내려가 두 플랫폼에서 같게 동작한다.
+  const requestCancel = async (sub: MySubscription) => {
+    const confirmed = await confirmDialog({
+      title: '자동결제를 해지할까요?',
+      message: cancelConfirmText(sub),
+      confirmLabel: '해지하기',
+      cancelLabel: '유지하기',
+      destructive: true,
+    });
+
+    if (confirmed) {
+      await cancelSubscription();
     }
   };
 
@@ -156,156 +180,106 @@ export default function PlanScreen() {
   const isBusy = checkoutPlanCode !== null || isCanceling || isLoading;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Screen>
       {/* 루트 Stack의 'plan' 엔트리 헤더를 숨긴다. 뒤로가기는 BackButton (탭 밖 스택 공통 규칙). */}
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.container}>
-          <BackButton />
+      <BackButton />
 
-          <View style={styles.header}>
-            <Text style={styles.title}>요금제</Text>
-            <Text style={styles.subtitle}>사진 인식 건수와 함께 보기 인원이 달라져요.</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>요금제</Text>
+        <Text style={styles.subtitle}>사진 인식 건수와 함께 보기 인원이 달라져요.</Text>
+      </View>
+
+      {errorMessage ? <ErrorBanner message={errorMessage} onRetry={() => void loadPlan()} /> : null}
+
+      {isLoading ? (
+        <LoadingState label="요금제를 불러오는 중입니다." />
+      ) : subscription === null ? null : (
+        <View style={styles.currentCard}>
+          <View style={styles.currentHeader}>
+            <View style={styles.currentIconWrap}>
+              <MaterialIcons color="#2a7d76" name="workspace-premium" size={22} />
+            </View>
+            <View style={styles.currentBody}>
+              <Text style={styles.currentLabel}>현재 요금제</Text>
+              <Text style={styles.currentValue}>
+                {`${subscription.plan.label} · ${formatPlanPrice(subscription.plan.price_krw)}`}
+              </Text>
+            </View>
           </View>
 
-          {errorMessage ? (
-            <ErrorBanner message={errorMessage} onRetry={() => void loadPlan()} />
-          ) : null}
-
-          {isLoading ? (
-            <View style={styles.stateBox}>
-              <ActivityIndicator color="#2a7d76" />
-              <Text style={styles.stateText}>요금제를 불러오는 중입니다.</Text>
-            </View>
-          ) : subscription === null ? null : (
-            <View style={styles.currentCard}>
-              <View style={styles.currentHeader}>
-                <View style={styles.currentIconWrap}>
-                  <MaterialIcons color="#2a7d76" name="workspace-premium" size={22} />
-                </View>
-                <View style={styles.currentBody}>
-                  <Text style={styles.currentLabel}>현재 요금제</Text>
-                  <Text style={styles.currentValue}>
-                    {`${subscription.plan.label} · ${formatPlanPrice(subscription.plan.price_krw)}`}
-                  </Text>
-                </View>
-              </View>
-
-              {status === null ? null : (
-                <View style={styles.statusRow}>
-                  <MaterialIcons
-                    color={status.tone === 'alert' ? '#b8524e' : '#5c5b57'}
-                    name={status.icon}
-                    size={16}
-                  />
-                  <Text style={[styles.statusText, status.tone === 'alert' && styles.statusTextAlert]}>
-                    {status.text}
-                  </Text>
-                </View>
-              )}
-
-              {usage === null ? null : (
-                <View style={styles.usageBox}>
-                  <View style={styles.usageTopLine}>
-                    <Text style={styles.usageLabel}>오늘 사진 인식</Text>
-                    <Text style={styles.usageValue}>{`${usage.used} / ${usage.limit}건`}</Text>
-                  </View>
-                  <View style={styles.usageTrack}>
-                    <View style={[styles.usageFill, { width: `${usagePercent}%` }]} />
-                  </View>
-                  <Text style={styles.usageCaption}>
-                    {formatUsageCaption(usage.remaining, usage.resets_at)}
-                  </Text>
-                </View>
-              )}
-
-              {/* 해지 확인을 Alert로 묻지 않는다 — react-native-web의 Alert.alert는 **아무것도 하지
-                  않는 no-op**이라 결제 주 무대인 웹에서 확인 없이 해지되거나 버튼이 죽는다.
-                  화면 안 2단계 확인은 두 플랫폼에서 똑같이 동작한다. */}
-              {canCancel ? (
-                isCancelConfirmVisible ? (
-                  <View style={styles.confirmBox}>
-                    <Text style={styles.confirmTitle}>자동결제를 해지할까요?</Text>
-                    <Text style={styles.confirmText}>{cancelConfirmText(subscription)}</Text>
-                    <View style={styles.confirmActions}>
-                      <Pressable
-                        disabled={isCanceling}
-                        onPress={() => setIsCancelConfirmVisible(false)}
-                        style={({ pressed }) => [styles.keepButton, pressed && styles.pressed]}>
-                        <Text style={styles.keepButtonText}>유지하기</Text>
-                      </Pressable>
-                      <Pressable
-                        disabled={isCanceling}
-                        onPress={() => void cancelSubscription()}
-                        style={({ pressed }) => [
-                          styles.confirmCancelButton,
-                          isCanceling && styles.confirmCancelButtonDisabled,
-                          pressed && !isCanceling && styles.pressed,
-                        ]}>
-                        {isCanceling ? (
-                          <ActivityIndicator color="#22211f" />
-                        ) : (
-                          <Text style={styles.confirmCancelButtonText}>해지하기</Text>
-                        )}
-                      </Pressable>
-                    </View>
-                  </View>
-                ) : (
-                  <Pressable
-                    disabled={isBusy}
-                    onPress={() => setIsCancelConfirmVisible(true)}
-                    style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
-                    <Text style={styles.cancelButtonText}>자동결제 해지</Text>
-                  </Pressable>
-                )
-              ) : null}
+          {status === null ? null : (
+            <View style={styles.statusRow}>
+              <MaterialIcons
+                color={status.tone === 'alert' ? '#b8524e' : '#5c5b57'}
+                name={status.icon}
+                size={16}
+              />
+              <Text style={[styles.statusText, status.tone === 'alert' && styles.statusTextAlert]}>
+                {status.text}
+              </Text>
             </View>
           )}
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>요금제 비교</Text>
-            {plans.map((plan) => (
-              <PlanCompareCard
-                changeNotice={changeCostNotice(subscription, plan)}
-                isConfirmVisible={changeConfirmPlan?.code === plan.code}
-                isCurrent={subscription?.plan.code === plan.code}
-                isDisabled={isBusy}
-                isPaidSubscriber={isPaidSubscriber}
-                isSubscribing={checkoutPlanCode === plan.code}
-                key={plan.code}
-                onConfirmChange={() => confirmChangePlan(plan)}
-                onDismissChange={() => setChangeConfirmPlan(null)}
-                onSubscribe={() => requestSubscribe(plan)}
-                plan={plan}
-              />
-            ))}
-          </View>
+          {usage === null ? null : (
+            <View style={styles.usageBox}>
+              <View style={styles.usageTopLine}>
+                <Text style={styles.usageLabel}>오늘 사진 인식</Text>
+                <Text style={styles.usageValue}>{`${usage.used} / ${usage.limit}건`}</Text>
+              </View>
+              <View style={styles.usageTrack}>
+                <View style={[styles.usageFill, { width: `${usagePercent}%` }]} />
+              </View>
+              <Text style={styles.usageCaption}>
+                {formatUsageCaption(usage.remaining, usage.resets_at)}
+              </Text>
+            </View>
+          )}
+
+          {canCancel ? (
+            <Pressable
+              disabled={isBusy}
+              onPress={() => void requestCancel(subscription)}
+              style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
+              <Text style={styles.cancelButtonText}>자동결제 해지</Text>
+            </Pressable>
+          ) : null}
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      )}
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>요금제 비교</Text>
+        {plans.map((plan) => (
+          <PlanCompareCard
+            changeNotice={changeCostNotice(subscription, plan)}
+            isCurrent={subscription?.plan.code === plan.code}
+            isDisabled={isBusy}
+            isPaidSubscriber={isPaidSubscriber}
+            isSubscribing={checkoutPlanCode === plan.code}
+            key={plan.code}
+            onSubscribe={() => void requestSubscribe(plan)}
+            plan={plan}
+          />
+        ))}
+      </View>
+    </Screen>
   );
 }
 
 function PlanCompareCard({
   changeNotice,
-  isConfirmVisible,
   isCurrent,
   isDisabled,
   isPaidSubscriber,
   isSubscribing,
-  onConfirmChange,
-  onDismissChange,
   onSubscribe,
   plan,
 }: {
   changeNotice: ReturnType<typeof changeCostNotice>;
-  isConfirmVisible: boolean;
   isCurrent: boolean;
   isDisabled: boolean;
   isPaidSubscriber: boolean;
   isSubscribing: boolean;
-  onConfirmChange: () => void;
-  onDismissChange: () => void;
   onSubscribe: () => void;
   plan: Plan;
 }) {
@@ -334,67 +308,29 @@ function PlanCompareCard({
           {/* 네이티브에는 결제 버튼을 그리지 않는다 — 토스 결제창은 브라우저 전용이고,
               앱 마켓 정책상 디지털 상품은 인앱결제를 붙여야 한다(예정). */}
           {isBillingSupported() ? (
-            isConfirmVisible && changeNotice !== null ? (
-              /* 해지 확인과 같은 화면 안 2단계 확인이다 — Alert.alert는 react-native-web에서
-                 no-op이라 결제 주 무대인 웹에서 그냥 통과해 버린다. */
-              <View style={styles.confirmBox}>
-                {/* 조사를 라벨에 붙이지 않는다 — plan.label은 영어('Pro'·'Premium')라 받침을
-                    코드로 판정할 수 없다("Pro으로"가 된다). '요금제'를 끼우면 항상 맞다. */}
-                <Text style={styles.confirmTitle}>{`${plan.label} 요금제로 바꿀까요?`}</Text>
-                <Text style={styles.confirmText}>
-                  {`${changeNotice.currentLabel} 이용 기간이 ${changeNotice.periodEnd}까지 ${changeNotice.remainingDays}일 남아 있어요. 지금 바꾸면 남은 기간은 사라지고 환불되지 않아요.`}
-                </Text>
-                <Text style={styles.confirmText}>
-                  {`${plan.price_krw.toLocaleString()}원이 바로 결제되고, 이용 기간은 오늘부터 다시 한 달이 돼요.`}
-                </Text>
-                <View style={styles.confirmActions}>
-                  <Pressable
-                    disabled={isDisabled}
-                    onPress={onDismissChange}
-                    style={({ pressed }) => [styles.keepButton, pressed && styles.pressed]}>
-                    <Text style={styles.keepButtonText}>유지하기</Text>
-                  </Pressable>
-                  <Pressable
-                    disabled={isDisabled}
-                    onPress={onConfirmChange}
-                    style={({ pressed }) => [
-                      styles.confirmChangeButton,
-                      isDisabled && styles.selectButtonDisabled,
-                      pressed && !isDisabled && styles.pressed,
-                    ]}>
-                    {isSubscribing ? (
-                      <ActivityIndicator color="#22211f" />
-                    ) : (
-                      <Text style={styles.confirmChangeButtonText}>바꾸기</Text>
-                    )}
-                  </Pressable>
-                </View>
-              </View>
-            ) : (
-              <>
-                <Pressable
-                  disabled={isDisabled}
-                  onPress={onSubscribe}
-                  style={({ pressed }) => [
-                    styles.selectButton,
-                    isDisabled && styles.selectButtonDisabled,
-                    pressed && !isDisabled && styles.pressed,
-                  ]}>
-                  {isSubscribing ? (
-                    <ActivityIndicator color="#22211f" />
-                  ) : (
-                    <Text style={styles.selectButtonText}>
-                      {changeNotice === null ? '구독하기' : '이 요금제로 바꾸기'}
-                    </Text>
-                  )}
-                </Pressable>
-                <Text style={styles.paymentNote}>
-                  {changeNotice === null
-                    ? '카드를 등록하면 매월 자동으로 결제돼요. 언제든 해지할 수 있어요.'
-                    : `바꾸면 ${changeNotice.currentLabel}의 남은 ${changeNotice.remainingDays}일이 사라지고 전액이 다시 결제돼요.`}
-                </Text>
-              </>
-            )
+            <>
+              <Pressable
+                disabled={isDisabled}
+                onPress={onSubscribe}
+                style={({ pressed }) => [
+                  styles.selectButton,
+                  isDisabled && styles.selectButtonDisabled,
+                  pressed && !isDisabled && styles.pressed,
+                ]}>
+                {isSubscribing ? (
+                  <ActivityIndicator color="#22211f" />
+                ) : (
+                  <Text style={styles.selectButtonText}>
+                    {changeNotice === null ? '구독하기' : '이 요금제로 바꾸기'}
+                  </Text>
+                )}
+              </Pressable>
+              <Text style={styles.paymentNote}>
+                {changeNotice === null
+                  ? '카드를 등록하면 매월 자동으로 결제돼요. 언제든 해지할 수 있어요.'
+                  : `바꾸면 ${changeNotice.currentLabel}의 남은 ${changeNotice.remainingDays}일이 사라지고 전액이 다시 결제돼요.`}
+              </Text>
+            </>
           ) : (
             /* ⚠️ **다른 결제수단을 권유하지 않는다.** 예전 문구는 "결제는 웹에서
                진행해주세요"였는데, App Store Review Guidelines 3.1.3 이 금지하는 것이
@@ -434,7 +370,7 @@ function subscriptionStatus(subscription: MySubscription): {
   text: string;
   tone: 'normal' | 'alert';
 } | null {
-  const periodEnd = formatDay(subscription.current_period_end);
+  const periodEnd = formatIsoMonthDay(subscription.current_period_end);
 
   // 갱신 실패는 **실효 플랜보다 먼저** 판정한다. 기간이 지나 plan이 lite로 내려오는 동안에도
   // 재청구는 계속되므로(최대 3일), 무료라고 여기서 빠져나가면 카드가 긁히는 사실 자체가
@@ -483,7 +419,7 @@ function subscriptionStatus(subscription: MySubscription): {
     };
   }
 
-  const nextBilling = formatDay(subscription.next_billing_at);
+  const nextBilling = formatIsoMonthDay(subscription.next_billing_at);
 
   if (nextBilling !== null) {
     return { icon: 'autorenew', text: `다음 결제 ${nextBilling}`, tone: 'normal' };
@@ -518,7 +454,7 @@ function changeCostNotice(
   }
 
   const remaining = remainingDays(subscription.current_period_end);
-  const periodEnd = formatDay(subscription.current_period_end);
+  const periodEnd = formatIsoMonthDay(subscription.current_period_end);
 
   if (remaining === null || periodEnd === null) {
     return null;
@@ -552,30 +488,11 @@ function cancelConfirmText(subscription: MySubscription): string {
     return '진행 중인 재결제 시도를 멈춰요. 남은 유료 기간이 없어 지금처럼 무료 요금제로 이용하게 돼요.';
   }
 
-  const periodEnd = formatDay(subscription.current_period_end);
+  const periodEnd = formatIsoMonthDay(subscription.current_period_end);
 
   return periodEnd === null
     ? '남은 유료 기간에는 계속 이용할 수 있어요. 그 이후에는 무료 요금제로 전환돼요.'
     : `${periodEnd}까지는 계속 이용할 수 있어요. 그 이후에는 무료 요금제로 전환돼요.`;
-}
-
-function formatPlanPrice(priceKrw: number): string {
-  return priceKrw === 0 ? '무료' : `월 ${priceKrw.toLocaleString()}원`;
-}
-
-// ISO → 'M월 D일'. 서버가 null을 주거나(무료 회원) 형식이 어긋나면 null.
-function formatDay(isoText: string | null): string | null {
-  if (isoText === null) {
-    return null;
-  }
-
-  const date = new Date(isoText);
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return `${date.getMonth() + 1}월 ${date.getDate()}일`;
 }
 
 // "오늘 2건 남음 · 내일 오전 0시에 초기화". resets_at은 서버가 준 다음 리셋 시각(ISO)이다.
@@ -589,27 +506,6 @@ function formatUsageCaption(remaining: number, resetsAt: string): string {
   return `오늘 ${remaining}건 남음 · ${resetLabel}에 초기화`;
 }
 
-function formatResetAt(resetsAt: string): string | null {
-  const reset = new Date(resetsAt);
-
-  if (Number.isNaN(reset.getTime())) {
-    return null;
-  }
-
-  const hour = reset.getHours();
-  const meridiem = hour < 12 ? '오전' : '오후';
-  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
-  const now = new Date();
-  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  const isTomorrow =
-    reset.getFullYear() === tomorrow.getFullYear() &&
-    reset.getMonth() === tomorrow.getMonth() &&
-    reset.getDate() === tomorrow.getDate();
-  const dayLabel = isTomorrow ? '내일' : `${reset.getMonth() + 1}월 ${reset.getDate()}일`;
-
-  return `${dayLabel} ${meridiem} ${hour12}시`;
-}
-
 const styles = StyleSheet.create({
   cancelButton: {
     alignItems: 'center',
@@ -621,62 +517,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     textDecorationLine: 'underline',
-  },
-  confirmActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  confirmBox: {
-    backgroundColor: '#fbeaea',
-    borderRadius: 8,
-    gap: 10,
-    padding: 14,
-  },
-  confirmCancelButton: {
-    alignItems: 'center',
-    backgroundColor: '#ea8989',
-    borderRadius: 8,
-    flex: 1,
-    justifyContent: 'center',
-    minHeight: 42,
-  },
-  confirmCancelButtonDisabled: {
-    backgroundColor: '#e4e2de',
-  },
-  confirmCancelButtonText: {
-    color: '#22211f',
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  // 플랜 변경 확인의 실행 버튼. 해지(빨강)와 달리 파괴적 행동이 아니라 결제라 프라이머리를 쓴다.
-  confirmChangeButton: {
-    alignItems: 'center',
-    backgroundColor: '#60beb8',
-    borderRadius: 8,
-    flex: 1,
-    justifyContent: 'center',
-    minHeight: 42,
-  },
-  confirmChangeButtonText: {
-    color: '#22211f',
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  confirmText: {
-    color: '#5c5b57',
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  confirmTitle: {
-    color: '#22211f',
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  container: {
-    alignSelf: 'center',
-    gap: 20,
-    maxWidth: 720,
-    width: '100%',
   },
   currentBody: {
     flex: 1,
@@ -728,19 +568,6 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: 4,
-  },
-  keepButton: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    flex: 1,
-    justifyContent: 'center',
-    minHeight: 42,
-  },
-  keepButtonText: {
-    color: '#5c5b57',
-    fontSize: 14,
-    fontWeight: '800',
   },
   noticeBox: {
     alignItems: 'center',
@@ -810,13 +637,6 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.74,
   },
-  safeArea: {
-    backgroundColor: '#f7f6f4',
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-  },
   section: {
     gap: 10,
   },
@@ -839,17 +659,6 @@ const styles = StyleSheet.create({
     color: '#22211f',
     fontSize: 15,
     fontWeight: '900',
-  },
-  stateBox: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    gap: 12,
-    padding: 32,
-  },
-  stateText: {
-    color: '#5c5b57',
-    fontSize: 14,
   },
   statusRow: {
     alignItems: 'center',

@@ -1,17 +1,11 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { Href, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ErrorBanner } from '@/components/error-banner';
+import { LoadingState } from '@/components/loading-state';
+import { Screen } from '@/components/screen';
 import { logout } from '@/services/auth-api';
 import { clearAuthSession } from '@/services/auth-session';
 import { confirmDialog, notifyDialog } from '@/services/dialog';
@@ -38,6 +32,17 @@ const GOAL_LABELS: Record<GoalType, string> = {
   maintain: '유지',
   gain: '증량',
 };
+
+const MENU_ROWS: { href: Href; icon: keyof typeof MaterialIcons.glyphMap; label: string }[] = [
+  { href: '/plan', icon: 'workspace-premium', label: '요금제 · 사진 인식 사용량' },
+  { href: '/payments', icon: 'receipt-long', label: '결제 내역' },
+  { href: '/me/conditions', icon: 'medical-services', label: '질병 정보' },
+  { href: '/me/allergies', icon: 'no-food', label: '알러지 정보' },
+  // 온보딩이 "내 정보에서 언제든 철회할 수 있어요"라고 약속한 진입점이다
+  // (app/onboarding/consent.tsx·blood.tsx). 이 행이 없으면 그 고지가 거짓이 된다.
+  { href: '/me/consents', icon: 'fact-check', label: '동의 관리' },
+  { href: '/updates', icon: 'campaign', label: '업데이트 이력' },
+];
 
 export default function AccountScreen() {
   const router = useRouter();
@@ -142,140 +147,94 @@ export default function AccountScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <Text style={styles.title}>내 정보</Text>
-            <Text style={styles.subtitle}>프로필과 목표를 여기서 관리하세요.</Text>
-          </View>
+    <Screen>
+      <View style={styles.header}>
+        <Text style={styles.title}>내 정보</Text>
+        <Text style={styles.subtitle}>프로필과 목표를 여기서 관리하세요.</Text>
+      </View>
 
-          {errorMessage ? (
-            <ErrorBanner message={errorMessage} onRetry={() => void loadAccount()} />
-          ) : null}
+      {errorMessage ? (
+        <ErrorBanner message={errorMessage} onRetry={() => void loadAccount()} />
+      ) : null}
 
-          {isLoading ? (
-            <View style={styles.stateBox}>
-              <ActivityIndicator color="#2a7d76" />
-              <Text style={styles.stateText}>내 정보를 불러오는 중입니다.</Text>
+      {isLoading ? (
+        <LoadingState label="내 정보를 불러오는 중입니다." />
+      ) : (
+        <View style={styles.section}>
+          <Pressable
+            onPress={() => router.push('/me/profile')}
+            style={({ pressed }) => [styles.summaryCard, pressed && styles.pressed]}>
+            <View style={styles.summaryIconWrap}>
+              <MaterialIcons color="#2a7d76" name="person-outline" size={22} />
             </View>
-          ) : (
-            <View style={styles.section}>
-              <Pressable
-                onPress={() => router.push('/me/profile')}
-                style={({ pressed }) => [styles.summaryCard, pressed && styles.pressed]}>
-                <View style={styles.summaryIconWrap}>
-                  <MaterialIcons color="#2a7d76" name="person-outline" size={22} />
-                </View>
-                <View style={styles.summaryBody}>
-                  <Text style={styles.summaryLabel}>프로필</Text>
-                  <Text style={styles.summaryValue}>
-                    {profile === null ? '아직 입력하지 않았어요' : buildProfileSummary(profile)}
-                  </Text>
-                </View>
-                <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
-              </Pressable>
-
-              <Pressable
-                onPress={() => router.push('/me/goal')}
-                style={({ pressed }) => [styles.summaryCard, pressed && styles.pressed]}>
-                <View style={styles.summaryIconWrap}>
-                  <MaterialIcons color="#2a7d76" name="flag" size={22} />
-                </View>
-                <View style={styles.summaryBody}>
-                  <Text style={styles.summaryLabel}>목표</Text>
-                  <Text style={styles.summaryValue}>
-                    {goal === null
-                      ? '목표를 설정해주세요'
-                      : `${GOAL_LABELS[goal.goal_type]} · 하루 ${goal.target_kcal.toLocaleString()} kcal`}
-                  </Text>
-                </View>
-                <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
-              </Pressable>
+            <View style={styles.summaryBody}>
+              <Text style={styles.summaryLabel}>프로필</Text>
+              <Text style={styles.summaryValue}>
+                {profile === null ? '아직 입력하지 않았어요' : buildProfileSummary(profile)}
+              </Text>
             </View>
-          )}
+            <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
+          </Pressable>
 
-          {/* 체성분·권장 활동량과 주간 조언은 2026-08-19 에 **진료 탭으로 옮겼다.**
-              내 정보는 계정·설정을 보는 곳인데 판단 자료가 섞여 있었다 (docs/DESIGN.md). */}
-
-          <View style={styles.section}>
-            <Pressable
-              onPress={() => router.push('/plan')}
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-              <MaterialIcons color="#5c5b57" name="workspace-premium" size={20} />
-              <Text style={styles.rowLabel}>요금제 · 사진 인식 사용량</Text>
-              <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
-            </Pressable>
-
-            <Pressable
-              onPress={() => router.push('/payments')}
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-              <MaterialIcons color="#5c5b57" name="receipt-long" size={20} />
-              <Text style={styles.rowLabel}>결제 내역</Text>
-              <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
-            </Pressable>
-
-            <Pressable
-              onPress={() => router.push('/me/conditions')}
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-              <MaterialIcons color="#5c5b57" name="medical-services" size={20} />
-              <Text style={styles.rowLabel}>질병 정보</Text>
-              <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
-            </Pressable>
-
-            <Pressable
-              onPress={() => router.push('/me/allergies')}
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-              <MaterialIcons color="#5c5b57" name="no-food" size={20} />
-              <Text style={styles.rowLabel}>알러지 정보</Text>
-              <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
-            </Pressable>
-
-            {/* 온보딩이 "내 정보에서 언제든 철회할 수 있어요"라고 약속한 진입점이다
-                (app/onboarding/consent.tsx·blood.tsx). 이 행이 없으면 그 고지가 거짓이 된다. */}
-            <Pressable
-              onPress={() => router.push('/me/consents')}
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-              <MaterialIcons color="#5c5b57" name="fact-check" size={20} />
-              <Text style={styles.rowLabel}>동의 관리</Text>
-              <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
-            </Pressable>
-
-            <Pressable
-              onPress={() => router.push('/updates')}
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-              <MaterialIcons color="#5c5b57" name="campaign" size={20} />
-              <Text style={styles.rowLabel}>업데이트 이력</Text>
-              <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
-            </Pressable>
-
-            <Pressable
-              disabled={isLoggingOut || isDeletingAccount}
-              onPress={confirmLogout}
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-              <MaterialIcons color="#b8524e" name="logout" size={20} />
-              {isLoggingOut ? (
-                <ActivityIndicator color="#b8524e" size="small" />
-              ) : (
-                <Text style={styles.dangerLabel}>로그아웃</Text>
-              )}
-            </Pressable>
-
-            <Pressable
-              disabled={isLoggingOut || isDeletingAccount}
-              onPress={confirmDeleteAccount}
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-              <MaterialIcons color="#b8524e" name="person-remove" size={20} />
-              {isDeletingAccount ? (
-                <ActivityIndicator color="#b8524e" size="small" />
-              ) : (
-                <Text style={styles.dangerLabel}>회원 탈퇴</Text>
-              )}
-            </Pressable>
-          </View>
+          <Pressable
+            onPress={() => router.push('/me/goal')}
+            style={({ pressed }) => [styles.summaryCard, pressed && styles.pressed]}>
+            <View style={styles.summaryIconWrap}>
+              <MaterialIcons color="#2a7d76" name="flag" size={22} />
+            </View>
+            <View style={styles.summaryBody}>
+              <Text style={styles.summaryLabel}>목표</Text>
+              <Text style={styles.summaryValue}>
+                {goal === null
+                  ? '목표를 설정해주세요'
+                  : `${GOAL_LABELS[goal.goal_type]} · 하루 ${goal.target_kcal.toLocaleString()} kcal`}
+              </Text>
+            </View>
+            <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
+          </Pressable>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      )}
+
+      {/* 체성분·권장 활동량과 주간 조언은 2026-08-19 에 **진료 탭으로 옮겼다.**
+          내 정보는 계정·설정을 보는 곳인데 판단 자료가 섞여 있었다 (docs/DESIGN.md). */}
+
+      <View style={styles.section}>
+        {MENU_ROWS.map((menuRow) => (
+          <Pressable
+            key={menuRow.label}
+            onPress={() => router.push(menuRow.href)}
+            style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+            <MaterialIcons color="#5c5b57" name={menuRow.icon} size={20} />
+            <Text style={styles.rowLabel}>{menuRow.label}</Text>
+            <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
+          </Pressable>
+        ))}
+
+        <Pressable
+          disabled={isLoggingOut || isDeletingAccount}
+          onPress={confirmLogout}
+          style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+          <MaterialIcons color="#b8524e" name="logout" size={20} />
+          {isLoggingOut ? (
+            <ActivityIndicator color="#b8524e" size="small" />
+          ) : (
+            <Text style={styles.dangerLabel}>로그아웃</Text>
+          )}
+        </Pressable>
+
+        <Pressable
+          disabled={isLoggingOut || isDeletingAccount}
+          onPress={confirmDeleteAccount}
+          style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+          <MaterialIcons color="#b8524e" name="person-remove" size={20} />
+          {isDeletingAccount ? (
+            <ActivityIndicator color="#b8524e" size="small" />
+          ) : (
+            <Text style={styles.dangerLabel}>회원 탈퇴</Text>
+          )}
+        </Pressable>
+      </View>
+    </Screen>
   );
 }
 
@@ -286,12 +245,6 @@ function buildProfileSummary(profile: ProfileResponse): string {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    alignSelf: 'center',
-    gap: 20,
-    maxWidth: 720,
-    width: '100%',
-  },
   dangerLabel: {
     color: '#b8524e',
     flex: 1,
@@ -318,26 +271,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  safeArea: {
-    backgroundColor: '#f7f6f4',
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-  },
   section: {
     gap: 10,
-  },
-  stateBox: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    gap: 12,
-    padding: 32,
-  },
-  stateText: {
-    color: '#5c5b57',
-    fontSize: 14,
   },
   subtitle: {
     color: '#5c5b57',

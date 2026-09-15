@@ -1,18 +1,12 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ConsentNotice } from '@/components/consent-notice';
 import { ErrorBanner } from '@/components/error-banner';
 import { OnboardingProgress } from '@/components/onboarding-progress';
+import { PrimaryButton } from '@/components/primary-button';
+import { Screen } from '@/components/screen';
 import {
   CONSENT_VERSION,
   SENSITIVE_HEALTH_NOTICE_ROWS,
@@ -51,64 +45,52 @@ export default function ConsentScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.container}>
-          <OnboardingProgress current={1} total={5} />
+    <Screen>
+      <OnboardingProgress current={1} total={5} />
 
-          <View style={styles.header}>
-            <Text style={styles.title}>건강 정보 수집에{'\n'}동의해주세요</Text>
-            <Text style={styles.subtitle}>{SENSITIVE_HEALTH_SUMMARY}</Text>
-          </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>건강 정보 수집에{'\n'}동의해주세요</Text>
+        <Text style={styles.subtitle}>{SENSITIVE_HEALTH_SUMMARY}</Text>
+      </View>
 
-          {/* 개인정보 보호법 제23조①1호가 동의 전에 알리게 한 것(항목·목적·보유 기간·거부권과 불이익)을
-              전부 이 화면에 둔다. 2026-09-13(v1.0)까지는 "식단 추천에서 거르는 데만"이라는 한 문장뿐이었고,
-              실제로 쓰는 검사 수치·진료 메모·경고·주간 조언·리포트가 빠져 있었다(KCAL-22). */}
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>건강 정보 수집·이용</Text>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>선택</Text>
-              </View>
-            </View>
-            <ConsentNotice rows={SENSITIVE_HEALTH_NOTICE_ROWS} />
-            <Text style={styles.cardMeta}>{`${CONSENT_VERSION} · 내 정보에서 언제든 철회할 수 있어요`}</Text>
-          </View>
-
-          <View style={styles.noteBox}>
-            <Text style={styles.noteText}>{SENSITIVE_HEALTH_REFUSAL}</Text>
-          </View>
-
-          {errorMessage ? (
-            <ErrorBanner message={errorMessage} onRetry={() => void agreeAndStart()} />
-          ) : null}
-
-          <View style={styles.buttonGroup}>
-            <Pressable
-              disabled={isAgreeing}
-              onPress={() => void agreeAndStart()}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                isAgreeing && styles.primaryButtonDisabled,
-                pressed && styles.pressed,
-              ]}>
-              {isAgreeing ? (
-                <ActivityIndicator color="#22211f" />
-              ) : (
-                <Text style={styles.primaryButtonText}>동의하고 시작</Text>
-              )}
-            </Pressable>
-
-            <Pressable
-              disabled={isAgreeing}
-              onPress={continueWithoutConsent}
-              style={({ pressed }) => [styles.ghostButton, pressed && styles.pressed]}>
-              <Text style={styles.ghostButtonText}>동의하지 않고 계속</Text>
-            </Pressable>
+      {/* 개인정보 보호법 제23조①1호가 동의 전에 알리게 한 것(항목·목적·보유 기간·거부권과 불이익)을
+          전부 이 화면에 둔다. 2026-09-13(v1.0)까지는 "식단 추천에서 거르는 데만"이라는 한 문장뿐이었고,
+          실제로 쓰는 검사 수치·진료 메모·경고·주간 조언·리포트가 빠져 있었다(KCAL-22). */}
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>건강 정보 수집·이용</Text>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>선택</Text>
           </View>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+        <ConsentNotice rows={SENSITIVE_HEALTH_NOTICE_ROWS} />
+        <Text style={styles.cardMeta}>{`${CONSENT_VERSION} · 내 정보에서 언제든 철회할 수 있어요`}</Text>
+      </View>
+
+      <View style={styles.noteBox}>
+        <Text style={styles.noteText}>{SENSITIVE_HEALTH_REFUSAL}</Text>
+      </View>
+
+      {errorMessage ? (
+        <ErrorBanner message={errorMessage} onRetry={() => void agreeAndStart()} />
+      ) : null}
+
+      <View style={styles.buttonGroup}>
+        <PrimaryButton
+          inGroup
+          label="동의하고 시작"
+          loading={isAgreeing}
+          onPress={() => void agreeAndStart()}
+        />
+
+        <Pressable
+          disabled={isAgreeing}
+          onPress={continueWithoutConsent}
+          style={({ pressed }) => [styles.ghostButton, pressed && styles.pressed]}>
+          <Text style={styles.ghostButtonText}>동의하지 않고 계속</Text>
+        </Pressable>
+      </View>
+    </Screen>
   );
 }
 
@@ -148,12 +130,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
-  container: {
-    alignSelf: 'center',
-    gap: 20,
-    maxWidth: 720,
-    width: '100%',
-  },
   ghostButton: {
     alignItems: 'center',
     backgroundColor: '#e4e2de',
@@ -180,27 +156,6 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.74,
-  },
-  primaryButton: {
-    alignItems: 'center',
-    backgroundColor: '#60beb8',
-    borderRadius: 8,
-    paddingVertical: 14,
-  },
-  primaryButtonDisabled: {
-    backgroundColor: '#99d2ce',
-  },
-  primaryButtonText: {
-    color: '#22211f',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  safeArea: {
-    backgroundColor: '#f7f6f4',
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
   },
   subtitle: {
     color: '#5c5b57',

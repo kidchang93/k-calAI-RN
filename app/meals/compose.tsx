@@ -1,31 +1,31 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import * as ImagePicker from 'expo-image-picker';
+import type * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/components/back-button';
 import { ChipGroup } from '@/components/chip-group';
 import { ErrorBanner } from '@/components/error-banner';
 import { MedicalDisclaimer } from '@/components/medical-disclaimer';
-import { PlanLimitBanner } from '@/components/plan-limit-banner';
 import { QuantityEditor, QuantityValue } from '@/components/quantity-editor';
 import { NutrientChip, NutrientChips } from '@/components/nutrient-chips';
+import { Screen } from '@/components/screen';
 import { AI_USE_NOTICE } from '@/constants/ai-notice';
+import { isMealType, MEAL_TYPE_LABELS, MealType } from '@/constants/meal';
 import { NUTRIENT_LABELS, NUTRIENT_TIER_LABELS } from '@/constants/nutrition';
 import { FoodDetection, PhotoAsset, uploadFoodPhoto } from '@/services/calorie-api';
 import { notifyDialog } from '@/services/dialog';
 import { formatFoodLabel } from '@/services/food-label';
+import { formatMonthDay, formatTakenAt } from '@/services/format';
 import {
   checkFoodWarnings,
   createMeal,
@@ -39,38 +39,25 @@ import {
   MealItem,
   MealItemSource,
   MealLog,
-  MealType,
   NutritionEstimate,
   NutritionNotFoundError,
-  NutritionUnavailableError,
+  toMealItemInput,
   updateMeal,
 } from '@/services/health-api';
 import { PlanLimitError } from '@/services/http';
+import { pickPhoto } from '@/services/photo-picker';
 import { readPhotoTakenAt } from '@/services/photo-time';
 import { nextMealType } from '@/services/recommendation-api';
 
 const MEAL_TYPE_OPTIONS: { value: MealType; label: string }[] = [
-  { value: 'breakfast', label: '아침' },
-  { value: 'lunch', label: '점심' },
-  { value: 'dinner', label: '저녁' },
-  { value: 'snack', label: '간식' },
+  { value: 'breakfast', label: MEAL_TYPE_LABELS.breakfast },
+  { value: 'lunch', label: MEAL_TYPE_LABELS.lunch },
+  { value: 'dinner', label: MEAL_TYPE_LABELS.dinner },
+  { value: 'snack', label: MEAL_TYPE_LABELS.snack },
 ];
-
-const MEAL_TYPE_LABELS: Record<MealType, string> = {
-  breakfast: '아침',
-  lunch: '점심',
-  dinner: '저녁',
-  snack: '간식',
-};
 
 // 서버 계약(MealItemInput.kcal)의 상한.
 const MAX_KCAL = 100000;
-
-// 사진 1장에서 인식된 여러 음식을 각각 항목으로 나눈다 (2026-07-22 활성화).
-// 끄면 대표 음식 1개만 담기는데, 한식 한 상(밥·국·반찬)이면 나머지를 손으로 넣어야 해서
-// 기록 시간이 길어진다 — 끼니당 30초를 넘기면 리텐션이 급락한다(docs/PRODUCT_STRATEGY.md §2).
-// 사진 1장의 비전 쿼터는 음식 개수와 무관하게 1건이라(DATA_MODEL 22장) 켜도 쿼터 부담은 같다.
-const MULTI_FOOD_SPLIT = true;
 
 // 초안 항목. 양 편집 상태(food_label·kcalText·serving_ratio·unit·serving_size_g·basePerServing)는
 // QuantityEditor와 공유하는 QuantityValue로, 저장 페이로드에는 serving_ratio + kcal만 나간다.
@@ -186,8 +173,9 @@ export default function MealComposeScreen() {
       : null;
   const isAppend = mealId !== null;
 
-  const isMealTypeChosen = MEAL_TYPE_OPTIONS.some((option) => option.value === params.meal_type);
-  const initialMealType = isMealTypeChosen ? (params.meal_type as MealType) : mealTypeAt(new Date());
+  const paramMealType = isMealType(params.meal_type) ? params.meal_type : null;
+  const isMealTypeChosen = paramMealType !== null;
+  const initialMealType = paramMealType ?? mealTypeAt(new Date());
 
   const [mealType, setMealType] = useState<MealType>(initialMealType);
   // 사용자가 끼니를 직접 고른 뒤에는 사진 시각으로 덮지 않는다.
@@ -407,10 +395,12 @@ export default function MealComposeScreen() {
           return;
         }
 
-        // 분할 로직은 유지하되 기본은 대표 음식 1개만 담는다(MULTI_FOOD_SPLIT). 각 음식은
+        // 사진 1장에서 인식된 여러 음식을 각각 항목으로 나눈다(2026-07-22). 한식 한 상(밥·국·
+        // 반찬)이면 대표 1개만 담고 나머지를 손으로 넣어야 해서 기록이 느려진다 — 끼니당 30초를
+        // 넘기면 리텐션이 급락한다(docs/PRODUCT_STRATEGY.md §2). 사진 1장의 비전 쿼터는 음식
+        // 개수와 무관하게 1건이라(DATA_MODEL 22장) 몇 개로 나누든 쿼터 부담은 같다. 각 음식은
         // 식약처 DB로 kcal을 조회한다(쿼터 0). 일부가 실패해도 나머지는 살린다.
-        const foods = MULTI_FOOD_SPLIT ? result.foods : result.foods.slice(0, 1);
-        const added = await Promise.all(foods.map(foodToDraft));
+        const added = await Promise.all(result.foods.map(foodToDraft));
         appendDrafts(added);
       } catch (error) {
         if (error instanceof PlanLimitError) {
@@ -486,49 +476,17 @@ export default function MealComposeScreen() {
     params.photoUri,
   ]);
 
-  const pickFromCamera = async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
+  // 촬영 시각은 **앨범일 때만** 읽는다 — 방금 찍은 사진은 지금이 촬영 시각이라 의미가 없다
+  // (기록 탭 런처와 같은 규칙, services/photo-picker.ts).
+  const pickAndSelect = async (source: 'camera' | 'library') => {
+    const asset = await pickPhoto(source);
 
-    if (!permission.granted) {
-      notifyDialog('카메라 권한 필요', '음식 사진을 촬영하려면 카메라 권한을 허용해주세요.');
-
+    if (asset === null) {
       return;
     }
 
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.86,
-    });
-
-    if (!result.canceled) {
-      selectPhoto(toPhotoAsset(result.assets[0]));
-      // 방금 찍은 사진은 지금이 촬영 시각이다.
-      applyPhotoTime(null);
-    }
-  };
-
-  const pickFromLibrary = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permission.granted) {
-      notifyDialog('사진 권한 필요', '앨범에서 음식 사진을 선택하려면 사진 접근 권한을 허용해주세요.');
-
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.86,
-      exif: true,
-    });
-
-    if (!result.canceled) {
-      selectPhoto(toPhotoAsset(result.assets[0]));
-      applyPhotoTime(await readPhotoTakenAt(result.assets[0]));
-    }
+    selectPhoto(toPhotoAsset(asset));
+    applyPhotoTime(source === 'library' ? await readPhotoTakenAt(asset) : null);
   };
 
   const addBySearch = async () => {
@@ -543,47 +501,16 @@ export default function MealComposeScreen() {
 
     try {
       const estimate = await estimateNutrition(name);
-      appendDrafts([
-        {
-          key: nextDraftKey(),
-          food_label: estimate.food_label,
-          kcalText: String(Math.round(estimate.kcal_per_serving)),
-          serving_ratio: 1,
-          source: 'manual',
-          confidence: null,
-          portion_g: null,
-          serving_size_g: estimate.serving_size_g,
-          basePerServing: Math.round(estimate.kcal_per_serving),
-          nutrients: nutrientsOf(estimate),
-          aiEstimatedKcal: estimate.source === 'llm',
-          unit: 'serving',
-        },
-      ]);
+      appendDrafts([makeDraft('manual', name, estimate)]);
       setSearchText('');
     } catch (error) {
       if (error instanceof NutritionNotFoundError) {
         // 미매칭은 오류가 아니다 — 입력한 이름으로 빈 kcal 초안을 추가해 직접 입력을 잇는다.
-        appendDrafts([
-          {
-            key: nextDraftKey(),
-            food_label: name,
-            kcalText: '',
-            serving_ratio: 1,
-            source: 'manual',
-            confidence: null,
-            portion_g: null,
-            serving_size_g: null,
-            basePerServing: null,
-            nutrients: null,
-            aiEstimatedKcal: false,
-            unit: 'serving',
-          },
-        ]);
+        appendDrafts([makeDraft('manual', name, null)]);
         setSearchText('');
         notifyDialog('영양 정보를 찾지 못했어요', '칼로리를 직접 입력해주세요.');
-      } else if (error instanceof NutritionUnavailableError) {
-        setErrorMessage(error.message);
       } else {
+        // 일시 장애(NutritionUnavailableError)도 일반 오류와 같은 메시지를 그대로 보여준다.
         setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
       }
     } finally {
@@ -593,22 +520,7 @@ export default function MealComposeScreen() {
 
   const addManual = () => {
     setErrorMessage(null);
-    appendDrafts([
-      {
-        key: nextDraftKey(),
-        food_label: '',
-        kcalText: '',
-        serving_ratio: 1,
-        source: 'manual',
-        confidence: null,
-        portion_g: null,
-        serving_size_g: null,
-        basePerServing: null,
-        nutrients: null,
-        aiEstimatedKcal: false,
-        unit: 'serving',
-      },
-    ]);
+    appendDrafts([makeDraft('manual', '', null)]);
   };
 
   const canSave =
@@ -637,13 +549,7 @@ export default function MealComposeScreen() {
       }));
 
       if (isAppend && mealId !== null) {
-        const preserved = existingItems.map((item) => ({
-          food_label: item.food_label,
-          serving_ratio: item.serving_ratio,
-          kcal: item.kcal,
-          source: item.source,
-          confidence: item.confidence,
-        }));
+        const preserved = existingItems.map(toMealItemInput);
 
         // logged_at 생략 → 서버가 기존 기록 시각을 유지한다 (전체 교체의 유일한 예외).
         await updateMeal(mealId, {
@@ -663,16 +569,7 @@ export default function MealComposeScreen() {
           // logged_at 생략 → 서버가 기존 기록 시각을 유지한다.
           await updateMeal(sameMeal.id, {
             meal_type: mealType,
-            items: [
-              ...sameMeal.items.map((item) => ({
-                food_label: item.food_label,
-                serving_ratio: item.serving_ratio,
-                kcal: item.kcal,
-                source: item.source,
-                confidence: item.confidence,
-              })),
-              ...newItems,
-            ],
+            items: [...sameMeal.items.map(toMealItemInput), ...newItems],
           });
         } else {
           // 과거 날짜 셀에서도 그 날짜로 보이도록 UTC 정오로 앵커한다 (services/health-api.ts).
@@ -699,307 +596,304 @@ export default function MealComposeScreen() {
   const existingTotal = existingItems.reduce((sum, item) => sum + item.kcal, 0);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
-        <View style={styles.container}>
-          <BackButton />
+    <Screen contentStyle={{ paddingBottom: 36 }} gap={16} keyboard="persistTaps">
+      <BackButton />
 
-          <View style={styles.header}>
-            <Text style={styles.title}>{isAppend ? '항목 추가' : '기록 추가'}</Text>
-            <Text style={styles.subtitle}>
-              {isAppend
-                ? `${formatDateTitle(date)} · ${existingMealType ? MEAL_TYPE_LABELS[existingMealType] : ''} 끼니에 더하기`
-                : `${formatDateTitle(date)}에 새 끼니를 남겨요`}
-            </Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>{isAppend ? '항목 추가' : '기록 추가'}</Text>
+        <Text style={styles.subtitle}>
+          {isAppend
+            ? `${formatMonthDay(date)} · ${existingMealType ? MEAL_TYPE_LABELS[existingMealType] : ''} 끼니에 더하기`
+            : `${formatMonthDay(date)}에 새 끼니를 남겨요`}
+        </Text>
+      </View>
+
+      {isLoadingExisting ? (
+        <View style={styles.stateBox}>
+          <ActivityIndicator color="#2a7d76" />
+          <Text style={styles.stateText}>기존 끼니를 불러오는 중입니다.</Text>
+        </View>
+      ) : null}
+
+      {isAppend && existingItems.length > 0 ? (
+        <View style={styles.existingCard}>
+          <View style={styles.existingHeadRow}>
+            <Text style={styles.existingTitle}>기존 항목</Text>
+            <Text style={styles.existingTotal}>{`${existingTotal.toLocaleString()} kcal`}</Text>
           </View>
-
-          {isLoadingExisting ? (
-            <View style={styles.stateBox}>
-              <ActivityIndicator color="#2a7d76" />
-              <Text style={styles.stateText}>기존 끼니를 불러오는 중입니다.</Text>
-            </View>
-          ) : null}
-
-          {isAppend && existingItems.length > 0 ? (
-            <View style={styles.existingCard}>
-              <View style={styles.existingHeadRow}>
-                <Text style={styles.existingTitle}>기존 항목</Text>
-                <Text style={styles.existingTotal}>{`${existingTotal.toLocaleString()} kcal`}</Text>
-              </View>
-              {existingItems.map((item) => (
-                <View key={item.id} style={styles.existingRow}>
-                  <Text style={styles.existingLabel} numberOfLines={1}>
-                    {formatFoodLabel(item.food_label)}
-                  </Text>
-                  <Text style={styles.existingKcal}>{`${item.kcal.toLocaleString()} kcal`}</Text>
-                </View>
-              ))}
-            </View>
-          ) : null}
-
-          {isAppend ? null : (
-            <View style={styles.choiceSection}>
-              <Text style={styles.choiceLabel}>끼니</Text>
-              <ChipGroup
-                options={MEAL_TYPE_OPTIONS}
-                selectedValues={[mealType]}
-                onToggle={(value) => {
-                  mealTypeTouchedRef.current = true;
-                  selectMealType(value, setMealType);
-                }}
-              />
-              {photoTime !== null ? (
-                <PhotoTimeNotice
-                  photoTime={photoTime}
-                  date={date}
-                  today={today}
-                  onMoveToday={() => {
-                    setDate(today);
-                    setPhotoTime({ ...photoTime, appliedDate: false });
-                  }}
-                  onMoveToPhotoDate={() => {
-                    setDate(formatDateParam(photoTime.takenAt));
-                    setPhotoTime({ ...photoTime, appliedDate: true });
-                  }}
-                />
-              ) : null}
-            </View>
-          )}
-
-          {previewUri ? (
-            <View style={styles.previewCard}>
-              <Image resizeMode="cover" source={{ uri: previewUri }} style={styles.previewImage} />
-              {/* "저장되지 않아요"만 쓰면 사진이 기기 밖으로 안 나가는 것으로 읽힌다 — 실제로는
-                  서버를 거쳐 AI 인식 서비스로 전송된다(저장만 하지 않는다). 전송 사실을 먼저 쓴다.
-                  근거: services/calorie-api.ts 가 FormData 로 업로드 → 서버가 메모리에서 Gemini 로
-                  넘기고 폐기(kcalAI-model/api/predict_api.py). 처리방침 2·6항과 같은 내용이다. */}
-              <Text style={styles.previewCaption}>
-                AI 인식을 위해 전송돼요 · 서버에 저장되지 않아요
+          {existingItems.map((item) => (
+            <View key={item.id} style={styles.existingRow}>
+              <Text style={styles.existingLabel} numberOfLines={1}>
+                {formatFoodLabel(item.food_label)}
               </Text>
+              <Text style={styles.existingKcal}>{`${item.kcal.toLocaleString()} kcal`}</Text>
             </View>
-          ) : null}
+          ))}
+        </View>
+      ) : null}
 
-          <View style={styles.addCard}>
-            <Text style={styles.addTitle}>항목 추가</Text>
-            <Text style={styles.addHint}>
-              한 끼에 여러 메뉴를 담을 수 있어요. 사진은 고른 뒤 분석 버튼을 눌러야 생성형 AI(Google Gemini)가 인식하고, 인식 1건당 1건이 차감돼요.
-            </Text>
-
-            {visionUsage !== null ? (
-              <Text style={styles.usageText}>
-                {`오늘 사진 인식 ${visionUsage.used}/${visionUsage.limit}건 · ${Math.max(visionUsage.limit - visionUsage.used, 0)}건 남음`}
-              </Text>
-            ) : null}
-
-            <View style={styles.addActionGrid}>
-              <AddActionButton
-                disabled={isAnalyzing}
-                icon="photo-camera"
-                label="촬영"
-                onPress={() => void pickFromCamera()}
-              />
-              <AddActionButton
-                disabled={isAnalyzing}
-                icon="photo-library"
-                label="앨범"
-                onPress={() => void pickFromLibrary()}
-              />
-            </View>
-
-            {pendingAsset ? (
-              <Pressable
-                disabled={isAnalyzing}
-                onPress={runAnalyze}
-                style={({ pressed }) => [
-                  styles.analyzeButton,
-                  isAnalyzing && styles.analyzeButtonDisabled,
-                  pressed && !isAnalyzing && styles.pressed,
-                ]}>
-                <MaterialIcons color="#22211f" name="restaurant-menu" size={18} />
-                <Text style={styles.analyzeButtonText}>이 사진 분석하기</Text>
-              </Pressable>
-            ) : null}
-
-            {isAnalyzing ? (
-              <View style={styles.analyzingRow}>
-                <ActivityIndicator color="#2a7d76" size="small" />
-                <Text style={styles.analyzingText}>사진 속 음식을 분석하고 있어요.</Text>
-              </View>
-            ) : null}
-
-            <View style={styles.searchRow}>
-              <TextInput
-                onChangeText={setSearchText}
-                onSubmitEditing={() => void addBySearch()}
-                placeholder="음식 이름으로 검색 (무료)"
-                placeholderTextColor="#a9a6a1"
-                returnKeyType="search"
-                style={styles.searchInput}
-                value={searchText}
-              />
-              <Pressable
-                disabled={isSearching || searchText.trim() === ''}
-                onPress={() => void addBySearch()}
-                style={({ pressed }) => [
-                  styles.searchButton,
-                  (isSearching || searchText.trim() === '') && styles.searchButtonDisabled,
-                  pressed && styles.pressed,
-                ]}>
-                {isSearching ? (
-                  <ActivityIndicator color="#22211f" size="small" />
-                ) : (
-                  <Text style={styles.searchButtonText}>추가</Text>
-                )}
-              </Pressable>
-            </View>
-
-            <Pressable
-              onPress={addManual}
-              style={({ pressed }) => [styles.manualAddButton, pressed && styles.pressed]}>
-              <MaterialIcons color="#2a7d76" name="edit" size={18} />
-              <Text style={styles.manualAddText}>직접 입력으로 추가</Text>
-            </Pressable>
-          </View>
-
-          {planLimitMessage ? (
-            <PlanLimitBanner message={planLimitMessage} onUpgrade={() => router.push('/plan')} />
-          ) : null}
-
-          {errorMessage ? (
-            <ErrorBanner
-              message={errorMessage}
-              onRetry={existingLoadFailed ? () => void loadExisting() : () => setErrorMessage(null)}
+      {isAppend ? null : (
+        <View style={styles.choiceSection}>
+          <Text style={styles.choiceLabel}>끼니</Text>
+          <ChipGroup
+            options={MEAL_TYPE_OPTIONS}
+            selectedValues={[mealType]}
+            onToggle={(value) => {
+              mealTypeTouchedRef.current = true;
+              selectMealType(value, setMealType);
+            }}
+          />
+          {photoTime !== null ? (
+            <PhotoTimeNotice
+              photoTime={photoTime}
+              date={date}
+              today={today}
+              onMoveToday={() => {
+                setDate(today);
+                setPhotoTime({ ...photoTime, appliedDate: false });
+              }}
+              onMoveToPhotoDate={() => {
+                setDate(formatDateParam(photoTime.takenAt));
+                setPhotoTime({ ...photoTime, appliedDate: true });
+              }}
             />
           ) : null}
+        </View>
+      )}
 
-          {warnings.length > 0 ? (
-            <View style={styles.warningBox}>
-              <MaterialIcons color="#b8524e" name="warning-amber" size={20} />
-              <View style={styles.warningBody}>
-                {warnings.map((warning) => (
-                  <View
-                    key={`${warning.source}-${warning.code}-${warning.matched_label}`}
-                    style={styles.warningLine}>
-                    <Text style={styles.warningText}>{formatWarning(warning)}</Text>
+      {previewUri ? (
+        <View style={styles.previewCard}>
+          <Image resizeMode="cover" source={{ uri: previewUri }} style={styles.previewImage} />
+          {/* "저장되지 않아요"만 쓰면 사진이 기기 밖으로 안 나가는 것으로 읽힌다 — 실제로는
+              서버를 거쳐 AI 인식 서비스로 전송된다(저장만 하지 않는다). 전송 사실을 먼저 쓴다.
+              근거: services/calorie-api.ts 가 FormData 로 업로드 → 서버가 메모리에서 Gemini 로
+              넘기고 폐기(kcalAI-model/api/predict_api.py). 처리방침 2·6항과 같은 내용이다. */}
+          <Text style={styles.previewCaption}>
+            AI 인식을 위해 전송돼요 · 서버에 저장되지 않아요
+          </Text>
+        </View>
+      ) : null}
 
-                    {/* **경고를 이해할 수 있게 한다.** "칼륨이 높아요"만으로는 왜 줄여야 하는지,
-                        내 병기에서도 그런지 알 수 없다 — 실사용에서 "내 질환 정보를 찾기 너무
-                        힘들다"로 나온 지점이다 (서버 `docs/CARE_LOOP.md` §0-3·§5-2).
-                        `nutrient` 가 있는 경고만 축 가이드가 있다(알러지·임신·암은 없다).
-                        서버 테스트 `test_every_axis_warning_condition_has_a_guide` 가 이 대응을 건다. */}
-                    {warning.nutrient !== null ? (
-                      <Pressable
-                        hitSlop={6}
-                        onPress={() =>
-                          router.push({
-                            pathname: '/guides/[condition]',
-                            params: { condition: warning.code, axis: warning.nutrient as string },
-                          })
-                        }
-                        style={({ pressed }) => [styles.warningWhy, pressed && styles.pressed]}>
-                        <Text style={styles.warningWhyText}>왜?</Text>
-                      </Pressable>
-                    ) : null}
-                  </View>
-                ))}
-                {/* 등급 근거가 지침 컷오프가 아니라 정책값이라는 고지. 서버가 문구를 정한다. */}
-                {warningNotice ? <Text style={styles.warningNotice}>{warningNotice}</Text> : null}
+      <View style={styles.addCard}>
+        <Text style={styles.addTitle}>항목 추가</Text>
+        <Text style={styles.addHint}>
+          한 끼에 여러 메뉴를 담을 수 있어요. 사진은 고른 뒤 분석 버튼을 눌러야 생성형 AI(Google Gemini)가 인식하고, 인식 1건당 1건이 차감돼요.
+        </Text>
 
-                {/* 경고가 뜬 순간이 사용자가 식이 결정을 내리는 순간이다 — 최종 판단자가
-                    누구인지 여기서 말해야 한다 (Apple 1.4.1). */}
-                <MedicalDisclaimer />
+        {visionUsage !== null ? (
+          <Text style={styles.usageText}>
+            {`오늘 사진 인식 ${visionUsage.used}/${visionUsage.limit}건 · ${Math.max(visionUsage.limit - visionUsage.used, 0)}건 남음`}
+          </Text>
+        ) : null}
 
-                {/* 경고를 막다른 길로 두지 않는다 — "먹지 마세요" 다음에는 "그럼 뭘 먹지"가
-                    와야 한다. 기록을 막지 않으므로 이건 대안 제시일 뿐이고, 이미 먹은 것을
-                    지우라는 뜻이 아니다(그래서 문구가 '다음 끼니'다). */}
-                <Pressable
-                  onPress={() =>
-                    router.push({
-                      pathname: '/recommendations',
-                      params: { meal_type: nextMealType() },
-                    })
-                  }
-                  style={({ pressed }) => [styles.warningAction, pressed && styles.pressed]}>
-                  <MaterialIcons color="#2a7d76" name="restaurant-menu" size={16} />
-                  <Text style={styles.warningActionText}>다음 끼니에 맞는 메뉴 보기</Text>
-                </Pressable>
+        <View style={styles.addActionGrid}>
+          <AddActionButton
+            disabled={isAnalyzing}
+            icon="photo-camera"
+            label="촬영"
+            onPress={() => void pickAndSelect('camera')}
+          />
+          <AddActionButton
+            disabled={isAnalyzing}
+            icon="photo-library"
+            label="앨범"
+            onPress={() => void pickAndSelect('library')}
+          />
+        </View>
+
+        {pendingAsset ? (
+          <Pressable
+            disabled={isAnalyzing}
+            onPress={runAnalyze}
+            style={({ pressed }) => [
+              styles.analyzeButton,
+              isAnalyzing && styles.analyzeButtonDisabled,
+              pressed && !isAnalyzing && styles.pressed,
+            ]}>
+            <MaterialIcons color="#22211f" name="restaurant-menu" size={18} />
+            <Text style={styles.analyzeButtonText}>이 사진 분석하기</Text>
+          </Pressable>
+        ) : null}
+
+        {isAnalyzing ? (
+          <View style={styles.analyzingRow}>
+            <ActivityIndicator color="#2a7d76" size="small" />
+            <Text style={styles.analyzingText}>사진 속 음식을 분석하고 있어요.</Text>
+          </View>
+        ) : null}
+
+        <View style={styles.searchRow}>
+          <TextInput
+            onChangeText={setSearchText}
+            onSubmitEditing={() => void addBySearch()}
+            placeholder="음식 이름으로 검색 (무료)"
+            placeholderTextColor="#a9a6a1"
+            returnKeyType="search"
+            style={styles.searchInput}
+            value={searchText}
+          />
+          <Pressable
+            disabled={isSearching || searchText.trim() === ''}
+            onPress={() => void addBySearch()}
+            style={({ pressed }) => [
+              styles.searchButton,
+              (isSearching || searchText.trim() === '') && styles.searchButtonDisabled,
+              pressed && styles.pressed,
+            ]}>
+            {isSearching ? (
+              <ActivityIndicator color="#22211f" size="small" />
+            ) : (
+              <Text style={styles.searchButtonText}>추가</Text>
+            )}
+          </Pressable>
+        </View>
+
+        <Pressable
+          onPress={addManual}
+          style={({ pressed }) => [styles.manualAddButton, pressed && styles.pressed]}>
+          <MaterialIcons color="#2a7d76" name="edit" size={18} />
+          <Text style={styles.manualAddText}>직접 입력으로 추가</Text>
+        </Pressable>
+      </View>
+
+      {planLimitMessage ? (
+        <ErrorBanner
+          actionLabel="요금제 업그레이드"
+          message={planLimitMessage}
+          onRetry={() => router.push('/plan')}
+        />
+      ) : null}
+
+      {errorMessage ? (
+        <ErrorBanner
+          message={errorMessage}
+          onRetry={existingLoadFailed ? () => void loadExisting() : () => setErrorMessage(null)}
+        />
+      ) : null}
+
+      {warnings.length > 0 ? (
+        <View style={styles.warningBox}>
+          <MaterialIcons color="#b8524e" name="warning-amber" size={20} />
+          <View style={styles.warningBody}>
+            {warnings.map((warning) => (
+              <View
+                key={`${warning.source}-${warning.code}-${warning.matched_label}`}
+                style={styles.warningLine}>
+                <Text style={styles.warningText}>{formatWarning(warning)}</Text>
+
+                {/* **경고를 이해할 수 있게 한다.** "칼륨이 높아요"만으로는 왜 줄여야 하는지,
+                    내 병기에서도 그런지 알 수 없다 — 실사용에서 "내 질환 정보를 찾기 너무
+                    힘들다"로 나온 지점이다 (서버 `docs/CARE_LOOP.md` §0-3·§5-2).
+                    `nutrient` 가 있는 경고만 축 가이드가 있다(알러지·임신·암은 없다).
+                    서버 테스트 `test_every_axis_warning_condition_has_a_guide` 가 이 대응을 건다. */}
+                {warning.nutrient !== null ? (
+                  <Pressable
+                    hitSlop={6}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/guides/[condition]',
+                        params: { condition: warning.code, axis: warning.nutrient as string },
+                      })
+                    }
+                    style={({ pressed }) => [styles.warningWhy, pressed && styles.pressed]}>
+                    <Text style={styles.warningWhyText}>왜?</Text>
+                  </Pressable>
+                ) : null}
               </View>
-            </View>
-          ) : null}
+            ))}
+            {/* 등급 근거가 지침 컷오프가 아니라 정책값이라는 고지. 서버가 문구를 정한다. */}
+            {warningNotice ? <Text style={styles.warningNotice}>{warningNotice}</Text> : null}
 
-          {/* **경고가 없는 것과 안전한 것은 다르다.** 실측이 없는 음식은 판정 자체가 안 되는데,
-              아무 말도 하지 않으면 사용자는 "괜찮다"로 읽는다 — 신장병 환자의 돈까스·보쌈이
-              그랬다. 경고와 다른 톤(주의색이 아닌 회색)으로, 사실만 전한다. */}
-          {unmeasured.length > 0 ? (
-            <View style={styles.unmeasuredBox}>
-              <MaterialIcons color="#a9a6a1" name="help-outline" size={18} />
-              <Text style={styles.unmeasuredText}>
-                {`${unmeasured.map(formatFoodLabel).join(', ')}은(는) 영양 정보가 없어 확인하지 못했어요. 안전하다는 뜻은 아니에요.`}
-              </Text>
-            </View>
-          ) : null}
+            {/* 경고가 뜬 순간이 사용자가 식이 결정을 내리는 순간이다 — 최종 판단자가
+                누구인지 여기서 말해야 한다 (Apple 1.4.1). */}
+            <MedicalDisclaimer />
 
-          {drafts.length === 0 ? (
-            <View style={styles.emptyDraftBox}>
-              <MaterialIcons color="#a9a6a1" name="restaurant" size={28} />
-              <Text style={styles.emptyDraftText}>
-                위에서 사진·검색·직접 입력으로 먹은 메뉴를 추가해주세요.
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.draftSection}>
-              {drafts.map((draft) => (
-                <View key={draft.key} style={styles.draftBlock}>
-                  <QuantityEditor
-                    value={draft}
-                    isLookingUp={lookupKey === draft.key}
-                    portionHint={draft.portion_g}
-                    onChange={(next) => applyQuantity(draft.key, next)}
-                    onLabelBlur={() => void lookupDraftKcal(draft.key)}
-                    onRemove={() => removeDraft(draft.key)}
-                  />
-                  <AiProvenance
-                    recognized={draft.source === 'ai'}
-                    estimatedKcal={draft.aiEstimatedKcal}
-                  />
-                  {/* 먹은 음식의 실측 나트륨·칼륨·인. 미측정 음식은 아무것도 그리지 않는다. */}
-                  <NutrientChips chips={draftNutrientChips(draft, tierByLabel)} />
-                </View>
-              ))}
-            </View>
-          )}
-
-          <View style={styles.footer}>
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>합계</Text>
-              <Text style={styles.totalValue}>{`${totalKcal.toLocaleString()} kcal`}</Text>
-            </View>
+            {/* 경고를 막다른 길로 두지 않는다 — "먹지 마세요" 다음에는 "그럼 뭘 먹지"가
+                와야 한다. 기록을 막지 않으므로 이건 대안 제시일 뿐이고, 이미 먹은 것을
+                지우라는 뜻이 아니다(그래서 문구가 '다음 끼니'다). */}
             <Pressable
-              disabled={!canSave}
-              onPress={() => void saveMeal()}
-              style={({ pressed }) => [
-                styles.saveButton,
-                !canSave && styles.saveButtonDisabled,
-                pressed && canSave && styles.pressed,
-              ]}>
-              {isSaving ? (
-                <ActivityIndicator color="#22211f" />
-              ) : (
-                <>
-                  <MaterialIcons color="#22211f" name="check" size={20} />
-                  <Text style={styles.saveButtonText}>{isAppend ? '항목 추가 저장' : '기록 저장'}</Text>
-                </>
-              )}
+              onPress={() =>
+                router.push({
+                  pathname: '/recommendations',
+                  params: { meal_type: nextMealType() },
+                })
+              }
+              style={({ pressed }) => [styles.warningAction, pressed && styles.pressed]}>
+              <MaterialIcons color="#2a7d76" name="restaurant-menu" size={16} />
+              <Text style={styles.warningActionText}>다음 끼니에 맞는 메뉴 보기</Text>
             </Pressable>
           </View>
-
-          <Text style={styles.disclaimer}>{AI_USE_NOTICE}</Text>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      ) : null}
+
+      {/* **경고가 없는 것과 안전한 것은 다르다.** 실측이 없는 음식은 판정 자체가 안 되는데,
+          아무 말도 하지 않으면 사용자는 "괜찮다"로 읽는다 — 신장병 환자의 돈까스·보쌈이
+          그랬다. 경고와 다른 톤(주의색이 아닌 회색)으로, 사실만 전한다. */}
+      {unmeasured.length > 0 ? (
+        <View style={styles.unmeasuredBox}>
+          <MaterialIcons color="#a9a6a1" name="help-outline" size={18} />
+          <Text style={styles.unmeasuredText}>
+            {`${unmeasured.map(formatFoodLabel).join(', ')}은(는) 영양 정보가 없어 확인하지 못했어요. 안전하다는 뜻은 아니에요.`}
+          </Text>
+        </View>
+      ) : null}
+
+      {drafts.length === 0 ? (
+        <View style={styles.emptyDraftBox}>
+          <MaterialIcons color="#a9a6a1" name="restaurant" size={28} />
+          <Text style={styles.emptyDraftText}>
+            위에서 사진·검색·직접 입력으로 먹은 메뉴를 추가해주세요.
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.draftSection}>
+          {drafts.map((draft) => (
+            <View key={draft.key} style={styles.draftBlock}>
+              <QuantityEditor
+                value={draft}
+                isLookingUp={lookupKey === draft.key}
+                portionHint={draft.portion_g}
+                onChange={(next) => applyQuantity(draft.key, next)}
+                onLabelBlur={() => void lookupDraftKcal(draft.key)}
+                onRemove={() => removeDraft(draft.key)}
+              />
+              <AiProvenance
+                recognized={draft.source === 'ai'}
+                estimatedKcal={draft.aiEstimatedKcal}
+              />
+              {/* 먹은 음식의 실측 나트륨·칼륨·인. 미측정 음식은 아무것도 그리지 않는다. */}
+              <NutrientChips chips={draftNutrientChips(draft, tierByLabel)} />
+            </View>
+          ))}
+        </View>
+      )}
+
+      <View style={styles.footer}>
+        <View style={styles.totalRow}>
+          <Text style={styles.totalLabel}>합계</Text>
+          <Text style={styles.totalValue}>{`${totalKcal.toLocaleString()} kcal`}</Text>
+        </View>
+        <Pressable
+          disabled={!canSave}
+          onPress={() => void saveMeal()}
+          style={({ pressed }) => [
+            styles.saveButton,
+            !canSave && styles.saveButtonDisabled,
+            pressed && canSave && styles.pressed,
+          ]}>
+          {isSaving ? (
+            <ActivityIndicator color="#22211f" />
+          ) : (
+            <>
+              <MaterialIcons color="#22211f" name="check" size={20} />
+              <Text style={styles.saveButtonText}>{isAppend ? '항목 추가 저장' : '기록 저장'}</Text>
+            </>
+          )}
+        </Pressable>
+      </View>
+
+      <Text style={styles.disclaimer}>{AI_USE_NOTICE}</Text>
+    </Screen>
   );
 }
 
@@ -1067,7 +961,7 @@ function PhotoTimeNotice({
         ) : null}
         {!photoTime.appliedDate && photoDate !== date ? (
           <Pressable onPress={onMoveToPhotoDate} hitSlop={6}>
-            <Text style={styles.photoTimeLink}>{`사진 찍은 날(${formatDateTitle(photoDate)}) 기록으로 옮기기`}</Text>
+            <Text style={styles.photoTimeLink}>{`사진 찍은 날(${formatMonthDay(photoDate)}) 기록으로 옮기기`}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -1085,19 +979,9 @@ function parseTakenAtParam(value: string | undefined): Date | null {
   return Number.isNaN(time.getTime()) ? null : time;
 }
 
-function formatTakenAt(time: Date): string {
-  const hour = time.getHours();
-  const period = hour < 12 ? '오전' : '오후';
-  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
-
-  return `${time.getMonth() + 1}월 ${time.getDate()}일 ${period} ${displayHour}:${String(time.getMinutes()).padStart(2, '0')}`;
-}
-
 function selectMealType(value: string, setMealType: (value: MealType) => void) {
-  const option = MEAL_TYPE_OPTIONS.find((item) => item.value === value);
-
-  if (option) {
-    setMealType(option.value);
+  if (isMealType(value)) {
+    setMealType(value);
   }
 }
 
@@ -1108,41 +992,36 @@ function toPhotoAsset(asset: ImagePicker.ImagePickerAsset): PhotoAsset {
 // 인식된 음식 1건 → 초안. estimate 성공이면 매칭 DB 이름·kcal을, 실패(404/503/기타)면 라벨만
 // 살리고 kcal은 비워 직접 입력을 유도한다 (일부 실패해도 나머지를 살린다).
 async function foodToDraft(food: FoodDetection): Promise<Draft> {
-  const confidence = Math.max(0, Math.min(1, food.score));
-
   try {
-    const estimate = await estimateNutrition(food.label);
-
-    return {
-      key: nextDraftKey(),
-      food_label: estimate.food_label,
-      kcalText: String(Math.round(estimate.kcal_per_serving)),
-      serving_ratio: 1,
-      source: 'ai',
-      confidence,
-      portion_g: food.portion_g,
-      serving_size_g: estimate.serving_size_g,
-      basePerServing: Math.round(estimate.kcal_per_serving),
-      nutrients: nutrientsOf(estimate),
-      aiEstimatedKcal: estimate.source === 'llm',
-      unit: 'serving',
-    };
+    return makeDraft('ai', food.label, await estimateNutrition(food.label), food);
   } catch {
-    return {
-      key: nextDraftKey(),
-      food_label: food.label,
-      kcalText: '',
-      serving_ratio: 1,
-      source: 'ai',
-      confidence,
-      portion_g: food.portion_g,
-      serving_size_g: null,
-      basePerServing: null,
-      nutrients: null,
-      aiEstimatedKcal: false,
-      unit: 'serving',
-    };
+    return makeDraft('ai', food.label, null, food);
   }
+}
+
+// 초안 생성 — 검색·직접입력·사진 인식(성공/실패) 5곳이 같은 12필드를 채우던 것을 줄인다.
+// estimate 가 있으면 DB 매칭값(이름·kcal·1인분 정보)을 쓰고, 없으면 label 그대로 칼로리 미입력
+// 초안이 된다. food(사진 인식 결과)가 있으면 신뢰도·portion_g 를 함께 싣는다.
+function makeDraft(
+  source: MealItemSource,
+  label: string,
+  estimate: NutritionEstimate | null,
+  food?: FoodDetection
+): Draft {
+  return {
+    key: nextDraftKey(),
+    food_label: estimate?.food_label ?? label,
+    kcalText: estimate === null ? '' : String(Math.round(estimate.kcal_per_serving)),
+    serving_ratio: 1,
+    unit: 'serving',
+    source,
+    confidence: food === undefined ? null : Math.max(0, Math.min(1, food.score)),
+    portion_g: food?.portion_g ?? null,
+    serving_size_g: estimate?.serving_size_g ?? null,
+    basePerServing: estimate === null ? null : Math.round(estimate.kcal_per_serving),
+    nutrients: estimate === null ? null : nutrientsOf(estimate),
+    aiEstimatedKcal: estimate !== null && estimate.source === 'llm',
+  };
 }
 
 function AddActionButton({
@@ -1265,13 +1144,6 @@ function subjectParticle(word: string): string {
   return '이(가)';
 }
 
-// YYYY-MM-DD → 'M월 D일'
-function formatDateTitle(date: string): string {
-  const [, month, day] = date.split('-');
-
-  return `${Number(month)}월 ${Number(day)}일`;
-}
-
 const styles = StyleSheet.create({
   addActionButton: {
     alignItems: 'center',
@@ -1388,12 +1260,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
   },
-  container: {
-    alignSelf: 'center',
-    gap: 16,
-    maxWidth: 720,
-    width: '100%',
-  },
   disclaimer: {
     color: '#a9a6a1',
     fontSize: 13,
@@ -1497,10 +1363,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#e4e2de',
     width: '100%',
   },
-  safeArea: {
-    backgroundColor: '#f7f6f4',
-    flex: 1,
-  },
   saveButton: {
     alignItems: 'center',
     backgroundColor: '#60beb8',
@@ -1517,10 +1379,6 @@ const styles = StyleSheet.create({
     color: '#22211f',
     fontSize: 16,
     fontWeight: '900',
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 36,
   },
   searchButton: {
     alignItems: 'center',

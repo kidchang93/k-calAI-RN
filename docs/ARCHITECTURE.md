@@ -46,8 +46,9 @@ k-calAI-RN/
 │       └── index.tsx           # 끼니 선택 + 오늘 추천 목록
 ├── services/                   # 외부 통신 + 앱 전역 상태
 │   ├── auth-api.ts             # 카카오 로그인 API 클라이언트 (expo-web-browser로 서버 start URL 오픈 → 딥링크 파싱. 발급 전 순수 fetch, logout만 apiFetch로 Bearer 첨부)
-│   ├── auth-session.ts         # 세션 싱글톤 + 영속화(SecureStore) + useAuthSession 훅
+│   ├── auth-session.ts         # 세션 싱글톤 + 영속화(SecureStore) + useAuthSession 훅 + parseAuthTokenResponse(auth-api 공유) + getWebStorage(웹 localStorage, group-invite·yesterday-summary 공유)
 │   ├── calorie-api.ts          # 추론/칼로리 API 클라이언트
+│   ├── photo-picker.ts         # pickPhoto('camera'|'library') — 권한 요청·거부 안내·촬영/앨범 옵션(앨범만 exif). 취소·거부는 null
 │   ├── health-api.ts           # 프로필·목표·끼니·체중 (DATA_MODEL.md 3~5장)
 │   ├── onboarding-api.ts       # 동의·건강 프로필·질병·알러지 (7장)
 │   ├── meta-api.ts             # 선택지 참조 (10장) — 질병·알러지 + 신장병 병기(ckd_stages)
@@ -61,21 +62,24 @@ k-calAI-RN/
 │   ├── billing-api.ts          # 자동결제 (POST /api/billing/{checkout,confirm,cancel}) + BillingChargeError(502)·BillingUnavailableError(503)
 │   ├── toss-sdk.ts             # 토스 결제창 SDK 어댑터 — **웹 전용**. script 1회 동적 로드(프라미스 캐시), window 접근을 여기 가둔다
 │   ├── payment-api.ts          # 결제 내역·영수증 (GET /api/payments, GET /api/payments/{id}) + PaymentNotFoundError(404)
-│   ├── http.ts                 # 공통 fetch 래퍼(apiFetch) + readErrorMessage + PlanLimitError(402)
-│   └── api-base.ts             # API 오리진 결정(Expo hostUri→LAN IP 자동, 실기기 도달). apiUrl()
+│   ├── format.ts               # 날짜·시각 표시 문자열(순수 함수). 'YYYY-MM-DD'는 Date로 파싱하지 않고, ISO 시각은 기기 로컬로 그린다
+│   ├── http.ts                 # 공통 fetch 래퍼(apiFetch) + PlanLimitError(402) + 응답 헬퍼 한 벌: readOk/ensureOk(실패 시 detail로 던지고 상태코드별 오류 클래스 매핑) · ensure/ensureList · isRecord · toNumber · oneOf · JSON_HEADERS
+│   └── api-base.ts             # API 오리진 결정(EXPO_PUBLIC_API_ORIGIN 우선, 없으면 Expo hostUri→LAN IP 자동). apiUrl(path) — 서비스별 URL 오버라이드 없음
 ├── components/                 # 재사용 UI
 │   ├── session-loading.tsx     # 세션 복원 대기 화면 (인증 가드 깜빡임 방지)
-│   ├── error-banner.tsx        # 오류 배너 + 다시 시도
-│   ├── plan-limit-banner.tsx   # 402 안내 배너 + 요금제 화면 유도 (재시도 대신 업그레이드)
+│   ├── auth-guard-stack.tsx    # 탭 밖 스택 _layout.tsx 공통 인증 가드 (loading → SessionLoading, 미인증 → <Redirect href="/auth" />)
+│   ├── screen.tsx              # 화면 틀 SafeAreaView → ScrollView → 가운데 컨테이너(최대 720). keyboard·gap·contentStyle 변형만
+│   ├── loading-state.tsx       # 본문 불러오는 중 카드 (스피너 + 문구)
+│   ├── primary-button.tsx      # 폼 제출 민트 버튼 (loading 스피너·disabled)
+│   ├── goal-form.tsx, profile-form.tsx, allergy-form.tsx, condition-form.tsx  # 온보딩(app/onboarding/)·내 정보 수정(app/me/)이 같이 쓰는 폼. 불러오기·API 저장·이동은 라우트에 두고 폼은 값·onChange·onSave만 받는다. 배타 '없음' 토글(toggleExclusive·NONE_VALUE)은 condition-form이 export
+│   ├── error-banner.tsx        # 오류 배너 + 다시 시도 (actionLabel로 문구 교체 — 402는 '요금제 업그레이드')
 │   ├── back-button.tsx         # 탭 밖 스택 화면(그룹·요금제)의 뒤로가기
 │   ├── chip-group.tsx, meal-type-card.tsx, progress-ring.tsx, onboarding-progress.tsx
 │   ├── haptic-tab.tsx          # 탭 햅틱
 │   └── ui/
 │       └── icon-symbol.tsx / icon-symbol.ios.tsx  # 플랫폼 분기
-├── hooks/
-│   └── use-color-scheme.ts / use-color-scheme.web.ts   # 루트 ThemeProvider(내비 라이트/다크)용
-├── assets/images/
-└── scripts/reset-project.js    # 파괴적 - 실행 금지
+├── hooks/                       # 현재 비어 있음 (라이트 전용 확정으로 use-color-scheme 제거, 2026-09-14)
+└── assets/images/
 ```
 
 ## 의존성 방향
@@ -89,9 +93,9 @@ app/  ──→  components/  ──→  hooks/  ──→  constants/
 | 레이어 | 책임 | 의존해도 되는 것 | 의존하면 안 되는 것 |
 |--------|------|------------------|---------------------|
 | `app/` | 화면, 라우팅, 로컬 UI 상태 | 전부 | — |
-| `components/` | 표시 전용 UI | `hooks/`, `constants/` | `app/`, `services/` |
+| `components/` | 표시 전용 UI | `hooks/`, `constants/`. **예외로 `services/`의 타입·순수 함수·세션 훅**(`health-api` 타입, `food-label`, `format`, `auth-guard-stack`→`useAuthSession`)과 자기 데이터를 스스로 읽는 카드(`group-challenges`, `next-meal-card`, `weekly-coaching`, `condition-guide-card`) | `app/`. 그 외 `services/` 호출은 props로 주입 |
 | `services/` | HTTP, 응답 검증, 세션 | 없음 (RN `Platform`만) | `app/`, `components/` |
-| `hooks/` | 테마·색상 훅 | `constants/` | `app/`, `services/` |
+| `hooks/` | (현재 비어 있음 — 라이트 전용 확정으로 `use-color-scheme` 제거, 2026-09-14) | `constants/` | `app/`, `services/` |
 | `constants/` | 정적 데이터·토큰 (`changelog.ts` 업데이트 이력) | 없음 | 전부 |
 
 경로 별칭: `@/*` → 프로젝트 루트 (`tsconfig.json`). 상대 경로 `../../`를 쓰지 않고 `@/services/calorie-api` 형태로 import 합니다.
@@ -179,10 +183,10 @@ listeners: Set<() => void>
 setAuthSession(s)     → currentSession = s → notify() → 저장(네이티브 SecureStore / 웹 localStorage)
 clearAuthSession()    → currentSession = null → notify() → 저장소 삭제
 restoreAuthSession()  → (__DEV__ 개발 세션 ?? 저장소 읽기) → currentSession 복원 → hydrated = true → notify()
-useAuthSession()      → useState(스냅샷) + useEffect로 listener 등록 → AuthSessionState 반환
+useAuthSession()      → useSyncExternalStore(subscribe, getSnapshot) → AuthSessionState 반환 (스냅샷은 notify 시점에 캐시)
 ```
 
-**영속화: 네이티브는 `expo-secure-store`, 웹은 `localStorage`** (`auth-session.ts`가 `Platform.OS`로 분기 — `expo-secure-store`가 web을 지원하지 않기 때문입니다). `setAuthSession`/`clearAuthSession`이 저장·삭제하고, 앱 시작 시 `restoreAuthSession()`이 복원합니다. 저장 전 `isAuthTokenResponse`로 파싱값을 런타임 검증합니다.
+**영속화: 네이티브는 `expo-secure-store`, 웹은 `localStorage`** (`auth-session.ts`가 `Platform.OS`로 분기 — `expo-secure-store`가 web을 지원하지 않기 때문입니다). `setAuthSession`/`clearAuthSession`이 저장·삭제하고, 앱 시작 시 `restoreAuthSession()`이 복원합니다. 복원 시 `parseAuthTokenResponse`(로그인 응답과 같은 검증)로 파싱값을 런타임 검증합니다.
 **로컬 개발 세션:** `__DEV__`이고 `EXPO_PUBLIC_DEV_AUTH_SESSION`(`../dev.sh`가 넣는다)이 있으면 저장된 세션보다 먼저 복원합니다(`readDevSession`). 로컬은 카카오 허용 IP 제한으로 로그인할 수 없어서입니다. 저장소에 쓰지 않으므로 기동할 때마다 이 값이 이깁니다. 서버가 401을 주면 평소처럼 `clearAuthSession`으로 로그인 화면이 됩니다 (`docs/DEVICE_TESTING.md` A).
 **웹도 새로고침하면 로그인이 유지됩니다.** 이것이 토스 결제창(브라우저를 통째로 되돌린다)에서 복귀한 `/billing/success`가 Bearer로 `confirm`을 부를 수 있는 이유입니다 — 메모리 전용이었다면 결제 확인이 401로 끊깁니다.
 **토큰 첨부:** `access_token`은 `services/http.ts`의 `apiFetch`가 세션이 있을 때 `Authorization: Bearer`로 붙입니다. 인증 API(`auth-api.ts`)는 순수 `fetch`를 써 헤더를 붙이지 않습니다.
@@ -355,28 +359,38 @@ app/meals/compose.tsx   params: date, meal_type?, meal_id?(=append), photoUri?
 
 ## 오류 처리 흐름
 
-`services/*.ts`의 각 함수는 `!response.ok`일 때 `readErrorMessage(response)`로 서버 메시지를 뽑아 `Error`를 던집니다.
+`services/*.ts`의 각 함수는 요청을 `apiFetch`(인증 필요) 또는 `fetch`(인증 API)로 보내고, 응답을 `services/http.ts`의 `readOk`/`ensureOk`로 처리합니다. 경로는 `api-base.ts`의 `apiUrl(path)`로 만듭니다.
 
 ```
-readErrorMessage(response)
-  └─ text() → 비었으면 ''
-  └─ JSON.parse 시도
-       ├─ data.detail이 배열   → item.msg 를 '\n'으로 join   (Pydantic 422 대응, calorie-api만)
-       ├─ data.detail 존재     → String(data.detail)
-       └─ parse 실패           → 원문 text
+apiFetch(input, init)
+  └─ 세션 있으면 Authorization: Bearer 첨부
+  └─ 401  → clearAuthSession()
+  └─ 402  → toPlanLimitError(response) 로 PlanLimitError 를 던짐 (개별 서비스 함수는 다루지 않음)
+
+readOk(response, fallback, statusErrors?)              # ensureOk + 본문 JSON (204 면 null)
+  └─ ensureOk(response, fallback, statusErrors?)
+       └─ !response.ok →
+            readErrorMessage(response)
+              └─ text() → 비었으면 ''
+              └─ JSON.parse 시도
+                   ├─ data.detail이 배열   → item.msg 를 '\n'으로 join   (Pydantic 422 대응)
+                   ├─ data.detail 존재     → String(data.detail)
+                   └─ parse 실패           → 원문 text
+            └─ 메시지가 비었으면 `${fallback}: ${status}`
+            └─ statusErrors[status] 가 있으면 그 오류 클래스로, 없으면 Error 로 던짐
 ```
 
-화면은 `catch`에서 `error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.'`로 받아 `errorMessage` 상태에 넣고 배너로 표시합니다.
+화면은 `catch`에서 `error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.'`로 받아 `errorMessage` 상태에 넣고 `ErrorBanner`로 표시합니다.
 
-**402(요금제 한도)는 예외입니다.** `apiFetch`가 응답 본문을 `PlanLimitError`(`message`·`resource`·`plan`·`limit`)로 바꿔 던지므로, 개별 서비스 함수는 402를 다루지 않습니다. 화면은 `catch`에서 `instanceof PlanLimitError`를 먼저 판별해 **재시도 버튼이 있는 `ErrorBanner` 대신** `PlanLimitBanner`(→ `/plan`)를 그립니다 — 한도 초과는 재시도로 풀리지 않기 때문입니다.
+**402(요금제 한도)는 예외입니다.** 화면은 `catch`에서 `instanceof PlanLimitError`를 먼저 판별해 같은 `ErrorBanner`를 **`actionLabel="요금제 업그레이드"` + `onRetry={() => router.push('/plan')}`**로 그립니다 — 한도 초과는 재시도로 풀리지 않기 때문입니다(2026-09-14, 전용 `PlanLimitBanner` 컴포넌트 삭제).
 
-`readErrorMessage`는 `services/http.ts`의 **공통 함수**입니다 (배열 `detail` = Pydantic 422 처리 포함). `auth-api.ts`·`calorie-api.ts`가 이를 import 합니다. 과거의 중복 정의는 제거되었습니다.
+`readErrorMessage`·`readOk`·`ensureOk`는 `services/http.ts`의 **공통 함수**입니다. 개별 서비스 함수를 재정의하지 않고 이를 import 합니다.
 
 ## 플랫폼 분기
 
 | 분기 방식 | 위치 |
 |-----------|------|
-| 파일명 접미사 (`.ios.tsx`, `.web.ts`) | `components/ui/icon-symbol.ios.tsx`, `hooks/use-color-scheme.web.ts` |
+| 파일명 접미사 (`.ios.tsx`) | `components/ui/icon-symbol.ios.tsx` |
 | `Platform.OS` 런타임 분기 | `services/*.ts`의 기본 URL, `calorie-api.ts`의 FormData 구성 |
 
 ## 외부 시스템

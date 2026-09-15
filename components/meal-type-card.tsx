@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 // 끼니별(아침·점심·저녁·간식) 합계 카드. 기록이 없으면 빈 상태 문구를 보여준다.
-// onPress가 있으면 탭 가능한 행으로 동작한다 (홈 → 해당 날짜 기록 목록 진입).
+// 탭하면 해당 날짜 기록 목록으로 간다 (홈 → /meals).
 export function MealTypeCard({
   icon,
   label,
@@ -12,15 +12,12 @@ export function MealTypeCard({
   icon: keyof typeof MaterialIcons.glyphMap;
   label: string;
   kcal: number;
-  onPress?: () => void;
+  onPress: () => void;
 }) {
   const isEmpty = kcal <= 0;
 
   return (
-    <Pressable
-      disabled={onPress === undefined}
-      onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && onPress !== undefined && styles.pressed]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
       <View style={styles.iconWrap}>
         <MaterialIcons color="#2a7d76" name={icon} size={20} />
       </View>
@@ -30,9 +27,7 @@ export function MealTypeCard({
           {isEmpty ? '기록 없음' : `${kcal.toLocaleString()} kcal`}
         </Text>
       </View>
-      {onPress !== undefined ? (
-        <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
-      ) : null}
+      <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
     </Pressable>
   );
 }

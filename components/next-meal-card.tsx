@@ -1,16 +1,9 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { MEAL_TYPE_LABELS, MealType } from '@/constants/meal';
 import { formatFoodLabel } from '@/services/food-label';
-import { MealType } from '@/services/health-api';
 import { DietRecommendation } from '@/services/recommendation-api';
-
-const MEAL_TYPE_LABELS: Record<MealType, string> = {
-  breakfast: '아침',
-  lunch: '점심',
-  dinner: '저녁',
-  snack: '간식',
-};
 
 // 홈의 '다음 끼니 추천' 카드.
 //

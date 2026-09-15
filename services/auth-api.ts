@@ -4,7 +4,8 @@ import { Platform } from 'react-native';
 
 import { PRIVACY_POLICY, TERMS } from '@/constants/legal';
 import { apiUrl } from '@/services/api-base';
-import { apiFetch, readErrorMessage } from '@/services/http';
+import { parseAuthTokenResponse } from '@/services/auth-session';
+import { apiFetch, ensure, ensureOk, JSON_HEADERS, readOk } from '@/services/http';
 
 // 카카오 로그인 (2026-07-14 휴대폰 OTP 전면 교체).
 //
@@ -45,31 +46,23 @@ export type SignupTerms = {
 // 사용자가 카카오 동의 화면·인앱 브라우저를 닫은 경우. 오류가 아니라 정상 흐름이라
 // 화면은 에러 배너 없이 조용히 원상복귀한다.
 export class KakaoCancelledError extends Error {
-  constructor() {
-    super('카카오 로그인을 취소했습니다.');
-    this.name = 'KakaoCancelledError';
-  }
+  name = 'KakaoCancelledError';
+  message = '카카오 로그인을 취소했습니다.';
 }
 
 // POST /api/auth/kakao/login 이 404 — 아직 가입하지 않은 카카오 계정이다.
 // 화면은 이 예외를 받으면 동의·요금제(가입) 단계로 넘긴다.
 export class KakaoNotRegisteredError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'KakaoNotRegisteredError';
-  }
+  name = 'KakaoNotRegisteredError';
 }
 
 // login·signup의 400 — 연동 코드가 만료·소비됐거나(TTL 10분) 이미 가입된 계정이다.
 // 어느 쪽이든 그 코드로는 더 진행할 수 없으니 화면은 카카오 로그인부터 다시 시작시킨다.
 export class KakaoLinkExpiredError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'KakaoLinkExpiredError';
-  }
+  name = 'KakaoLinkExpiredError';
 }
 
-export const AUTH_API_URL = apiUrl('/api/auth', process.env.EXPO_PUBLIC_AUTH_API_URL);
+const AUTH_API_URL = apiUrl('/api/auth');
 
 // 서버가 딥링크로 돌려보내는 error 코드 → 사용자 문구 (서버 api/auth_api.py의 _redirect_to_app).
 const KAKAO_ERROR_MESSAGES: Record<string, string> = {
@@ -79,8 +72,6 @@ const KAKAO_ERROR_MESSAGES: Record<string, string> = {
 };
 
 const KAKAO_FALLBACK_MESSAGE = '카카오 로그인에 실패했습니다. 잠시 후 다시 시도해주세요.';
-
-const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
 
 /**
  * 서버 콜백이 웹으로 되돌려준 결과(`/auth?code=…&is_new=…`)를 쿼리에서 읽는다.
@@ -158,22 +149,12 @@ export async function loginWithKakao(linkCode: string): Promise<AuthTokenRespons
     body: JSON.stringify({ link_code: linkCode }),
   });
 
-  if (response.status === 404) {
-    const message = await readErrorMessage(response);
-    throw new KakaoNotRegisteredError(message || '가입되지 않은 카카오 계정입니다.');
-  }
+  const data = await readOk(response, '카카오 로그인 실패', {
+    404: KakaoNotRegisteredError,
+    400: KakaoLinkExpiredError,
+  });
 
-  if (response.status === 400) {
-    const message = await readErrorMessage(response);
-    throw new KakaoLinkExpiredError(message || '로그인 정보가 만료되었습니다.');
-  }
-
-  if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `카카오 로그인 실패: ${response.status}`);
-  }
-
-  return ensureAuthTokenResponse(await response.json());
+  return ensure(parseAuthTokenResponse(data));
 }
 
 export async function signupWithKakao(
@@ -198,17 +179,9 @@ export async function signupWithKakao(
     }),
   });
 
-  if (response.status === 400) {
-    const message = await readErrorMessage(response);
-    throw new KakaoLinkExpiredError(message || '로그인 정보가 만료되었습니다.');
-  }
+  const data = await readOk(response, '회원가입 실패', { 400: KakaoLinkExpiredError });
 
-  if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `회원가입 실패: ${response.status}`);
-  }
-
-  return ensureAuthTokenResponse(await response.json());
+  return ensure(parseAuthTokenResponse(data));
 }
 
 // 로그아웃은 발급된 세션을 폐기하는 요청이라 예외적으로 apiFetch로 Bearer를 첨부한다.
@@ -216,10 +189,7 @@ export async function signupWithKakao(
 export async function logout(): Promise<void> {
   const response = await apiFetch(`${AUTH_API_URL}/logout`, { method: 'POST' });
 
-  if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `로그아웃 실패: ${response.status}`);
-  }
+  await ensureOk(response, '로그아웃 실패');
 }
 
 // ── 내부 헬퍼 (export 안 함) ────────────────────────────────────────────────
@@ -266,49 +236,4 @@ function readParam(
   }
 
   return null;
-}
-
-function ensureAuthTokenResponse(value: unknown): AuthTokenResponse {
-  const parsed = parseAuthTokenResponse(value);
-
-  if (parsed === null) {
-    throw new Error('서버 응답 형식이 올바르지 않습니다.');
-  }
-
-  return parsed;
-}
-
-function parseAuthTokenResponse(value: unknown): AuthTokenResponse | null {
-  if (typeof value !== 'object' || value === null) {
-    return null;
-  }
-
-  const candidate = value as Record<string, unknown>;
-
-  if (
-    typeof candidate.access_token !== 'string' ||
-    typeof candidate.token_type !== 'string' ||
-    typeof candidate.expires_at !== 'string' ||
-    typeof candidate.user !== 'object' ||
-    candidate.user === null
-  ) {
-    return null;
-  }
-
-  const user = candidate.user as Record<string, unknown>;
-
-  if (typeof user.id !== 'number' || typeof user.created_at !== 'string') {
-    return null;
-  }
-
-  return {
-    access_token: candidate.access_token,
-    token_type: candidate.token_type,
-    expires_at: candidate.expires_at,
-    user: {
-      id: user.id,
-      nickname: typeof user.nickname === 'string' ? user.nickname : null,
-      created_at: user.created_at,
-    },
-  };
 }

@@ -1,5 +1,5 @@
 import { apiUrl } from '@/services/api-base';
-import { apiFetch, readErrorMessage } from '@/services/http';
+import { apiFetch, isRecord, readOk } from '@/services/http';
 import { ConsentRequiredError } from '@/services/onboarding-api';
 
 // 주간 조언 (kcalAI-model/docs/ACTIVITY_GUIDANCE.md 3-5).
@@ -27,70 +27,51 @@ export type Coaching = {
   notice: string;
 };
 
-export const COACHING_API_URL = apiUrl('/api', process.env.EXPO_PUBLIC_HEALTH_API_URL);
+const COACHING_API_URL = apiUrl('/api');
 
 export async function getWeeklyCoaching(): Promise<Coaching> {
   const response = await apiFetch(`${COACHING_API_URL}/me/coaching`);
 
-  if (response.status === 403) {
-    const message = await readErrorMessage(response);
-    throw new ConsentRequiredError(message || '민감정보 수집 동의가 필요합니다.');
-  }
-
-  if (!response.ok) {
-    throw new Error((await readErrorMessage(response)) || '조언 조회 실패');
-  }
-
-  return ensureCoaching(await response.json());
+  return ensureCoaching(await readOk(response, '조언 조회 실패', { 403: ConsentRequiredError }));
 }
 
 function ensureCoaching(value: unknown): Coaching {
   if (
-    typeof value !== 'object' ||
-    value === null ||
-    !Array.isArray((value as Record<string, unknown>).items)
-  ) {
-    throw new Error('서버 응답 형식이 올바르지 않습니다.');
-  }
-
-  const record = value as Record<string, unknown>;
-
-  if (
-    typeof record.week_start !== 'string' ||
-    typeof record.week_end !== 'string' ||
-    typeof record.notice !== 'string' ||
-    !Array.isArray(record.conditions)
+    !isRecord(value) ||
+    !Array.isArray(value.items) ||
+    typeof value.week_start !== 'string' ||
+    typeof value.week_end !== 'string' ||
+    typeof value.notice !== 'string' ||
+    !Array.isArray(value.conditions)
   ) {
     throw new Error('서버 응답 형식이 올바르지 않습니다.');
   }
 
   return {
-    week_start: record.week_start,
-    week_end: record.week_end,
-    conditions: record.conditions.filter((entry): entry is string => typeof entry === 'string'),
-    items: (record.items as unknown[]).map(ensureItem),
-    notice: record.notice,
+    week_start: value.week_start,
+    week_end: value.week_end,
+    conditions: value.conditions.filter((entry): entry is string => typeof entry === 'string'),
+    items: value.items.map(ensureItem),
+    notice: value.notice,
   };
 }
 
 function ensureItem(value: unknown): CoachingItem {
-  const record = value as Record<string, unknown>;
-  const tone = record?.tone;
+  const tone = isRecord(value) ? value.tone : undefined;
 
   if (
-    typeof record !== 'object' ||
-    record === null ||
-    typeof record.code !== 'string' ||
-    typeof record.message !== 'string' ||
+    !isRecord(value) ||
+    typeof value.code !== 'string' ||
+    typeof value.message !== 'string' ||
     (tone !== 'good' && tone !== 'tip' && tone !== 'caution')
   ) {
     throw new Error('서버 응답 형식이 올바르지 않습니다.');
   }
 
   return {
-    code: record.code,
+    code: value.code,
     tone,
-    message: record.message,
-    evidence: typeof record.evidence === 'string' ? record.evidence : null,
+    message: value.message,
+    evidence: typeof value.evidence === 'string' ? value.evidence : null,
   };
 }

@@ -172,13 +172,11 @@ function readIfd(
       const start = tiffStart + view.getUint32(entry + 8, littleEndian);
 
       if (start + length <= end) {
-        let text = '';
-
-        for (let cursor = start; cursor < start + length - 1; cursor += 1) {
-          text += String.fromCharCode(view.getUint8(cursor));
-        }
-
-        values.set(tag, text);
+        // 마지막 1바이트는 ASCII 문자열 끝의 NUL 이라 뺀다.
+        values.set(
+          tag,
+          new TextDecoder().decode(new Uint8Array(view.buffer, view.byteOffset + start, length - 1))
+        );
       }
     }
   }

@@ -1,11 +1,12 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
 import { ErrorBanner } from '@/components/error-banner';
+import { LoadingState } from '@/components/loading-state';
+import { Screen } from '@/components/screen';
 import { useAuthSession } from '@/services/auth-session';
 import {
   deleteGroup,
@@ -49,7 +50,6 @@ export default function GroupDetailScreen() {
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
   const [removingUserId, setRemovingUserId] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  // 402(요금제 한도) 전용 — 펫 공유가 그룹 소유자의 정원에 걸렸을 때.
 
   const loadDetail = useCallback(async () => {
     if (!isValidId) {
@@ -180,134 +180,105 @@ export default function GroupDetailScreen() {
     isLeaving || isDeletingGroup || removingUserId !== null;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.container}>
-          <BackButton />
+    <Screen>
+      <BackButton />
 
-          {isLoading ? (
-            <View style={styles.stateBox}>
-              <ActivityIndicator color="#2a7d76" />
-              <Text style={styles.stateText}>그룹 정보를 불러오는 중입니다.</Text>
+      {isLoading ? (
+        <LoadingState label="그룹 정보를 불러오는 중입니다." />
+      ) : detail === null ? (
+        errorMessage ? (
+          <ErrorBanner message={errorMessage} onRetry={() => void loadDetail()} />
+        ) : null
+      ) : (
+        <>
+          <View style={styles.header}>
+            <Text style={styles.title}>{detail.name}</Text>
+            <Text style={styles.subtitle}>
+              {`${GROUP_KIND_LABELS[detail.kind]} · ${detail.members.length}명`}
+            </Text>
+          </View>
+
+          {errorMessage ? (
+            <ErrorBanner message={errorMessage} onRetry={() => void loadDetail()} />
+          ) : null}
+
+          <View style={styles.inviteCard}>
+            <View style={styles.inviteBody}>
+              <Text style={styles.inviteLabel}>초대코드</Text>
+              <Text style={styles.inviteCode}>{detail.invite_code}</Text>
             </View>
-          ) : detail === null ? (
-            errorMessage ? (
-              <ErrorBanner message={errorMessage} onRetry={() => void loadDetail()} />
-            ) : null
-          ) : (
-            <>
-              <View style={styles.header}>
-                <Text style={styles.title}>{detail.name}</Text>
-                <Text style={styles.subtitle}>
-                  {`${GROUP_KIND_LABELS[detail.kind]} · ${detail.members.length}명`}
+            <Pressable
+              onPress={() => void shareInviteCode(detail)}
+              style={({ pressed }) => [styles.shareButton, pressed && styles.pressed]}>
+              <MaterialIcons color="#2a7d76" name="ios-share" size={18} />
+              <Text style={styles.shareButtonText}>링크 공유</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>멤버</Text>
+            {detail.members.map((member) => (
+              <View key={member.user_id} style={styles.row}>
+                <MaterialIcons color="#5c5b57" name="person" size={20} />
+                <Text style={styles.rowLabel}>{member.nickname}</Text>
+                <Text
+                  style={[styles.roleBadge, member.role === 'owner' && styles.roleBadgeOwner]}>
+                  {ROLE_LABELS[member.role]}
                 </Text>
-              </View>
-
-              {errorMessage ? (
-                <ErrorBanner message={errorMessage} onRetry={() => void loadDetail()} />
-              ) : null}
-
-              <View style={styles.inviteCard}>
-                <View style={styles.inviteBody}>
-                  <Text style={styles.inviteLabel}>초대코드</Text>
-                  <Text style={styles.inviteCode}>{detail.invite_code}</Text>
-                </View>
-                <Pressable
-                  onPress={() => void shareInviteCode(detail)}
-                  style={({ pressed }) => [styles.shareButton, pressed && styles.pressed]}>
-                  <MaterialIcons color="#2a7d76" name="ios-share" size={18} />
-                  <Text style={styles.shareButtonText}>링크 공유</Text>
-                </Pressable>
-              </View>
-
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>멤버</Text>
-                {detail.members.map((member) => (
-                  <View key={member.user_id} style={styles.row}>
-                    <MaterialIcons color="#5c5b57" name="person" size={20} />
-                    <Text style={styles.rowLabel}>{member.nickname}</Text>
-                    <Text
-                      style={[styles.roleBadge, member.role === 'owner' && styles.roleBadgeOwner]}>
-                      {ROLE_LABELS[member.role]}
-                    </Text>
-                    {isOwner && member.user_id !== myUserId ? (
-                      <Pressable
-                        disabled={isActing}
-                        hitSlop={8}
-                        onPress={() => confirmRemoveMember(member)}
-                        style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
-                        {removingUserId === member.user_id ? (
-                          <ActivityIndicator color="#b8524e" size="small" />
-                        ) : (
-                          <MaterialIcons color="#b8524e" name="person-remove" size={20} />
-                        )}
-                      </Pressable>
-                    ) : null}
-                  </View>
-                ))}
-              </View>
-
-              {/* 운동 챌린지는 2026-07-25에 숨겼다 — 목표와 연결점이 없고 사용 1건(테스트)뿐.
-                  삭제가 아니라 숨김이라 서버 API·컴포넌트는 남아 있다 (docs/DESIGN.md). */}
-
-              <View style={styles.section}>
-                {isOwner ? (
+                {isOwner && member.user_id !== myUserId ? (
                   <Pressable
                     disabled={isActing}
-                    onPress={() => confirmDeleteGroup(detail)}
-                    style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-                    <MaterialIcons color="#b8524e" name="delete-outline" size={20} />
-                    {isDeletingGroup ? (
+                    hitSlop={8}
+                    onPress={() => confirmRemoveMember(member)}
+                    style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
+                    {removingUserId === member.user_id ? (
                       <ActivityIndicator color="#b8524e" size="small" />
                     ) : (
-                      <Text style={styles.dangerLabel}>그룹 삭제</Text>
+                      <MaterialIcons color="#b8524e" name="person-remove" size={20} />
                     )}
                   </Pressable>
+                ) : null}
+              </View>
+            ))}
+          </View>
+
+          {/* 운동 챌린지는 2026-07-25에 숨겼다 — 목표와 연결점이 없고 사용 1건(테스트)뿐.
+              삭제가 아니라 숨김이라 서버 API·컴포넌트는 남아 있다 (docs/DESIGN.md). */}
+
+          <View style={styles.section}>
+            {isOwner ? (
+              <Pressable
+                disabled={isActing}
+                onPress={() => confirmDeleteGroup(detail)}
+                style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+                <MaterialIcons color="#b8524e" name="delete-outline" size={20} />
+                {isDeletingGroup ? (
+                  <ActivityIndicator color="#b8524e" size="small" />
                 ) : (
-                  <Pressable
-                    disabled={isActing}
-                    onPress={() => confirmLeave(detail)}
-                    style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-                    <MaterialIcons color="#b8524e" name="logout" size={20} />
-                    {isLeaving ? (
-                      <ActivityIndicator color="#b8524e" size="small" />
-                    ) : (
-                      <Text style={styles.dangerLabel}>그룹 나가기</Text>
-                    )}
-                  </Pressable>
+                  <Text style={styles.dangerLabel}>그룹 삭제</Text>
                 )}
-              </View>
-            </>
-          )}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+              </Pressable>
+            ) : (
+              <Pressable
+                disabled={isActing}
+                onPress={() => confirmLeave(detail)}
+                style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+                <MaterialIcons color="#b8524e" name="logout" size={20} />
+                {isLeaving ? (
+                  <ActivityIndicator color="#b8524e" size="small" />
+                ) : (
+                  <Text style={styles.dangerLabel}>그룹 나가기</Text>
+                )}
+              </Pressable>
+            )}
+          </View>
+        </>
+      )}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  attachButton: {
-    alignItems: 'center',
-    backgroundColor: '#bee2dd',
-    borderRadius: 8,
-    minWidth: 56,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  attachButtonDisabled: {
-    opacity: 0.5,
-  },
-  attachButtonText: {
-    color: '#2a7d76',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  container: {
-    alignSelf: 'center',
-    gap: 20,
-    maxWidth: 720,
-    width: '100%',
-  },
   dangerLabel: {
     color: '#b8524e',
     flex: 1,
@@ -345,15 +316,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  noteBox: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    padding: 16,
-  },
-  noteText: {
-    color: '#5c5b57',
-    fontSize: 14,
-  },
   pressed: {
     opacity: 0.74,
   },
@@ -385,24 +347,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  rowMeta: {
-    color: '#5c5b57',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  safeArea: {
-    backgroundColor: '#f7f6f4',
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-  },
   section: {
     gap: 10,
-  },
-  sectionHint: {
-    color: '#5c5b57',
-    fontSize: 13,
   },
   sectionTitle: {
     color: '#22211f',
@@ -422,17 +368,6 @@ const styles = StyleSheet.create({
     color: '#2a7d76',
     fontSize: 14,
     fontWeight: '800',
-  },
-  stateBox: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    gap: 12,
-    padding: 32,
-  },
-  stateText: {
-    color: '#5c5b57',
-    fontSize: 14,
   },
   subtitle: {
     color: '#5c5b57',

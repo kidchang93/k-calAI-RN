@@ -1,21 +1,17 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
 import { ChipGroup } from '@/components/chip-group';
+import { ErrorBanner } from '@/components/error-banner';
+import { LoadingState } from '@/components/loading-state';
 import { NutrientChip, NutrientChips } from '@/components/nutrient-chips';
+import { Screen } from '@/components/screen';
+import { MEAL_TYPE_LABELS, MEAL_TYPES, MealType, isMealType } from '@/constants/meal';
 import { formatFoodLabel } from '@/services/food-label';
-import { formatDateParam, MealType } from '@/services/health-api';
+import { formatDateParam } from '@/services/health-api';
 import { ConsentRequiredError } from '@/services/onboarding-api';
 import {
   DietRecommendation,
@@ -26,24 +22,13 @@ import {
   RecommendationItem,
 } from '@/services/recommendation-api';
 
-const MEAL_TYPE_OPTIONS: { value: MealType; label: string }[] = [
-  { value: 'breakfast', label: '아침' },
-  { value: 'lunch', label: '점심' },
-  { value: 'dinner', label: '저녁' },
-  { value: 'snack', label: '간식' },
-];
-
-const MEAL_TYPE_LABELS: Record<MealType, string> = {
-  breakfast: '아침',
-  lunch: '점심',
-  dinner: '저녁',
-  snack: '간식',
-};
+const MEAL_TYPE_OPTIONS: { value: MealType; label: string }[] = MEAL_TYPES.map((value) => ({
+  value,
+  label: MEAL_TYPE_LABELS[value],
+}));
 
 function paramMealType(value: string | undefined): MealType {
-  const option = MEAL_TYPE_OPTIONS.find((item) => item.value === value);
-
-  return option ? option.value : nextMealType();
+  return isMealType(value) ? value : nextMealType();
 }
 
 export default function RecommendationsScreen() {
@@ -101,10 +86,8 @@ export default function RecommendationsScreen() {
   }, [mealType, loadRecommendation]);
 
   const selectMealType = (value: string) => {
-    const option = MEAL_TYPE_OPTIONS.find((item) => item.value === value);
-
-    if (option) {
-      setMealType(option.value);
+    if (isMealType(value)) {
+      setMealType(value);
     }
   };
 
@@ -118,98 +101,81 @@ export default function RecommendationsScreen() {
     ) ?? [];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.container}>
-          <BackButton />
+    <Screen>
+      <BackButton />
 
-          <View style={styles.header}>
-            <Text style={styles.title}>{`${MEAL_TYPE_LABELS[mealType]}, 기준에 맞는 메뉴`}</Text>
-            <Text style={styles.subtitle}>남은 칼로리와 건강 정보에 맞춰 오늘의 메뉴를 골라드려요.</Text>
-          </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>{`${MEAL_TYPE_LABELS[mealType]}, 기준에 맞는 메뉴`}</Text>
+        <Text style={styles.subtitle}>남은 칼로리와 건강 정보에 맞춰 오늘의 메뉴를 골라드려요.</Text>
+      </View>
 
-          <ChipGroup
-            onToggle={selectMealType}
-            options={MEAL_TYPE_OPTIONS}
-            selectedValues={[mealType]}
-          />
+      <ChipGroup
+        onToggle={selectMealType}
+        options={MEAL_TYPE_OPTIONS}
+        selectedValues={[mealType]}
+      />
 
-          {isLoading ? (
-            <View style={styles.stateBox}>
-              <ActivityIndicator color="#2a7d76" />
-              <Text style={styles.stateText}>메뉴를 불러오는 중입니다.</Text>
-            </View>
-          ) : errorMessage ? (
-            <View style={styles.errorBox}>
-              <MaterialIcons color="#b8524e" name="error-outline" size={20} />
-              <View style={styles.errorBody}>
-                <Text style={styles.errorText}>{errorMessage}</Text>
-                <Pressable
-                  onPress={() => void loadRecommendation(mealType)}
-                  style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}>
-                  <Text style={styles.retryButtonText}>다시 시도</Text>
-                </Pressable>
+      {isLoading ? (
+        <LoadingState label="메뉴를 불러오는 중입니다." />
+      ) : errorMessage ? (
+        <ErrorBanner message={errorMessage} onRetry={() => void loadRecommendation(mealType)} />
+      ) : recommendation === null ? null : (
+        <>
+          {excludedRules.length > 0 ? (
+            <View style={styles.excludedBox}>
+              <MaterialIcons color="#2a7d76" name="verified-user" size={18} />
+              <View style={styles.excludedBody}>
+                <Text style={styles.excludedText}>
+                  {`${excludedRules.map((entry) => entry.label).join(' · ')} 제외 반영`}
+                </Text>
+                {excludedFiltered.length > 0 ? (
+                  <Text style={styles.excludedSubText}>
+                    {`추가 제외: ${excludedFiltered.map((entry) => entry.name).join(', ')}`}
+                  </Text>
+                ) : null}
               </View>
             </View>
-          ) : recommendation === null ? null : (
-            <>
-              {excludedRules.length > 0 ? (
-                <View style={styles.excludedBox}>
-                  <MaterialIcons color="#2a7d76" name="verified-user" size={18} />
-                  <View style={styles.excludedBody}>
-                    <Text style={styles.excludedText}>
-                      {`${excludedRules.map((entry) => entry.label).join(' · ')} 제외 반영`}
-                    </Text>
-                    {excludedFiltered.length > 0 ? (
-                      <Text style={styles.excludedSubText}>
-                        {`추가 제외: ${excludedFiltered.map((entry) => entry.name).join(', ')}`}
-                      </Text>
-                    ) : null}
-                  </View>
-                </View>
-              ) : null}
+          ) : null}
 
-              {recommendation.items.length === 0 ? (
-                <View style={styles.emptyCard}>
-                  <MaterialIcons color="#a9a6a1" name="search-off" size={32} />
-                  <Text style={styles.emptyTitle}>조건에 맞는 메뉴를 찾지 못했어요</Text>
-                  <Text style={styles.emptyText}>
-                    제외 조건과 남은 칼로리 안에서 고를 수 있는 메뉴가 없습니다. 다른 끼니를
-                    선택해보세요.
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.itemSection}>
-                  {recommendation.items.map((item) => (
-                    <RecommendationCard key={`${item.name}-${item.kcal}`} item={item} />
-                  ))}
-                </View>
-              )}
-
-              {/* 질병 기반 식이 도움말 (신장병이면 칼륨 저감 조리법 등). 서버가 문구를 내려보낸다. */}
-              {recommendation.tips.length > 0 || recommendation.tier_notice !== null ? (
-                <View style={styles.tipsBox}>
-                  <MaterialIcons color="#2a7d76" name="lightbulb-outline" size={18} />
-                  <View style={styles.tipsBody}>
-                    <Text style={styles.tipsTitle}>식이 도움말</Text>
-                    {recommendation.tips.map((tip) => (
-                      <Text key={tip} style={styles.tipsText}>{`• ${tip}`}</Text>
-                    ))}
-                    {/* 등급(낮음·보통·높음)이 절대 기준이 아니라는 고지. 서버 문구를 그대로 쓴다. */}
-                    {recommendation.tier_notice !== null ? (
-                      <Text style={styles.tierNotice}>{recommendation.tier_notice}</Text>
-                    ) : null}
-                  </View>
-                </View>
-              ) : null}
-
-              {/* 고지 문구는 서버가 내려보낸 문자열을 그대로 표시한다 — 앱 하드코딩 금지. */}
-              <Text style={styles.disclaimer}>{recommendation.disclaimer}</Text>
-            </>
+          {recommendation.items.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <MaterialIcons color="#a9a6a1" name="search-off" size={32} />
+              <Text style={styles.emptyTitle}>조건에 맞는 메뉴를 찾지 못했어요</Text>
+              <Text style={styles.emptyText}>
+                제외 조건과 남은 칼로리 안에서 고를 수 있는 메뉴가 없습니다. 다른 끼니를
+                선택해보세요.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.itemSection}>
+              {recommendation.items.map((item) => (
+                <RecommendationCard key={`${item.name}-${item.kcal}`} item={item} />
+              ))}
+            </View>
           )}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+
+          {/* 질병 기반 식이 도움말 (신장병이면 칼륨 저감 조리법 등). 서버가 문구를 내려보낸다. */}
+          {recommendation.tips.length > 0 || recommendation.tier_notice !== null ? (
+            <View style={styles.tipsBox}>
+              <MaterialIcons color="#2a7d76" name="lightbulb-outline" size={18} />
+              <View style={styles.tipsBody}>
+                <Text style={styles.tipsTitle}>식이 도움말</Text>
+                {recommendation.tips.map((tip) => (
+                  <Text key={tip} style={styles.tipsText}>{`• ${tip}`}</Text>
+                ))}
+                {/* 등급(낮음·보통·높음)이 절대 기준이 아니라는 고지. 서버 문구를 그대로 쓴다. */}
+                {recommendation.tier_notice !== null ? (
+                  <Text style={styles.tierNotice}>{recommendation.tier_notice}</Text>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
+
+          {/* 고지 문구는 서버가 내려보낸 문자열을 그대로 표시한다 — 앱 하드코딩 금지. */}
+          <Text style={styles.disclaimer}>{recommendation.disclaimer}</Text>
+        </>
+      )}
+    </Screen>
   );
 }
 
@@ -264,12 +230,6 @@ function formatGram(value: number): string {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    alignSelf: 'center',
-    gap: 20,
-    maxWidth: 720,
-    width: '100%',
-  },
   disclaimer: {
     color: '#a9a6a1',
     fontSize: 13,
@@ -292,21 +252,6 @@ const styles = StyleSheet.create({
     color: '#22211f',
     fontSize: 18,
     fontWeight: '800',
-  },
-  errorBody: {
-    flex: 1,
-    gap: 10,
-  },
-  errorBox: {
-    backgroundColor: '#fbeaea',
-    borderRadius: 8,
-    flexDirection: 'row',
-    gap: 10,
-    padding: 16,
-  },
-  errorText: {
-    color: '#b8524e',
-    fontSize: 14,
   },
   excludedBody: {
     flex: 1,
@@ -364,40 +309,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     justifyContent: 'space-between',
-  },
-  pressed: {
-    opacity: 0.74,
-  },
-  retryButton: {
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  retryButtonText: {
-    color: '#b8524e',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  safeArea: {
-    backgroundColor: '#f7f6f4',
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-  },
-  stateBox: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    gap: 12,
-    padding: 32,
-  },
-  stateText: {
-    color: '#5c5b57',
-    fontSize: 14,
   },
   subtitle: {
     color: '#5c5b57',

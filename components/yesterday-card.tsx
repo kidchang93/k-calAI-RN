@@ -1,6 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { formatMonthDay } from '@/services/format';
 import type { NutrientTrendAxis, TrendsResponse } from '@/services/health-api';
 
 // 홈 상단의 어제 요약. 기록(②)과 리포트(④) 사이에 비어 있던 **하루**라는 단위를 닫는다
@@ -92,12 +93,6 @@ function AxisLine({ axis }: { axis: NutrientTrendAxis }) {
       ) : null}
     </View>
   );
-}
-
-function formatMonthDay(date: string): string {
-  const [, month, day] = date.split('-');
-
-  return `${Number(month)}월 ${Number(day)}일`;
 }
 
 const styles = StyleSheet.create({

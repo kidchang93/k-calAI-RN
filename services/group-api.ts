@@ -1,5 +1,13 @@
 import { apiUrl } from '@/services/api-base';
-import { apiFetch, readErrorMessage } from '@/services/http';
+import {
+  apiFetch,
+  ensure,
+  ensureOk,
+  isRecord,
+  JSON_HEADERS,
+  oneOf,
+  readOk,
+} from '@/services/http';
 
 // kcalAI-model/docs/DATA_MODEL.md 9장 계약 (v2 2차 구현분 — 그룹).
 // 서버 필드는 snake_case를 그대로 유지한다 (docs/CODE_STYLE.md).
@@ -10,8 +18,11 @@ import { apiFetch, readErrorMessage } from '@/services/http';
 //   404 — 그룹 없음 / 초대코드 불일치.
 // invite_code는 서버 생성 8자(대문자·숫자)이며 클라이언트가 지정할 수 없다.
 
-export type GroupKind = 'family' | 'couple' | 'friends' | 'challenge';
-export type GroupRole = 'owner' | 'member';
+const GROUP_KINDS = ['family', 'couple', 'friends', 'challenge'] as const;
+const GROUP_ROLES = ['owner', 'member'] as const;
+
+export type GroupKind = (typeof GROUP_KINDS)[number];
+export type GroupRole = (typeof GROUP_ROLES)[number];
 
 export type GroupCreateRequest = {
   name: string;
@@ -58,9 +69,7 @@ export type GroupDetail = {
   pets: GroupPetItem[];
 };
 
-export const GROUP_API_URL = apiUrl('/api/groups', process.env.EXPO_PUBLIC_GROUP_API_URL);
-
-const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
+const GROUP_API_URL = apiUrl('/api/groups');
 
 export async function createGroup(input: GroupCreateRequest): Promise<GroupSummary> {
   const response = await apiFetch(GROUP_API_URL, {
@@ -69,13 +78,17 @@ export async function createGroup(input: GroupCreateRequest): Promise<GroupSumma
     body: JSON.stringify(input),
   });
 
-  return ensure(parseGroupSummary(await parseOk(response, '그룹 생성 실패')));
+  const data = await readOk(response, '그룹 생성 실패');
+
+  return ensure(isGroupSummary(data) ? data : null);
 }
 
 export async function getGroups(): Promise<GroupSummary[]> {
   const response = await apiFetch(GROUP_API_URL);
 
-  return ensureList(await parseOk(response, '그룹 목록 조회 실패'), parseGroupSummary);
+  const data = await readOk(response, '그룹 목록 조회 실패');
+
+  return ensure(Array.isArray(data) && data.every(isGroupSummary) ? data : null);
 }
 
 // 대소문자는 서버가 대문자로 정규화한다. 코드 불일치 404, 이미 멤버 400.
@@ -86,13 +99,15 @@ export async function joinGroup(inviteCode: string): Promise<GroupSummary> {
     body: JSON.stringify({ invite_code: inviteCode }),
   });
 
-  return ensure(parseGroupSummary(await parseOk(response, '그룹 참여 실패')));
+  const data = await readOk(response, '그룹 참여 실패');
+
+  return ensure(isGroupSummary(data) ? data : null);
 }
 
 export async function getGroupDetail(groupId: number): Promise<GroupDetail> {
   const response = await apiFetch(`${GROUP_API_URL}/${groupId}`);
 
-  return ensure(parseGroupDetail(await parseOk(response, '그룹 조회 실패')));
+  return ensure(parseGroupDetail(await readOk(response, '그룹 조회 실패')));
 }
 
 // ── 그룹 라이프사이클 (DATA_MODEL.md 17장) ──────────────────────────────────
@@ -105,10 +120,7 @@ export async function leaveGroup(groupId: number): Promise<void> {
     method: 'DELETE',
   });
 
-  if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `그룹 나가기 실패: ${response.status}`);
-  }
+  await ensureOk(response, '그룹 나가기 실패');
 }
 
 // 그룹 삭제(물리 삭제). 소유자만 — 비소유 멤버 403, 비멤버 404. 펫·급여 기록은 삭제되지 않는다.
@@ -117,10 +129,7 @@ export async function deleteGroup(groupId: number): Promise<void> {
     method: 'DELETE',
   });
 
-  if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `그룹 삭제 실패: ${response.status}`);
-  }
+  await ensureOk(response, '그룹 삭제 실패');
 }
 
 // 멤버 제거. 소유자만 — 소유자 자신 제거는 400, 대상이 멤버가 아니면 404.
@@ -129,130 +138,43 @@ export async function removeMember(groupId: number, userId: number): Promise<voi
     method: 'DELETE',
   });
 
-  if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `멤버 제거 실패: ${response.status}`);
-  }
+  await ensureOk(response, '멤버 제거 실패');
 }
 
 // ── 내부 헬퍼 (export 안 함) ────────────────────────────────────────────────
 
-async function parseOk(response: Response, fallback: string): Promise<unknown> {
-  if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `${fallback}: ${response.status}`);
-  }
-
-  return (await response.json()) as unknown;
+function isGroupSummary(value: unknown): value is GroupSummary {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'number' &&
+    typeof value.owner_id === 'number' &&
+    typeof value.name === 'string' &&
+    oneOf(GROUP_KINDS, value.kind) !== null &&
+    typeof value.invite_code === 'string' &&
+    oneOf(GROUP_ROLES, value.role) !== null &&
+    typeof value.member_count === 'number' &&
+    typeof value.created_at === 'string'
+  );
 }
 
-function ensure<T>(parsed: T | null): T {
-  if (parsed === null) {
-    throw new Error('서버 응답 형식이 올바르지 않습니다.');
-  }
-
-  return parsed;
+function isGroupMemberItem(value: unknown): value is GroupMemberItem {
+  return (
+    isRecord(value) &&
+    typeof value.user_id === 'number' &&
+    typeof value.nickname === 'string' &&
+    oneOf(GROUP_ROLES, value.role) !== null &&
+    typeof value.joined_at === 'string'
+  );
 }
 
-function ensureList<T>(value: unknown, parse: (item: unknown) => T | null): T[] {
-  if (!Array.isArray(value)) {
-    throw new Error('서버 응답 형식이 올바르지 않습니다.');
-  }
-
-  return value.map((item) => ensure(parse(item)));
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function toGroupKind(value: unknown): GroupKind | null {
-  return value === 'family' || value === 'couple' || value === 'friends' || value === 'challenge'
-    ? value
-    : null;
-}
-
-function toGroupRole(value: unknown): GroupRole | null {
-  return value === 'owner' || value === 'member' ? value : null;
-}
-
-function parseGroupSummary(value: unknown): GroupSummary | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  const kind = toGroupKind(value.kind);
-  const role = toGroupRole(value.role);
-
-  if (
-    typeof value.id !== 'number' ||
-    typeof value.owner_id !== 'number' ||
-    typeof value.name !== 'string' ||
-    kind === null ||
-    typeof value.invite_code !== 'string' ||
-    role === null ||
-    typeof value.member_count !== 'number' ||
-    typeof value.created_at !== 'string'
-  ) {
-    return null;
-  }
-
-  return {
-    id: value.id,
-    owner_id: value.owner_id,
-    name: value.name,
-    kind,
-    invite_code: value.invite_code,
-    role,
-    member_count: value.member_count,
-    created_at: value.created_at,
-  };
-}
-
-function parseGroupMemberItem(value: unknown): GroupMemberItem | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  const role = toGroupRole(value.role);
-
-  if (
-    typeof value.user_id !== 'number' ||
-    typeof value.nickname !== 'string' ||
-    role === null ||
-    typeof value.joined_at !== 'string'
-  ) {
-    return null;
-  }
-
-  return {
-    user_id: value.user_id,
-    nickname: value.nickname,
-    role,
-    joined_at: value.joined_at,
-  };
-}
-
-function parseGroupPetItem(value: unknown): GroupPetItem | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  if (
-    typeof value.pet_id !== 'number' ||
-    typeof value.name !== 'string' ||
-    typeof value.species !== 'string' ||
-    typeof value.joined_at !== 'string'
-  ) {
-    return null;
-  }
-
-  return {
-    pet_id: value.pet_id,
-    name: value.name,
-    species: value.species,
-    joined_at: value.joined_at,
-  };
+function isGroupPetItem(value: unknown): value is GroupPetItem {
+  return (
+    isRecord(value) &&
+    typeof value.pet_id === 'number' &&
+    typeof value.name === 'string' &&
+    typeof value.species === 'string' &&
+    typeof value.joined_at === 'string'
+  );
 }
 
 function parseGroupDetail(value: unknown): GroupDetail | null {
@@ -260,7 +182,7 @@ function parseGroupDetail(value: unknown): GroupDetail | null {
     return null;
   }
 
-  const kind = toGroupKind(value.kind);
+  const kind = oneOf(GROUP_KINDS, value.kind);
 
   if (
     typeof value.id !== 'number' ||
@@ -270,33 +192,11 @@ function parseGroupDetail(value: unknown): GroupDetail | null {
     typeof value.invite_code !== 'string' ||
     typeof value.created_at !== 'string' ||
     !Array.isArray(value.members) ||
-    !Array.isArray(value.pets)
+    !value.members.every(isGroupMemberItem) ||
+    !Array.isArray(value.pets) ||
+    !value.pets.every(isGroupPetItem)
   ) {
     return null;
-  }
-
-  const members: GroupMemberItem[] = [];
-
-  for (const item of value.members) {
-    const parsed = parseGroupMemberItem(item);
-
-    if (parsed === null) {
-      return null;
-    }
-
-    members.push(parsed);
-  }
-
-  const pets: GroupPetItem[] = [];
-
-  for (const item of value.pets) {
-    const parsed = parseGroupPetItem(item);
-
-    if (parsed === null) {
-      return null;
-    }
-
-    pets.push(parsed);
   }
 
   return {
@@ -306,7 +206,7 @@ function parseGroupDetail(value: unknown): GroupDetail | null {
     kind,
     invite_code: value.invite_code,
     created_at: value.created_at,
-    members,
-    pets,
+    members: value.members,
+    pets: value.pets,
   };
 }

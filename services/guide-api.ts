@@ -1,5 +1,5 @@
 import { apiUrl } from '@/services/api-base';
-import { apiFetch, readErrorMessage } from '@/services/http';
+import { apiFetch, isRecord, readOk } from '@/services/http';
 
 // 질환별 식이 가이드 (서버 `docs/CARE_LOOP.md` §5).
 //
@@ -45,19 +45,16 @@ export type GuideSummary = {
   is_mine: boolean;
 };
 
-export const GUIDE_API_URL = apiUrl('/api', process.env.EXPO_PUBLIC_HEALTH_API_URL);
+const GUIDE_API_URL = apiUrl('/api');
 
 // 가이드가 없는 질환(임신·암 — 근거 문서를 만든 적이 없다). 진입점을 숨기는 데 쓴다.
 export class GuideNotFoundError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'GuideNotFoundError';
-  }
+  name = 'GuideNotFoundError';
 }
 
 export async function listGuides(): Promise<GuideSummary[]> {
   const response = await apiFetch(`${GUIDE_API_URL}/guides`);
-  const payload = await parseOrThrow(response, '가이드 목록 조회 실패');
+  const payload = await readOk(response, '가이드 목록 조회 실패');
 
   if (!isRecord(payload) || !Array.isArray(payload.conditions)) {
     return [];
@@ -69,31 +66,13 @@ export async function listGuides(): Promise<GuideSummary[]> {
 export async function getGuide(condition: string): Promise<ConditionGuide> {
   const response = await apiFetch(`${GUIDE_API_URL}/guides/${encodeURIComponent(condition)}`);
 
-  if (response.status === 404) {
-    const message = await readErrorMessage(response);
-    throw new GuideNotFoundError(message || '아직 준비된 식이 가이드가 없습니다.');
-  }
-
-  const payload = await parseOrThrow(response, '가이드 조회 실패');
+  const payload = await readOk(response, '가이드 조회 실패', { 404: GuideNotFoundError });
 
   if (!isConditionGuide(payload)) {
     throw new Error('가이드 응답 형식이 올바르지 않습니다.');
   }
 
   return payload;
-}
-
-async function parseOrThrow(response: Response, fallback: string): Promise<unknown> {
-  if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `${fallback}: ${response.status}`);
-  }
-
-  return response.json();
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 function isStringArray(value: unknown): value is string[] {

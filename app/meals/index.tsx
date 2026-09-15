@@ -1,19 +1,22 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
 import { ChipGroup } from '@/components/chip-group';
 import { DayNutrientsCard } from '@/components/day-nutrients-card';
 import { ErrorBanner } from '@/components/error-banner';
+import { LoadingState } from '@/components/loading-state';
 import { NutrientChip, NutrientChips } from '@/components/nutrient-chips';
 import { QuantityEditor, QuantityValue } from '@/components/quantity-editor';
+import { Screen } from '@/components/screen';
 import { INTAKE_ESTIMATE_NOTICE } from '@/constants/ai-notice';
+import { isMealType, MEAL_TYPE_LABELS, MEAL_TYPES, MealType } from '@/constants/meal';
 import { NUTRIENT_LABELS } from '@/constants/nutrition';
 import { formatFoodLabel } from '@/services/food-label';
 import { confirmDialog } from '@/services/dialog';
+import { formatIsoTime, formatMonthDay } from '@/services/format';
 import {
   DayNutrients,
   deleteMeal,
@@ -24,16 +27,8 @@ import {
   MealItem,
   MealItemSource,
   MealLog,
-  MealType,
   updateMeal,
 } from '@/services/health-api';
-
-const MEAL_TYPE_LABELS: Record<MealType, string> = {
-  breakfast: '아침',
-  lunch: '점심',
-  dinner: '저녁',
-  snack: '간식',
-};
 
 const MEAL_TYPE_ICONS: Record<MealType, keyof typeof MaterialIcons.glyphMap> = {
   breakfast: 'wb-sunny',
@@ -41,8 +36,6 @@ const MEAL_TYPE_ICONS: Record<MealType, keyof typeof MaterialIcons.glyphMap> = {
   dinner: 'dinner-dining',
   snack: 'cookie',
 };
-
-const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
 const MEAL_TYPE_OPTIONS: { value: MealType; label: string }[] = MEAL_TYPES.map((value) => ({
   value,
@@ -281,202 +274,169 @@ export default function MealListScreen() {
   const totalKcal = meals.reduce((sum, meal) => sum + meal.total_kcal, 0);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
-        <View style={styles.container}>
-          <BackButton />
+    <Screen keyboard="persistTaps">
+      <BackButton />
 
-          <View style={styles.header}>
-            <Text style={styles.title}>{formatDateTitle(date)}</Text>
-            <Text style={styles.subtitle}>
-              {meals.length === 0
-                ? '이날 저장된 끼니 기록을 보여드려요.'
-                : `총 ${totalKcal.toLocaleString()} kcal · ${meals.length}건`}
-            </Text>
-          </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>{`${formatMonthDay(date)} 기록`}</Text>
+        <Text style={styles.subtitle}>
+          {meals.length === 0
+            ? '이날 저장된 끼니 기록을 보여드려요.'
+            : `총 ${totalKcal.toLocaleString()} kcal · ${meals.length}건`}
+        </Text>
+      </View>
 
-          {/* 질환 축 누적을 **kcal 합계 바로 아래**에 둔다 — 만성질환자에게는 이 숫자가 더
-              중요하다(홈에서 칼로리 링 아래 놓은 것과 같은 이유). 이 카드가 없던 동안 지난
-              기록은 kcal 만 말했고, 경고는 저장하는 순간에만 보였다 (`CARE_LOOP.md` §0-3). */}
-          <DayNutrientsCard
-            nutrients={nutrients}
-            title={date === formatDateParam(new Date()) ? '오늘의 영양' : '이날의 영양'}
-          />
+      {/* 질환 축 누적을 **kcal 합계 바로 아래**에 둔다 — 만성질환자에게는 이 숫자가 더
+          중요하다(홈에서 칼로리 링 아래 놓은 것과 같은 이유). 이 카드가 없던 동안 지난
+          기록은 kcal 만 말했고, 경고는 저장하는 순간에만 보였다 (`CARE_LOOP.md` §0-3). */}
+      <DayNutrientsCard
+        nutrients={nutrients}
+        title={date === formatDateParam(new Date()) ? '오늘의 영양' : '이날의 영양'}
+      />
 
-          {/* 빈 날짜에도 새 끼니를 남길 수 있어야 한다 — 항상 노출한다. */}
-          <Pressable
-            onPress={openAddMeal}
-            style={({ pressed }) => [styles.addMealButton, pressed && styles.pressed]}>
-            <MaterialIcons color="#22211f" name="add" size={20} />
-            <Text style={styles.addMealButtonText}>기록 추가</Text>
-          </Pressable>
+      {/* 빈 날짜에도 새 끼니를 남길 수 있어야 한다 — 항상 노출한다. */}
+      <Pressable
+        onPress={openAddMeal}
+        style={({ pressed }) => [styles.addMealButton, pressed && styles.pressed]}>
+        <MaterialIcons color="#22211f" name="add" size={20} />
+        <Text style={styles.addMealButtonText}>기록 추가</Text>
+      </Pressable>
 
-          {errorMessage ? (
-            <ErrorBanner message={errorMessage} onRetry={() => void loadMeals()} />
-          ) : null}
+      {errorMessage ? (
+        <ErrorBanner message={errorMessage} onRetry={() => void loadMeals()} />
+      ) : null}
 
-          {isLoading ? (
-            <View style={styles.stateBox}>
-              <ActivityIndicator color="#2a7d76" />
-              <Text style={styles.stateText}>끼니 기록을 불러오는 중입니다.</Text>
-            </View>
-          ) : meals.length === 0 ? (
-            <View style={styles.stateBox}>
-              <MaterialIcons color="#a9a6a1" name="no-meals" size={32} />
-              <Text style={styles.stateText}>
-                아직 기록이 없어요. 기록 탭에서 사진으로 남겨보세요.
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.section}>
-              {meals.map((meal) => (
-                <View key={meal.id} style={styles.mealCard}>
-                  <View style={styles.mealHeader}>
-                    <View style={styles.mealIconWrap}>
-                      <MaterialIcons
-                        color="#2a7d76"
-                        name={MEAL_TYPE_ICONS[meal.meal_type]}
-                        size={18}
-                      />
-                    </View>
-                    <View style={styles.mealHeaderBody}>
-                      <Text style={styles.mealTypeLabel}>{MEAL_TYPE_LABELS[meal.meal_type]}</Text>
-                      <Text style={styles.mealTime}>{formatTime(meal.logged_at)}</Text>
-                    </View>
-                    <Text style={styles.mealKcal}>{`${meal.total_kcal.toLocaleString()} kcal`}</Text>
+      {isLoading ? (
+        <LoadingState label="끼니 기록을 불러오는 중입니다." />
+      ) : meals.length === 0 ? (
+        <View style={styles.stateBox}>
+          <MaterialIcons color="#a9a6a1" name="no-meals" size={32} />
+          <Text style={styles.stateText}>
+            아직 기록이 없어요. 기록 탭에서 사진으로 남겨보세요.
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.section}>
+          {meals.map((meal) => (
+            <View key={meal.id} style={styles.mealCard}>
+              <View style={styles.mealHeader}>
+                <View style={styles.mealIconWrap}>
+                  <MaterialIcons
+                    color="#2a7d76"
+                    name={MEAL_TYPE_ICONS[meal.meal_type]}
+                    size={18}
+                  />
+                </View>
+                <View style={styles.mealHeaderBody}>
+                  <Text style={styles.mealTypeLabel}>{MEAL_TYPE_LABELS[meal.meal_type]}</Text>
+                  <Text style={styles.mealTime}>{formatIsoTime(meal.logged_at)}</Text>
+                </View>
+                <Text style={styles.mealKcal}>{`${meal.total_kcal.toLocaleString()} kcal`}</Text>
+                <Pressable
+                  accessibilityLabel="이 끼니에 항목 추가"
+                  disabled={deletingId !== null || isSavingEdit}
+                  hitSlop={8}
+                  onPress={() => openAppendMeal(meal)}
+                  style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
+                  <MaterialIcons color="#2a7d76" name="add-circle-outline" size={20} />
+                </Pressable>
+                <Pressable
+                  disabled={deletingId !== null || isSavingEdit}
+                  hitSlop={8}
+                  onPress={() => (editingMealId === meal.id ? cancelEdit() : startEdit(meal))}
+                  style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
+                  <MaterialIcons
+                    color={editingMealId === meal.id ? '#2a7d76' : '#5c5b57'}
+                    name={editingMealId === meal.id ? 'close' : 'edit'}
+                    size={20}
+                  />
+                </Pressable>
+                <Pressable
+                  disabled={deletingId !== null || isSavingEdit}
+                  hitSlop={8}
+                  onPress={() => confirmDelete(meal)}
+                  style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
+                  {deletingId === meal.id ? (
+                    <ActivityIndicator color="#b8524e" size="small" />
+                  ) : (
+                    <MaterialIcons color="#b8524e" name="delete-outline" size={20} />
+                  )}
+                </Pressable>
+              </View>
+
+              {editingMealId === meal.id ? (
+                <View style={styles.editBox}>
+                  <Text style={styles.editSectionLabel}>끼니</Text>
+                  <ChipGroup
+                    options={MEAL_TYPE_OPTIONS}
+                    selectedValues={[editMealType]}
+                    onToggle={(value) => selectEditMealType(value, setEditMealType)}
+                  />
+
+                  {editItems.map((item) => (
+                    <QuantityEditor
+                      key={item.key}
+                      value={item}
+                      isLookingUp={editLookupKeys.includes(item.key)}
+                      onChange={(next) => applyQuantity(item.key, next)}
+                      onRemove={() => removeEditItem(item.key)}
+                    />
+                  ))}
+
+                  <View style={styles.editActions}>
                     <Pressable
-                      accessibilityLabel="이 끼니에 항목 추가"
-                      disabled={deletingId !== null || isSavingEdit}
-                      hitSlop={8}
-                      onPress={() => openAppendMeal(meal)}
-                      style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
-                      <MaterialIcons color="#2a7d76" name="add-circle-outline" size={20} />
+                      disabled={isSavingEdit}
+                      onPress={cancelEdit}
+                      style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
+                      <Text style={styles.cancelButtonText}>취소</Text>
                     </Pressable>
                     <Pressable
-                      disabled={deletingId !== null || isSavingEdit}
-                      hitSlop={8}
-                      onPress={() => (editingMealId === meal.id ? cancelEdit() : startEdit(meal))}
-                      style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
-                      <MaterialIcons
-                        color={editingMealId === meal.id ? '#2a7d76' : '#5c5b57'}
-                        name={editingMealId === meal.id ? 'close' : 'edit'}
-                        size={20}
-                      />
-                    </Pressable>
-                    <Pressable
-                      disabled={deletingId !== null || isSavingEdit}
-                      hitSlop={8}
-                      onPress={() => confirmDelete(meal)}
-                      style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
-                      {deletingId === meal.id ? (
-                        <ActivityIndicator color="#b8524e" size="small" />
+                      disabled={!isEditValid || isSavingEdit}
+                      onPress={() => void saveEdit()}
+                      style={({ pressed }) => [
+                        styles.saveButton,
+                        (!isEditValid || isSavingEdit) && styles.saveButtonDisabled,
+                        pressed && styles.pressed,
+                      ]}>
+                      {isSavingEdit ? (
+                        <ActivityIndicator color="#22211f" size="small" />
                       ) : (
-                        <MaterialIcons color="#b8524e" name="delete-outline" size={20} />
+                        <Text style={styles.saveButtonText}>저장</Text>
                       )}
                     </Pressable>
                   </View>
-
-                  {editingMealId === meal.id ? (
-                    <View style={styles.editBox}>
-                      <Text style={styles.editSectionLabel}>끼니</Text>
-                      <ChipGroup
-                        options={MEAL_TYPE_OPTIONS}
-                        selectedValues={[editMealType]}
-                        onToggle={(value) => selectEditMealType(value, setEditMealType)}
-                      />
-
-                      {editItems.map((item) => (
-                        <QuantityEditor
-                          key={item.key}
-                          value={item}
-                          isLookingUp={editLookupKeys.includes(item.key)}
-                          onChange={(next) => applyQuantity(item.key, next)}
-                          onRemove={() => removeEditItem(item.key)}
-                        />
-                      ))}
-
-                      <View style={styles.editActions}>
-                        <Pressable
-                          disabled={isSavingEdit}
-                          onPress={cancelEdit}
-                          style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
-                          <Text style={styles.cancelButtonText}>취소</Text>
-                        </Pressable>
-                        <Pressable
-                          disabled={!isEditValid || isSavingEdit}
-                          onPress={() => void saveEdit()}
-                          style={({ pressed }) => [
-                            styles.saveButton,
-                            (!isEditValid || isSavingEdit) && styles.saveButtonDisabled,
-                            pressed && styles.pressed,
-                          ]}>
-                          {isSavingEdit ? (
-                            <ActivityIndicator color="#22211f" size="small" />
-                          ) : (
-                            <Text style={styles.saveButtonText}>저장</Text>
-                          )}
-                        </Pressable>
-                      </View>
-                    </View>
-                  ) : (
-                    meal.items.map((item) => (
-                      <View key={item.id} style={styles.itemBlock}>
-                        <View style={styles.itemRow}>
-                          <Text style={styles.itemLabel}>
-                            {formatFoodLabel(item.food_label)}
-                            {/* AI기본법 제31조② — 사진 인식으로 담은 항목은 지난 기록에서도 밝힌다. */}
-                            {item.source === 'ai' ? <Text style={styles.aiTag}>{'  AI 인식'}</Text> : null}
-                          </Text>
-                          <Text style={styles.itemMeta}>
-                            {`${item.serving_ratio}인분 · ${item.kcal.toLocaleString()} kcal`}
-                          </Text>
-                        </View>
-                        <NutrientChips chips={itemNutrientChips(item)} />
-                      </View>
-                    ))
-                  )}
                 </View>
-              ))}
+              ) : (
+                meal.items.map((item) => (
+                  <View key={item.id} style={styles.itemBlock}>
+                    <View style={styles.itemRow}>
+                      <Text style={styles.itemLabel}>
+                        {formatFoodLabel(item.food_label)}
+                        {/* AI기본법 제31조② — 사진 인식으로 담은 항목은 지난 기록에서도 밝힌다. */}
+                        {item.source === 'ai' ? <Text style={styles.aiTag}>{'  AI 인식'}</Text> : null}
+                      </Text>
+                      <Text style={styles.itemMeta}>
+                        {`${item.serving_ratio}인분 · ${item.kcal.toLocaleString()} kcal`}
+                      </Text>
+                    </View>
+                    <NutrientChips chips={itemNutrientChips(item)} />
+                  </View>
+                ))
+              )}
             </View>
-          )}
-
-          <Text style={styles.disclaimer}>{INTAKE_ESTIMATE_NOTICE}</Text>
+          ))}
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      )}
+
+      <Text style={styles.disclaimer}>{INTAKE_ESTIMATE_NOTICE}</Text>
+    </Screen>
   );
 }
 
 function selectEditMealType(value: string, setEditMealType: (value: MealType) => void) {
-  const match = MEAL_TYPES.find((type) => type === value);
-
-  if (match) {
-    setEditMealType(match);
+  if (isMealType(value)) {
+    setEditMealType(value);
   }
-}
-
-// YYYY-MM-DD → 'M월 D일 기록'
-function formatDateTitle(date: string): string {
-  const [, month, day] = date.split('-');
-
-  return `${Number(month)}월 ${Number(day)}일 기록`;
-}
-
-// 서버의 UTC ISO 문자열을 기기 로컬 시각(HH:MM)으로 표시한다.
-function formatTime(isoText: string): string {
-  const parsed = new Date(isoText);
-
-  if (Number.isNaN(parsed.getTime())) {
-    return '';
-  }
-
-  const hours = String(parsed.getHours()).padStart(2, '0');
-  const minutes = String(parsed.getMinutes()).padStart(2, '0');
-
-  return `${hours}:${minutes}`;
 }
 
 // 저장된 항목 → 수치 칩.
@@ -543,12 +503,6 @@ const styles = StyleSheet.create({
     color: '#5c5b57',
     fontSize: 15,
     fontWeight: '800',
-  },
-  container: {
-    alignSelf: 'center',
-    gap: 20,
-    maxWidth: 720,
-    width: '100%',
   },
   disclaimer: {
     color: '#a9a6a1',
@@ -643,10 +597,6 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.74,
   },
-  safeArea: {
-    backgroundColor: '#f7f6f4',
-    flex: 1,
-  },
   saveButton: {
     alignItems: 'center',
     backgroundColor: '#60beb8',
@@ -661,9 +611,6 @@ const styles = StyleSheet.create({
     color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
-  },
-  scrollContent: {
-    padding: 20,
   },
   section: {
     gap: 10,

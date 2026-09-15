@@ -1,13 +1,14 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
 import { ErrorBanner } from '@/components/error-banner';
+import { LoadingState } from '@/components/loading-state';
 import { MedicalDisclaimer } from '@/components/medical-disclaimer';
-import { ConditionGuide, GuideAxis, getGuide, GuideNotFoundError } from '@/services/guide-api';
+import { Screen } from '@/components/screen';
+import { ConditionGuide, GuideAxis, getGuide } from '@/services/guide-api';
 
 // 질환별 식이 가이드 (서버 `docs/CARE_LOOP.md` §5).
 //
@@ -34,13 +35,7 @@ export default function ConditionGuideScreen() {
       setGuide(await getGuide(condition));
     } catch (error) {
       // 가이드 없음(404)도 화면에서는 같은 안내다 — 보여줄 것이 없다는 점에서 같다.
-      setErrorMessage(
-        error instanceof GuideNotFoundError
-          ? error.message
-          : error instanceof Error
-            ? error.message
-            : '알 수 없는 오류가 발생했습니다.'
-      );
+      setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
     }
@@ -51,41 +46,34 @@ export default function ConditionGuideScreen() {
   }, [load]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.container}>
-          <BackButton />
+    <Screen gap={14}>
+      <BackButton />
 
-          {isLoading ? (
-            <View style={styles.stateBox}>
-              <ActivityIndicator color="#2a7d76" />
-              <Text style={styles.stateText}>가이드를 불러오는 중입니다.</Text>
-            </View>
-          ) : errorMessage !== null ? (
-            <ErrorBanner message={errorMessage} onRetry={() => void load()} />
-          ) : guide === null ? null : (
-            <>
-              <View style={styles.header}>
-                <Text style={styles.title}>{`${guide.label} 식단 가이드`}</Text>
-                <Text style={styles.intro}>{guide.intro}</Text>
-              </View>
+      {isLoading ? (
+        <LoadingState label="가이드를 불러오는 중입니다." />
+      ) : errorMessage !== null ? (
+        <ErrorBanner message={errorMessage} onRetry={() => void load()} />
+      ) : guide === null ? null : (
+        <>
+          <View style={styles.header}>
+            <Text style={styles.title}>{`${guide.label} 식단 가이드`}</Text>
+            <Text style={styles.intro}>{guide.intro}</Text>
+          </View>
 
-              {guide.axes.map((axis) => (
-                <AxisCard
-                  key={axis.axis}
-                  axis={axis}
-                  isOpen={openAxis === axis.axis}
-                  onToggle={() => setOpenAxis(openAxis === axis.axis ? null : axis.axis)}
-                />
-              ))}
+          {guide.axes.map((axis) => (
+            <AxisCard
+              key={axis.axis}
+              axis={axis}
+              isOpen={openAxis === axis.axis}
+              onToggle={() => setOpenAxis(openAxis === axis.axis ? null : axis.axis)}
+            />
+          ))}
 
-              <Text style={styles.notice}>{guide.notice}</Text>
-              <MedicalDisclaimer tone="strong" />
-            </>
-          )}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+          <Text style={styles.notice}>{guide.notice}</Text>
+          <MedicalDisclaimer tone="strong" />
+        </>
+      )}
+    </Screen>
   );
 }
 
@@ -197,12 +185,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
   },
-  container: {
-    alignSelf: 'center',
-    gap: 14,
-    maxWidth: 720,
-    width: '100%',
-  },
   header: {
     gap: 8,
   },
@@ -223,13 +205,6 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.74,
-  },
-  safeArea: {
-    backgroundColor: '#f7f6f4',
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
   },
   section: {
     gap: 8,
@@ -255,17 +230,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     marginBottom: 2,
-  },
-  stateBox: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    gap: 12,
-    padding: 32,
-  },
-  stateText: {
-    color: '#5c5b57',
-    fontSize: 14,
   },
   title: {
     color: '#22211f',

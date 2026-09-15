@@ -1,22 +1,12 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
 import { ChipGroup } from '@/components/chip-group';
 import { ErrorBanner } from '@/components/error-banner';
-import { PlanLimitBanner } from '@/components/plan-limit-banner';
+import { PrimaryButton } from '@/components/primary-button';
+import { Screen } from '@/components/screen';
 import { createGroup, GroupKind } from '@/services/group-api';
 import { PlanLimitError } from '@/services/http';
 
@@ -68,87 +58,66 @@ export default function GroupCreateScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardView}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          <View style={styles.container}>
-            <BackButton />
+    <Screen keyboard="avoid">
+      <BackButton />
 
-            <View style={styles.header}>
-              <Text style={styles.title}>그룹 만들기</Text>
-              <Text style={styles.subtitle}>초대코드는 만들어진 뒤 자동으로 발급됩니다.</Text>
-            </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>그룹 만들기</Text>
+        <Text style={styles.subtitle}>초대코드는 만들어진 뒤 자동으로 발급됩니다.</Text>
+      </View>
 
-            <View style={styles.form}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>그룹 이름</Text>
-                <View style={styles.inputRow}>
-                  <TextInput
-                    maxLength={100}
-                    onChangeText={setName}
-                    placeholder="우리집"
-                    placeholderTextColor="#a9a6a1"
-                    style={styles.input}
-                    value={name}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>어떤 모임인가요?</Text>
-                <ChipGroup
-                  onToggle={(value) => {
-                    if (value === 'family' || value === 'couple' || value === 'friends') {
-                      setKind(value);
-                    }
-                  }}
-                  options={KIND_OPTIONS}
-                  selectedValues={kind === null ? [] : [kind]}
-                />
-              </View>
-            </View>
-
-            {errorMessage ? (
-              <ErrorBanner message={errorMessage} onRetry={() => void save()} />
-            ) : null}
-
-            {planLimitMessage ? (
-              <PlanLimitBanner message={planLimitMessage} onUpgrade={() => router.push('/plan')} />
-            ) : null}
-
-            <Pressable
-              disabled={!isValid || isSaving}
-              onPress={() => void save()}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                (!isValid || isSaving) && styles.primaryButtonDisabled,
-                pressed && styles.pressed,
-              ]}>
-              {isSaving ? (
-                <ActivityIndicator color="#22211f" />
-              ) : (
-                <Text style={styles.primaryButtonText}>만들기</Text>
-              )}
-            </Pressable>
+      <View style={styles.form}>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>그룹 이름</Text>
+          <View style={styles.inputRow}>
+            <TextInput
+              maxLength={100}
+              onChangeText={setName}
+              placeholder="우리집"
+              placeholderTextColor="#a9a6a1"
+              style={styles.input}
+              value={name}
+            />
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>어떤 모임인가요?</Text>
+          <ChipGroup
+            onToggle={(value) => {
+              if (value === 'family' || value === 'couple' || value === 'friends') {
+                setKind(value);
+              }
+            }}
+            options={KIND_OPTIONS}
+            selectedValues={kind === null ? [] : [kind]}
+          />
+        </View>
+      </View>
+
+      {errorMessage ? (
+        <ErrorBanner message={errorMessage} onRetry={() => void save()} />
+      ) : null}
+
+      {planLimitMessage ? (
+        <ErrorBanner
+          actionLabel="요금제 업그레이드"
+          message={planLimitMessage}
+          onRetry={() => router.push('/plan')}
+        />
+      ) : null}
+
+      <PrimaryButton
+        disabled={!isValid}
+        label="만들기"
+        loading={isSaving}
+        onPress={() => void save()}
+      />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    alignSelf: 'center',
-    gap: 20,
-    maxWidth: 720,
-    width: '100%',
-  },
   form: {
     gap: 16,
   },
@@ -175,38 +144,10 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
   },
-  keyboardView: {
-    flex: 1,
-  },
   label: {
     color: '#5c5b57',
     fontSize: 14,
     fontWeight: '700',
-  },
-  pressed: {
-    opacity: 0.74,
-  },
-  primaryButton: {
-    alignItems: 'center',
-    backgroundColor: '#60beb8',
-    borderRadius: 8,
-    marginTop: 8,
-    paddingVertical: 14,
-  },
-  primaryButtonDisabled: {
-    backgroundColor: '#99d2ce',
-  },
-  primaryButtonText: {
-    color: '#22211f',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  safeArea: {
-    backgroundColor: '#f7f6f4',
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
   },
   subtitle: {
     color: '#5c5b57',

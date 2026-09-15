@@ -1,6 +1,7 @@
+import { MEAL_TYPES, type MealType } from '@/constants/meal';
 import { apiUrl } from '@/services/api-base';
-import { MealType } from '@/services/health-api';
-import { apiFetch, readErrorMessage } from '@/services/http';
+import { type FoodWarningTier, NUTRIENT_TIERS } from '@/services/health-api';
+import { apiFetch, ensure, isRecord, oneOf, readOk } from '@/services/http';
 import { ConsentRequiredError } from '@/services/onboarding-api';
 
 // kcalAI-model/docs/DATA_MODEL.md 11장(응답 계약)·13장(순수 규칙 선정) 계약.
@@ -13,7 +14,7 @@ import { ConsentRequiredError } from '@/services/onboarding-api';
 
 // 수치의 상대 위치. 서버가 지침 이름 분류와 실측 mg 중 엄격한 쪽으로 판정한다
 // (kcalAI-model/docs/CKD_NUTRITION.md 3-4). 절대 기준·목표량이 아니다.
-export type NutrientTier = 'low' | 'mid' | 'high';
+export type NutrientTier = FoodWarningTier;
 
 export type RecommendationItem = {
   name: string;
@@ -61,10 +62,7 @@ export type DietRecommendation = {
   disclaimer: string;
 };
 
-export const RECOMMENDATION_API_URL = apiUrl(
-  '/api/recommendations',
-  process.env.EXPO_PUBLIC_RECOMMENDATION_API_URL,
-);
+const RECOMMENDATION_API_URL = apiUrl('/api/recommendations');
 
 // 현재 시각 기준 "다음 끼니". 기록 화면의 기본값(방금 먹은 끼니)과 달리 **앞으로 먹을** 끼니다.
 // 홈의 추천 카드와 추천 화면이 같은 끼니를 가리켜야 해서 여기 둔다 — 두 곳이 다르면 홈에서
@@ -94,47 +92,16 @@ export async function getRecommendation(
   const query = `meal_type=${encodeURIComponent(mealType)}&date=${encodeURIComponent(date)}`;
   const response = await apiFetch(`${RECOMMENDATION_API_URL}?${query}`);
 
-  if (response.status === 403) {
-    const message = await readErrorMessage(response);
-    throw new ConsentRequiredError(message || '민감정보 수집 동의가 필요합니다.');
-  }
+  const data = await readOk(response, '식단 추천 조회 실패', { 403: ConsentRequiredError });
 
-  if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `식단 추천 조회 실패: ${response.status}`);
-  }
-
-  return ensure(parseDietRecommendation((await response.json()) as unknown));
+  return ensure(parseDietRecommendation(data));
 }
 
 // ── 내부 헬퍼 (export 안 함) ────────────────────────────────────────────────
 
-function ensure<T>(parsed: T | null): T {
-  if (parsed === null) {
-    throw new Error('서버 응답 형식이 올바르지 않습니다.');
-  }
-
-  return parsed;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function toMealType(value: unknown): MealType | null {
-  return value === 'breakfast' || value === 'lunch' || value === 'dinner' || value === 'snack'
-    ? value
-    : null;
-}
-
 // 실측 영양값은 number 이거나 null/누락(미측정·구버전 서버). 그 외 타입은 null 로 눕힌다.
 function toNullableNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-// 등급은 서버가 아는 세 값만 받는다. 그 외/누락(비대상·구버전 서버)은 null → 배지를 숨긴다.
-function toNutrientTier(value: unknown): NutrientTier | null {
-  return value === 'low' || value === 'mid' || value === 'high' ? value : null;
 }
 
 function parseRecommendationItem(value: unknown): RecommendationItem | null {
@@ -158,8 +125,9 @@ function parseRecommendationItem(value: unknown): RecommendationItem | null {
     potassium_mg: toNullableNumber(value.potassium_mg),
     phosphorus_mg: toNullableNumber(value.phosphorus_mg),
     protein_g: toNullableNumber(value.protein_g),
-    potassium_tier: toNutrientTier(value.potassium_tier),
-    phosphorus_tier: toNutrientTier(value.phosphorus_tier),
+    // 등급은 서버가 아는 세 값만 받는다. 그 외/누락(비대상·구버전 서버)은 null → 배지를 숨긴다.
+    potassium_tier: oneOf(NUTRIENT_TIERS, value.potassium_tier),
+    phosphorus_tier: oneOf(NUTRIENT_TIERS, value.phosphorus_tier),
   };
 }
 
@@ -200,7 +168,7 @@ function parseDietRecommendation(value: unknown): DietRecommendation | null {
     return null;
   }
 
-  const meal_type = toMealType(value.meal_type);
+  const meal_type = oneOf(MEAL_TYPES, value.meal_type);
 
   if (
     meal_type === null ||
@@ -218,35 +186,18 @@ function parseDietRecommendation(value: unknown): DietRecommendation | null {
     ? value.tips.filter((tip): tip is string => typeof tip === 'string')
     : [];
 
-  const items: RecommendationItem[] = [];
+  const items = value.items.map(parseRecommendationItem);
+  const excluded = value.excluded.map(parseExcludedEntry);
 
-  for (const item of value.items) {
-    const parsed = parseRecommendationItem(item);
-
-    if (parsed === null) {
-      return null;
-    }
-
-    items.push(parsed);
-  }
-
-  const excluded: ExcludedEntry[] = [];
-
-  for (const entry of value.excluded) {
-    const parsed = parseExcludedEntry(entry);
-
-    if (parsed === null) {
-      return null;
-    }
-
-    excluded.push(parsed);
+  if (items.includes(null) || excluded.includes(null)) {
+    return null;
   }
 
   return {
     meal_type,
     rec_date: value.rec_date,
-    items,
-    excluded,
+    items: items as RecommendationItem[],
+    excluded: excluded as ExcludedEntry[],
     tips,
     tier_notice: typeof value.tier_notice === 'string' ? value.tier_notice : null,
     cached: value.cached,

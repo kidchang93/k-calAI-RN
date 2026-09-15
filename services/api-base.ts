@@ -42,10 +42,9 @@ function resolveOrigin(): string {
 export const API_ORIGIN = resolveOrigin();
 
 /**
- * 리소스 base URL을 만든다. `override`(개별 `EXPO_PUBLIC_*_API_URL`)가 있으면 그것을 우선한다.
- * 예: `apiUrl('/api/auth', process.env.EXPO_PUBLIC_AUTH_API_URL)`.
+ * 리소스 base URL을 만든다. 예: `apiUrl('/api/auth')`.
  * `API_ORIGIN`이 `''`이면 `/api/auth` 같은 상대경로가 된다.
  */
-export function apiUrl(path: string, override?: string): string {
-  return override ?? `${API_ORIGIN}${path}`;
+export function apiUrl(path: string): string {
+  return `${API_ORIGIN}${path}`;
 }

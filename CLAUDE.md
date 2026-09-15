@@ -46,7 +46,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 | 테스트 | 없음 | <!-- TODO: 확인 필요 - 테스트 프레임워크 미도입 --> |
 | 포맷 | 없음 | Prettier 설정 없음 |
 
-> `npm run reset-project`는 `app/`을 `app-example/`로 옮기고 빈 스캐폴드로 교체하는 **파괴적 스크립트**입니다. 절대 실행하지 마세요.
+> Expo 템플릿의 `npm run reset-project`(`scripts/reset-project.js`, `app/`을 `app-example/`로 옮기는 파괴적 스크립트)는 **2026-09-14에 삭제했습니다** — 쓰지 않는 스캐폴드용 스크립트였습니다.
 
 ---
 
@@ -54,24 +54,15 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 
 `EXPO_PUBLIC_` 접두사가 붙은 값만 클라이언트 번들에 주입됩니다. **비밀값을 넣지 마세요.**
 
-**API base는 `services/api-base.ts`가 자동 결정합니다** — Expo 개발 서버 호스트(`Constants.expoConfig.hostUri`)에서 Mac의 LAN IP를 꺼내 `http://<LAN_IP>:8000`으로 붙습니다(실기기 포함). 시뮬레이터/에뮬레이터는 `127.0.0.1`/`10.0.2.2` 폴백. 따라서 아래 `EXPO_PUBLIC_*`는 **선택적 오버라이드**(원격·터널 서버 강제용)이며 보통 설정하지 않습니다. 실기기(iPhone) 테스트는 **`docs/DEVICE_TESTING.md`** 참조.
+**API base는 `services/api-base.ts`가 자동 결정합니다** — Expo 개발 서버 호스트(`Constants.expoConfig.hostUri`)에서 Mac의 LAN IP를 꺼내 `http://<LAN_IP>:8000`으로 붙습니다(실기기 포함). 시뮬레이터/에뮬레이터는 `127.0.0.1`/`10.0.2.2` 폴백. 따라서 아래 오리진 오버라이드는 **선택**(원격·터널 서버 강제용)이며 보통 설정하지 않습니다. 실기기(iPhone) 테스트는 **`docs/DEVICE_TESTING.md`** 참조.
 
-| 변수 (오버라이드) | 리소스 경로 | 위치 |
+| 변수 | 용도 | 위치 |
 |------|-------------|------|
-| `EXPO_PUBLIC_CALORIE_API_URL` | `/api/predict` | `services/calorie-api.ts` |
-| `EXPO_PUBLIC_AUTH_API_URL` | `/api/auth` | `services/auth-api.ts` |
-| `EXPO_PUBLIC_HEALTH_API_URL` | `/api` | `services/health-api.ts` |
-| `EXPO_PUBLIC_ONBOARDING_API_URL` | `/api` | `services/onboarding-api.ts` |
-| `EXPO_PUBLIC_META_API_URL` | `/api/meta` | `services/meta-api.ts` |
-| `EXPO_PUBLIC_GROUP_API_URL` | `/api/groups` | `services/group-api.ts` |
-| `EXPO_PUBLIC_RECOMMENDATION_API_URL` | `/api/recommendations` | `services/recommendation-api.ts` |
-| `EXPO_PUBLIC_EXERCISE_API_URL` | `/api` (`/exercises`, `/exercise-types`, `/me/exercise-summary`) | `services/exercise-api.ts` |
-| `EXPO_PUBLIC_SUBSCRIPTION_API_URL` | `/api` (`/plans`, `/me/subscription`) | `services/subscription-api.ts` |
-| `EXPO_PUBLIC_PAYMENT_API_URL` | `/api/payments` | `services/payment-api.ts` |
-| `EXPO_PUBLIC_BILLING_API_URL` | `/api/billing` | `services/billing-api.ts` |
+| `EXPO_PUBLIC_API_ORIGIN` | API 오리진 강제(예: `https://api.kcalai.link`). **모든 서비스가 이 하나를 따른다** — 서비스별 `EXPO_PUBLIC_*_API_URL`은 2026-09-14에 없앴다. `eas.json`의 빌드 프로파일이 운영 오리진을 넣는다 | `services/api-base.ts` |
+| `EXPO_PUBLIC_PUBLIC_WEB_ORIGIN` | 네이티브에서 만드는 그룹 초대 링크의 오리진(웹은 접속 도메인을 따른다) | `services/group-invite.ts` |
 | `EXPO_PUBLIC_DEV_AUTH_SESSION` | (오버라이드 아님) 로컬 개발 세션 JSON — **`../dev.sh`가 넣는다**. `__DEV__`에서만 읽고 저장된 세션보다 우선한다. 아래 '비밀값 금지'의 **유일한 예외**: 로컬 DB·로컬 pepper에서만 유효하고, 프로덕션 export는 빌드 시점에 값이 있어도 번들에 남지 않는다(2026-09-13 `expo export`로 확인) | `services/auth-session.ts` |
 
-기본 오리진(base)은 `services/api-base.ts`가 결정합니다(위 설명). 새 서비스는 `apiUrl('/api/…', process.env.EXPO_PUBLIC_…)` 패턴을 따르세요 — 호스트 분기를 개별 파일에 두지 않습니다.
+기본 오리진(base)은 `services/api-base.ts`가 결정합니다(위 설명). 새 서비스는 `apiUrl('/api/…')` 패턴을 따르세요 — 호스트 분기·개별 환경변수를 서비스 파일에 두지 않습니다.
 
 기본값 폴백이 있어 `.env` 없이도 로컬에서 동작합니다. 오버라이드가 필요하면 `.env.example`을 `.env`로 복사해 값을 바꾸세요(`.env`는 gitignore).
 
@@ -91,7 +82,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 | **자동결제(빌링)** | `POST` | `/api/billing/checkout`, `/api/billing/confirm`, `/api/billing/cancel` | 동일 | 일치 (2026-07-16, 서버 `api/billing_api.py`·`docs/DATA_MODEL.md` 24장 대조. `billing-api.ts`, 전부 Bearer). checkout `{plan_code}` → `{customer_key, client_key, plan_code, amount, order_name}` (400=무료·없는 플랜, 503=결제 키 미설정). confirm `{auth_key, customer_key, plan_code}` → `MySubscriptionResponse` (**502**=결제사 청구 실패 → `BillingChargeError`, **503** → `BillingUnavailableError`). cancel(바디 없음) → `MySubscriptionResponse` (400=유료 구독 아님). **요청에 금액이 없다** — 청구액은 서버가 `plans.price_krw`로 정한다. 앱에 내려오는 키는 `client_key`(공개값)뿐이고 **checkout 응답으로만** 받는다 |
 | 결제 내역·영수증 | `GET` | `/api/payments`, `/api/payments/{id}` | 동일 | 일치 (`payment-api.ts`, Bearer. 앱 계약: 목록 `{ payments: [PaymentItem] }` 최신순, 단건 `PaymentItem`·본인 것만·**404**=`PaymentNotFoundError`). 자동결제 연동(24장) 이후 confirm·갱신 배치가 이 원장에 행을 쌓는다 — 실패 청구도 `status='failed'` + `fail_reason`(사용자용 한국어)로 남는다 |
 | 로그아웃(서버 세션 폐기) | `POST` | `/api/auth/logout` | 동일 | 일치 (`auth-api.ts`, 2026-07-11 openapi.json 실측. Bearer 첨부, 실패해도 앱은 로컬 세션 삭제) |
-| 음식 이미지 분류 | `POST` | `/api/predict` | 동일 | 일치 (Gemini 비전, 한국어 라벨). **2026-07-16: 응답이 `predictions`(한 음식의 후보 나열) → `foods`(사진 속 **서로 다른 음식들**, 각 `label`·`score`·`portion_g`, 최대 10)로 바뀜 — 서버 22장.** 쿼터는 **사진당 1건**(음식 개수 무관). 앱(`calorie-api.ts`)은 배포 전환기 대비로 `foods` 없으면 `predictions`를 foods로 받아들인다. 끼니 구성 화면은 **`foods[]`를 각각 항목으로 나눈다**(`compose.tsx`의 `MULTI_FOOD_SPLIT=true` — 2026-07-22 활성화. false면 대표 1개만 담기는데, 한식 한 상이면 나머지를 손으로 넣어야 해 기록이 느려진다). 항목은 `/api/nutrition/estimate`(쿼터 0)로 kcal을 채우고, **업로드한 사진은 로컬 URI로 미리보기만**(서버 저장 안 함). 사진은 고른 뒤 **분석 버튼**을 눌러야 predict를 호출한다(자동 요청 안 함 — 쿼터 오용 방지). 직접 입력 항목은 **이름만 쓰면 estimate로 칼로리를 자동 조회**한다(kcal 비어 있을 때만, 쿼터 0). 응답의 **`vision_used`·`vision_limit`**(오늘 사용량, 사진당)로 남은 건수를 표시. (레거시 `/api/gpt-predict`는 2026-07-12 제거) |
+| 음식 이미지 분류 | `POST` | `/api/predict` | 동일 | 일치 (Gemini 비전, 한국어 라벨). **2026-07-16: 응답이 `predictions`(한 음식의 후보 나열) → `foods`(사진 속 **서로 다른 음식들**, 각 `label`·`score`·`portion_g`, 최대 10)로 바뀜 — 서버 22장.** 쿼터는 **사진당 1건**(음식 개수 무관). 앱(`calorie-api.ts`)은 배포 전환기 대비로 `foods` 없으면 `predictions`를 foods로 받아들인다. 끼니 구성 화면은 **`foods[]`를 각각 항목으로 나눈다**(`compose.tsx`, 2026-07-22 활성화 — 대표 1개만 담으면 한식 한 상이면 나머지를 손으로 넣어야 해 기록이 느려진다). 항목은 `/api/nutrition/estimate`(쿼터 0)로 kcal을 채우고, **업로드한 사진은 로컬 URI로 미리보기만**(서버 저장 안 함). 사진은 고른 뒤 **분석 버튼**을 눌러야 predict를 호출한다(자동 요청 안 함 — 쿼터 오용 방지). 직접 입력 항목은 **이름만 쓰면 estimate로 칼로리를 자동 조회**한다(kcal 비어 있을 때만, 쿼터 0). 응답의 **`vision_used`·`vision_limit`**(오늘 사용량, 사진당)로 남은 건수를 표시. (레거시 `/api/gpt-predict`는 2026-07-12 제거) |
 | 프로필·목표·끼니·체중 | — | `/api/me/**`, `/api/meals*`, `/api/weights`, `/api/nutrition/estimate` | 동일 | **2026-08-03: `GET /api/meals`의 `items[]`에 `sodium_mg`·`potassium_mg`·`phosphorus_mg`·`sugar_g` 추가**(전부 nullable, 기존 필드 불변). 값은 **먹은 양 기준 스냅샷**이라 화면에서 `serving_ratio`를 **다시 곱하면 안 된다** — 기록 화면(`compose.tsx`)이 estimate의 1인분 값에 곱하는 것과 반대다. 등급(`tier`)은 오지 않는다(수치는 사실이라 굳히고 등급은 해석이라 조회 시점에 재판정 — 서버 `docs/CARE_LOOP.md` §0-3). 옛 서버 호환으로 필드가 없으면 `null`로 읽는다. 과거 기록 화면(`app/meals/index.tsx`)이 이 값으로 항목별 칩을 그리고, 같은 화면 상단에 `GET /api/me/summary?date=`로 그날의 질환 축 누적을 그린다.<br><br> **2026-07-23: `GET /api/me/summary` 응답에 `nutrients` 추가**(질환 축 하루 누적, 서버 `docs/DATA_MODEL.md` 28장). 기존 필드는 불변이고 해당 질환이 없으면 **null** — 홈은 그때 칼로리만 그린다. **나트륨에만 `limit_mg`가 있다**(게이지). 칼륨·인은 지침이 혈청 수치 기반 개인화라 상한이 없어(KDOQI 2020) `reference_mg`(투석 참고치)를 문장으로만 병기한다 — **참고치를 게이지로 그리면 안 된다.** `measured_items < total_items`면 실측을 못 찾은 음식이 있다는 뜻이라 화면이 그 사실을 밝힌다. 화면은 `components/day-nutrients-card.tsx`(홈, 칼로리 링 바로 아래).<br><br> **2026-07-21: `GET·PUT /api/me/profile` 응답에 `bmi`·`bmi_category`·`bmi_category_label`·`bmi_notice`·`activity_guide` 추가**(전부 nullable, 서버가 응답 시 계산 — 저장 안 함). 진료 탭의 `components/body-metrics.tsx`가 그린다(2026-07-25~08-19 사이에는 내 정보 탭에 있었다). **앱에서 BMI를 다시 계산하지 않는다** — 서버가 단일 진실(서버 `docs/ACTIVITY_GUIDANCE.md` 3-1). 일치 (`health-api.ts`. `PUT /api/meals/{meal_id}` 전체 교체 수정 포함 — 2026-07-11 user 15 실측, `logged_at` 생략 시 기존 시각 유지). **2026-07-16: 과거 날짜 끼니 기록 지원.** 끼니 구성 화면(`app/meals/compose.tsx`)이 `POST /api/meals`에 `logged_at`을 실어 과거 날짜에 기록한다 — 서버 끼니 하루 경계가 **UTC 자정**이라, 캘린더 셀 D에서 다시 보이도록 `logged_at`을 `D`의 **UTC 정오**로 앵커한다(`dayAnchorLoggedAt`). append(기존 끼니에 항목 추가)는 `logged_at` 생략 + `PUT`으로 기존+신규 항목 전체를 보낸다 |
 | 칼로리·영양 추정 | `POST` | `/api/nutrition/estimate` | 동일 | 일치 (2026-07-13, `DATA_MODEL.md` **19장**). **2026-07-21: 응답에 `sodium_mg`·`potassium_mg`·`phosphorus_mg` 추가**(nullable, 1인분 실측) — 끼니 구성 화면이 항목마다 수치 칩을 그린다(선택한 양을 곱해 표시). 등급은 여기 없다 — 경고 API가 준다. 서버가 식약처 DB에 없는 음식은 **AI로 1회 추정해 DB에 적재·동결**한다 → 같은 음식은 항상 같은 값. `source === 'llm'`이면 실측이 아닌 **AI 추정값**이라 기록 화면이 항목 아래에 "칼로리는 AI 추정값" 표시를 붙인다(2026-09-13, AI기본법 제31조② — 그 전에는 이 문서에만 배지가 있고 **코드가 `source`를 읽지 않았다**). 사용자가 칼로리를 직접 고치면 사용자 값이라 표시를 뗀다(`compose.tsx`의 `aiEstimatedKcal`). **404** = 추정까지 실패(수동 입력) → `NutritionNotFoundError`, **503** = 추정 백엔드 일시 장애(재시도 가능) → `NutritionUnavailableError` |
 | 회원 탈퇴 | `DELETE` | `/api/me` | 동일 | 일치 (`health-api.ts` `deleteAccount`, 2026-07-11 openapi.json 확인 — 물리 삭제·전 토큰 무효라 로컬 호출 실측은 하지 않는다) |
@@ -116,7 +107,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 서버(`main.py`의 전역 핸들러)가 어느 라우트에서든 같은 본문을 줍니다:
 `{ detail, code: 'plan_limit_exceeded', resource, plan, limit }` (`resource` = `vision_daily` | `owned_groups` | `group_members` | `pets`).
 
-`services/http.ts`의 **`apiFetch`가 402를 `PlanLimitError`로 변환해 던집니다.** 개별 API 클라이언트는 402를 다루지 않습니다 — 화면이 `catch`에서 `error instanceof PlanLimitError`로만 분기해 `components/plan-limit-banner.tsx`(요금제 화면 `/plan`으로 유도)를 그립니다. 402가 나올 수 있는 호출: `POST /api/predict`, `POST /api/groups`, `POST /api/groups/join`. (`pets` 자원은 서버 계약에 남아 있지만 **앱에 호출 경로가 없습니다** — 2026-08-18 반려동물 제거.)
+`services/http.ts`의 **`apiFetch`가 402를 `PlanLimitError`로 변환해 던집니다.** 개별 API 클라이언트는 402를 다루지 않습니다 — 화면이 `catch`에서 `error instanceof PlanLimitError`로만 분기해 `components/error-banner.tsx`의 `ErrorBanner`를 `actionLabel="요금제 업그레이드"` + `onRetry={() => router.push('/plan')}`로 그립니다(2026-09-14, 전용 `PlanLimitBanner` 컴포넌트 삭제 — 재시도 버튼이 업그레이드 버튼으로 바뀔 뿐 배너 자체는 같은 부품이라서다). 402가 나올 수 있는 호출: `POST /api/predict`, `POST /api/groups`, `POST /api/groups/join`. (`pets` 자원은 서버 계약에 남아 있지만 **앱에 호출 경로가 없습니다** — 2026-08-18 반려동물 제거.)
 
 ### 토스페이먼츠 자동결제 (2026-07-16) — **결제는 웹 전용**
 
@@ -136,7 +127,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 - **`client_key`를 `EXPO_PUBLIC_*`에 넣지 마세요.** 서버 checkout 응답으로만 받습니다. 시크릿 키·빌링키는 서버 밖으로 나오지 않습니다.
 - **`changePlan`(PUT)을 업그레이드에 쓰지 마세요.** 유료 플랜은 400입니다. 유료 구독자의 '그만두기'는 **`cancelBilling()`**입니다 — PUT lite는 즉시 적용되며 **남은 유료 기간을 포기시킵니다.**
 - **`confirm`은 마운트 1회만** 부릅니다 (`app/billing/success.tsx`의 ref 가드). `authKey`는 1회용입니다. 단 **ref 가드는 마운트 안에서만 삽니다** — 이 화면의 URL은 토스가 브라우저를 통째로 되돌려 만든 실제 URL이라 새로고침·뒤로가기로 새 마운트가 생기면 가드가 초기화되고 소비된 `authKey`로 confirm이 다시 나가 502가 됩니다. 그래서 **confirm 실패를 확정하기 전에 `fetchMySubscription()`으로 서버 상태를 되묻습니다**(2026-07-16). 요청한 유료 플랜이 실효 플랜으로 내려오면 청구는 이미 성공한 것이라 성공 화면을 그립니다 — 이게 없으면 결제에 성공한 사람에게 '다시 시도'를 권해 **이중 결제**로 몹니다. 진짜 카드 거절은 구독이 lite로 남아 있어 이 되물음을 통과하지 못하므로 오류 화면이 그대로 동작합니다.
-- **해지 확인에 `Alert.alert`를 쓰지 마세요.** react-native-web의 `Alert.alert`는 **no-op**(`static alert() {}`)이라 결제 주 무대인 웹에서 확인 없이 넘어갑니다. 화면 안 2단계 확인을 씁니다.
+- **해지 확인에 `Alert.alert`를 직접 쓰지 마세요.** react-native-web의 `Alert.alert`는 **no-op**(`static alert() {}`)이라 결제 주 무대인 웹에서 확인 없이 넘어갑니다. `services/dialog.ts`의 `confirmDialog`를 씁니다 — 웹은 `window.confirm`, 네이티브는 `Alert.alert`로 내려가 두 플랫폼에서 같게 동작합니다 (2026-09-14: 화면 안 2단계 확인 박스에서 이 공용 함수로 교체).
 
 ### 카카오 로그인 (2026-07-14, 휴대폰 OTP 전면 대체)
 
@@ -170,7 +161,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 | 3 | 칼로리 프롬프트가 **앱에 하드코딩**되어 있습니다. 서버 템플릿화가 예정 항목입니다. | `services/calorie-api.ts:71` |
 | 4 | ~~`readErrorMessage` 중복 정의~~ **해결.** `services/http.ts` 공통 함수로 통일(배열 `detail` 처리 포함). | `services/http.ts` |
 | 5 | ~~서버 `/api/s3/*`가 `detail`에 boto3 내부 예외 노출~~ **해소.** S3 미사용 확정으로 서버에서 라우트가 제거되었습니다(`file_upload_api.py` 삭제, 2026-07-12 서버 소스 확인). 앱은 원래 호출하지 않았고, `photo_s3_key`는 `/api/meals` 응답 스키마 필드로만 남아 있습니다. | `kcalAI-model/api/` |
-| 6 | ~~`themed-text.tsx`·`themed-view.tsx`·`constants/theme.ts` 다크모드 체계가 있으나 실화면은 하드코딩~~ **해소** (2026-07-12): 라이트 전용 확정으로 테마 인프라 제거. 실화면 하드코딩 팔레트가 표준. 루트 `use-color-scheme`(내비 테마용)만 유지. **2026-08-14: 팔레트 전면 교체 — 블루 → 민트(`#60beb8`)·웜 뉴트럴·코랄.** 토큰 파일은 여전히 없고 hex를 화면에 직접 씁니다 — 값은 `docs/DESIGN.md` '디자인 토큰'이 유일한 기준입니다. ⚠️ **면과 글자에 같은 색을 쓰지 않습니다**: 민트 면 위 흰 글자는 대비 2.2:1이라 버튼 라벨·아이콘은 잉크(`#22211f`), 흰 배경 위 강조 텍스트는 딥 톤(`#2a7d76`)입니다. | — |
+| 6 | ~~`themed-text.tsx`·`themed-view.tsx`·`constants/theme.ts` 다크모드 체계가 있으나 실화면은 하드코딩~~ **해소** (2026-07-12): 라이트 전용 확정으로 테마 인프라 제거. 실화면 하드코딩 팔레트가 표준. **2026-09-14: 루트 `use-color-scheme`도 제거** — `app/_layout.tsx`가 `NAV_THEME`(라이트 고정)만 쓰고, `app.json`의 `userInterfaceStyle`도 `light`로 고정했습니다. `hooks/`는 현재 비어 있습니다. **2026-08-14: 팔레트 전면 교체 — 블루 → 민트(`#60beb8`)·웜 뉴트럴·코랄.** 토큰 파일은 여전히 없고 hex를 화면에 직접 씁니다 — 값은 `docs/DESIGN.md` '디자인 토큰'이 유일한 기준입니다. ⚠️ **면과 글자에 같은 색을 쓰지 않습니다**: 민트 면 위 흰 글자는 대비 2.2:1이라 버튼 라벨·아이콘은 잉크(`#22211f`), 흰 배경 위 강조 텍스트는 딥 톤(`#2a7d76`)입니다. | — |
 | 7 | ~~Expo 템플릿 잔재(`modal.tsx`·`hello-wave.tsx`·`parallax-scroll-view.tsx`·`collapsible.tsx`·`external-link.tsx`)~~ **삭제됨** (2026-07-12). `explore.tsx`(개발자 진단 화면)도 **삭제됨** (2026-07-13) — 서버 endpoint URL을 화면에 노출하고 있었습니다. 내 정보의 '개발자 정보' 진입점, 로그인 화면·기록 화면의 '연결 서버' 카드도 함께 제거했습니다. | — |
 | 8 | ~~`auth-session.ts` 미커밋~~ **해소.** 커밋됨(세션 영속화·Bearer 첨부 포함). | — |
 
@@ -178,7 +169,6 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 
 ## 절대 하지 말아야 할 것
 
-- **`npm run reset-project`를 실행하지 않는다.** `app/` 디렉토리를 통째로 옮깁니다.
 - **`EXPO_PUBLIC_*` 환경변수에 비밀값을 넣지 않는다.** 클라이언트 번들에 평문으로 포함됩니다. (예외는 `EXPO_PUBLIC_DEV_AUTH_SESSION` 하나 — `__DEV__` 가드로만 읽는다는 조건입니다. 가드 없이 읽는 코드를 만들지 마세요.)
 - **서버 API 경로를 앱에서만 바꾸지 않는다.** `kcalAI-model`과 같은 작업 단위에서 함께 수정합니다.
 - **`Platform.OS === 'android'` 분기를 빠뜨리지 않는다.** 에뮬레이터에서 `127.0.0.1`은 에뮬레이터 자신을 가리킵니다.

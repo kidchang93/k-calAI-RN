@@ -1,16 +1,33 @@
+import { MEAL_TYPES, type MealType } from '@/constants/meal';
 import { apiUrl } from '@/services/api-base';
-import { apiFetch, readErrorMessage } from '@/services/http';
+import {
+  apiFetch,
+  ensure,
+  ensureList,
+  ensureOk,
+  isRecord,
+  JSON_HEADERS,
+  oneOf,
+  readOk,
+  toNumber,
+} from '@/services/http';
+
+export type { MealType } from '@/constants/meal';
 
 // 서버 필드는 snake_case를 그대로 유지한다 (docs/CODE_STYLE.md).
 // 아래 타입은 kcalAI-model/docs/DATA_MODEL.md 3~5장의 테이블/산출식 계약을 따른다.
 // Numeric 컬럼은 서버 직렬화 설정에 따라 number 또는 문자열("70.5")로 올 수 있어,
 // 검증 단계에서 유한수로 강제 변환한 뒤 반환한다 (반환 타입은 항상 number).
 
-export type Sex = 'male' | 'female';
-export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
-export type GoalType = 'loss' | 'maintain' | 'gain';
-export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
-export type MealItemSource = 'ai' | 'manual';
+const SEXES = ['male', 'female'] as const;
+const ACTIVITY_LEVELS = ['sedentary', 'light', 'moderate', 'active', 'very_active'] as const;
+const GOAL_TYPES = ['loss', 'maintain', 'gain'] as const;
+const MEAL_ITEM_SOURCES = ['ai', 'manual'] as const;
+
+export type Sex = (typeof SEXES)[number];
+export type ActivityLevel = (typeof ACTIVITY_LEVELS)[number];
+export type GoalType = (typeof GOAL_TYPES)[number];
+export type MealItemSource = (typeof MEAL_ITEM_SOURCES)[number];
 
 export type ProfileRequest = {
   sex: Sex;
@@ -21,13 +38,9 @@ export type ProfileRequest = {
 };
 
 // BMI 분류 코드 (대한비만학회 2022 — 한국 기준이라 WHO 기준과 다르다).
-export type BmiCategory =
-  | 'underweight'
-  | 'normal'
-  | 'pre_obese'
-  | 'obese_1'
-  | 'obese_2'
-  | 'obese_3';
+const BMI_CATEGORIES = ['underweight', 'normal', 'pre_obese', 'obese_1', 'obese_2', 'obese_3'] as const;
+
+export type BmiCategory = (typeof BMI_CATEGORIES)[number];
 
 // 주당 권장 신체활동량 (보건복지부 2023). 개인 처방이 아니라 연령대별 일반 권고다.
 export type ActivityGuide = {
@@ -180,24 +193,31 @@ export type MealLog = {
   items: MealItem[];
 };
 
+// 저장된 항목(MealItem)을 그대로 다시 보낼 때 쓰는 변환. PUT은 전체 교체라 기존 항목을
+// 보존하려면 조회 응답을 저장 요청 모양으로 되감아야 한다 — 끼니 구성 화면의 항목 보존
+// 두 곳이 같은 5필드를 반복해 옮겨 적고 있었다.
+export function toMealItemInput(item: MealItem): MealItemInput {
+  return {
+    food_label: item.food_label,
+    serving_ratio: item.serving_ratio,
+    kcal: item.kcal,
+    source: item.source,
+    confidence: item.confidence,
+  };
+}
+
 // estimate의 404(데이터셋·캐시·AI 추정까지 모두 실패)를 일반 오류와 구분하는 명시적 오류 타입
 // (DATA_MODEL.md 13·19장). 화면은 catch에서 instanceof로 판별해 에러 배너 대신 kcal 수동 입력으로
 // 유도한다. 404는 결정적이라 재시도해도 같은 결과다 — 재시도 버튼을 띄우지 않는다.
 export class NutritionNotFoundError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'NutritionNotFoundError';
-  }
+  name = 'NutritionNotFoundError';
 }
 
 // estimate의 503(추정 백엔드 일시 장애 — Gemini 타임아웃·과부하) (DATA_MODEL.md 19장).
 // 404와 달리 **일시적**이라 재시도하면 성공할 수 있다. 화면은 재시도 버튼을 유지한 채
 // 수동 입력도 열어 둔다 — 사용자를 막다른 길에 두지 않는다.
 export class NutritionUnavailableError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'NutritionUnavailableError';
-  }
+  name = 'NutritionUnavailableError';
 }
 
 // 주/월 섭취 집계 — 진료 탭이 쓴다 (DATA_MODEL.md 15장). days는 범위 내 모든 날짜를 오름차순으로 채운다.
@@ -309,7 +329,7 @@ export async function getMedicalReport(
     `${HEALTH_API_URL}/me/report?start_date=${startDate}&end_date=${endDate}`
   );
 
-  const data = await parseOk(response, '리포트 조회 실패');
+  const data = await readOk(response, '리포트 조회 실패');
 
   if (!isRecord(data) || !Array.isArray(data.meals) || typeof data.notice !== 'string') {
     throw new Error('서버 응답 형식이 올바르지 않습니다.');
@@ -325,15 +345,22 @@ export async function getMedicalReport(
 
 // 기록 직전 알러지·질병 경고 판정 (DATA_MODEL.md 16장). source는 판별 유니온 —
 // 모르는 값은 recommendation-api.ts의 excluded 처리와 같은 방식으로 응답 전체를 형식 오류로 취급한다.
-export type FoodWarningSource = 'condition' | 'allergy';
+const FOOD_WARNING_SOURCES = ['condition', 'allergy'] as const;
+
+export type FoodWarningSource = (typeof FOOD_WARNING_SOURCES)[number];
 
 // 신장병·고혈압 등 영양 제한 질병 경고면 어느 영양소가 높은지. 키워드 경고·구버전 서버는 null.
 // sugar 는 2026-07-25 추가(당뇨 — 첨가당). 다른 축과 달리 **등급(tier)이 없고 단위가 g** 이다.
-export type FoodWarningNutrient = 'sodium' | 'potassium' | 'phosphorus' | 'sugar';
+const FOOD_WARNING_NUTRIENTS = ['sodium', 'potassium', 'phosphorus', 'sugar'] as const;
+
+export type FoodWarningNutrient = (typeof FOOD_WARNING_NUTRIENTS)[number];
 
 // 수치의 상대 위치. 서버가 지침 분류와 실측 mg 중 엄격한 쪽으로 판정한다
 // (kcalAI-model/docs/CKD_NUTRITION.md 3-4). 나트륨은 등급을 매기지 않아 항상 null 이다.
-export type FoodWarningTier = 'low' | 'mid' | 'high';
+// 추천 API의 칼륨·인 등급(recommendation-api.ts NutrientTier)도 같은 세 값이라 이 목록을 함께 쓴다.
+export const NUTRIENT_TIERS = ['low', 'mid', 'high'] as const;
+
+export type FoodWarningTier = (typeof NUTRIENT_TIERS)[number];
 
 export type FoodWarning = {
   source: FoodWarningSource;
@@ -374,9 +401,7 @@ export type WeightLog = {
   measured_at: string;
 };
 
-export const HEALTH_API_URL = apiUrl('/api', process.env.EXPO_PUBLIC_HEALTH_API_URL);
-
-const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
+const HEALTH_API_URL = apiUrl('/api');
 
 // 로컬 달력 날짜(YYYY-MM-DD). summary·meals 조회의 date 파라미터에 쓴다.
 export function formatDateParam(date: Date): string {
@@ -426,7 +451,7 @@ export async function getProfile(): Promise<ProfileResponse | null> {
     return null;
   }
 
-  return ensure(parseProfileResponse(await parseOk(response, '프로필 조회 실패')));
+  return ensure(parseProfileResponse(await readOk(response, '프로필 조회 실패')));
 }
 
 export async function putProfile(input: ProfileRequest): Promise<ProfileResponse> {
@@ -436,7 +461,7 @@ export async function putProfile(input: ProfileRequest): Promise<ProfileResponse
     body: JSON.stringify(input),
   });
 
-  return ensure(parseProfileResponse(await parseOk(response, '프로필 저장 실패')));
+  return ensure(parseProfileResponse(await readOk(response, '프로필 저장 실패')));
 }
 
 export async function getGoal(): Promise<GoalResponse | null> {
@@ -446,7 +471,7 @@ export async function getGoal(): Promise<GoalResponse | null> {
     return null;
   }
 
-  return ensure(parseGoalResponse(await parseOk(response, '목표 조회 실패')));
+  return ensure(parseGoalResponse(await readOk(response, '목표 조회 실패')));
 }
 
 export async function putGoal(input: GoalRequest): Promise<GoalResponse> {
@@ -456,13 +481,13 @@ export async function putGoal(input: GoalRequest): Promise<GoalResponse> {
     body: JSON.stringify(input),
   });
 
-  return ensure(parseGoalResponse(await parseOk(response, '목표 저장 실패')));
+  return ensure(parseGoalResponse(await readOk(response, '목표 저장 실패')));
 }
 
 export async function getSummary(date: string): Promise<DaySummary> {
   const response = await apiFetch(`${HEALTH_API_URL}/me/summary?date=${encodeURIComponent(date)}`);
 
-  return ensure(parseDaySummary(await parseOk(response, '오늘 요약 조회 실패')));
+  return ensure(parseDaySummary(await readOk(response, '오늘 요약 조회 실패')));
 }
 
 // 서버는 식약처 DB를 먼저 조회하고(유사도 검색 포함), 없으면 AI가 1회 추정해 DB에 적재한다
@@ -478,21 +503,12 @@ export async function estimateNutrition(foodLabel: string): Promise<NutritionEst
     body: JSON.stringify({ food_label: foodLabel }),
   });
 
-  if (response.status === 404) {
-    const message = await readErrorMessage(response);
-    throw new NutritionNotFoundError(
-      message || '일치하는 음식을 찾지 못했습니다. 칼로리를 직접 입력해주세요.'
-    );
-  }
+  const data = await readOk(response, '영양 정보 추정 실패', {
+    404: NutritionNotFoundError,
+    503: NutritionUnavailableError,
+  });
 
-  if (response.status === 503) {
-    const message = await readErrorMessage(response);
-    throw new NutritionUnavailableError(
-      message || '지금은 영양 정보를 계산할 수 없습니다. 잠시 후 다시 시도해주세요.'
-    );
-  }
-
-  return ensure(parseNutritionEstimate(await parseOk(response, '영양 정보 추정 실패')));
+  return ensure(parseNutritionEstimate(data));
 }
 
 export async function createMeal(input: CreateMealRequest): Promise<MealLog> {
@@ -502,7 +518,7 @@ export async function createMeal(input: CreateMealRequest): Promise<MealLog> {
     body: JSON.stringify(input),
   });
 
-  return ensure(parseMealLog(await parseOk(response, '식단 저장 실패')));
+  return ensure(parseMealLog(await readOk(response, '식단 저장 실패')));
 }
 
 // 전체 교체(PUT) — 요청 구조는 createMeal과 동일하다 (DATA_MODEL.md 4장, 2026-07-11 확정).
@@ -515,13 +531,13 @@ export async function updateMeal(mealId: number, input: CreateMealRequest): Prom
     body: JSON.stringify(input),
   });
 
-  return ensure(parseMealLog(await parseOk(response, '식단 수정 실패')));
+  return ensure(parseMealLog(await readOk(response, '식단 수정 실패')));
 }
 
 export async function getMeals(date: string): Promise<MealLog[]> {
   const response = await apiFetch(`${HEALTH_API_URL}/meals?date=${encodeURIComponent(date)}`);
 
-  return ensureList(await parseOk(response, '식단 조회 실패'), parseMealLog);
+  return ensureList(await readOk(response, '식단 조회 실패'), parseMealLog);
 }
 
 export async function deleteMeal(id: number): Promise<void> {
@@ -529,10 +545,7 @@ export async function deleteMeal(id: number): Promise<void> {
     method: 'DELETE',
   });
 
-  if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `식단 삭제 실패: ${response.status}`);
-  }
+  await ensureOk(response, '식단 삭제 실패');
 }
 
 // 범위 위반(역순, 92일 초과)은 서버가 400 + 한국어 detail을 준다 (DATA_MODEL.md 15장).
@@ -541,7 +554,7 @@ export async function getTrends(startDate: string, endDate: string): Promise<Tre
     `${HEALTH_API_URL}/me/trends?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`
   );
 
-  return ensure(parseTrendsResponse(await parseOk(response, '리포트 조회 실패')));
+  return ensure(parseTrendsResponse(await readOk(response, '리포트 조회 실패')));
 }
 
 // 기록 확정 직전 경고 판정 (DATA_MODEL.md 16장). Bearer + sensitive_health 동의 필수(401/403).
@@ -554,7 +567,7 @@ export async function checkFoodWarnings(foodLabels: string[]): Promise<FoodWarni
     body: JSON.stringify({ food_labels: foodLabels }),
   });
 
-  const data = await parseOk(response, '경고 판정 실패');
+  const data = await readOk(response, '경고 판정 실패');
 
   if (!isRecord(data) || !Array.isArray(data.warnings)) {
     throw new Error('서버 응답 형식이 올바르지 않습니다.');
@@ -578,13 +591,13 @@ export async function createWeight(input: CreateWeightRequest): Promise<WeightLo
     body: JSON.stringify(input),
   });
 
-  return ensure(parseWeightLog(await parseOk(response, '체중 저장 실패')));
+  return ensure(parseWeightLog(await readOk(response, '체중 저장 실패')));
 }
 
 export async function getWeights(): Promise<WeightLog[]> {
   const response = await apiFetch(`${HEALTH_API_URL}/weights`);
 
-  return ensureList(await parseOk(response, '체중 기록 조회 실패'), parseWeightLog);
+  return ensureList(await readOk(response, '체중 기록 조회 실패'), parseWeightLog);
 }
 
 // 회원 탈퇴 (DATA_MODEL.md 18장). soft delete가 아니라 물리 삭제 — 끼니·체중·펫·소유 그룹이
@@ -595,58 +608,10 @@ export async function deleteAccount(): Promise<void> {
     method: 'DELETE',
   });
 
-  if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `회원 탈퇴 실패: ${response.status}`);
-  }
+  await ensureOk(response, '회원 탈퇴 실패');
 }
 
 // ── 내부 헬퍼 (export 안 함) ────────────────────────────────────────────────
-
-async function parseOk(response: Response, fallback: string): Promise<unknown> {
-  if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `${fallback}: ${response.status}`);
-  }
-
-  return (await response.json()) as unknown;
-}
-
-// 검증에 실패한 응답은 화면 크래시 대신 한국어 오류로 던진다.
-function ensure<T>(parsed: T | null): T {
-  if (parsed === null) {
-    throw new Error('서버 응답 형식이 올바르지 않습니다.');
-  }
-
-  return parsed;
-}
-
-function ensureList<T>(value: unknown, parse: (item: unknown) => T | null): T[] {
-  if (!Array.isArray(value)) {
-    throw new Error('서버 응답 형식이 올바르지 않습니다.');
-  }
-
-  return value.map((item) => ensure(parse(item)));
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-// number 또는 숫자 문자열을 유한수로 좁힌다. 그 외에는 null.
-function toNumber(value: unknown): number | null {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : null;
-  }
-
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value);
-
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  return null;
-}
 
 // nullable Numeric: null/undefined는 null로, 숫자류는 number로. 그 외는 검증 실패(undefined 반환).
 function toNullableNumber(value: unknown): number | null | undefined {
@@ -655,49 +620,6 @@ function toNullableNumber(value: unknown): number | null | undefined {
   }
 
   return toNumber(value) ?? undefined;
-}
-
-function toSex(value: unknown): Sex | null {
-  return value === 'male' || value === 'female' ? value : null;
-}
-
-function toActivityLevel(value: unknown): ActivityLevel | null {
-  return value === 'sedentary' ||
-    value === 'light' ||
-    value === 'moderate' ||
-    value === 'active' ||
-    value === 'very_active'
-    ? value
-    : null;
-}
-
-function toGoalType(value: unknown): GoalType | null {
-  return value === 'loss' || value === 'maintain' || value === 'gain' ? value : null;
-}
-
-function toMealType(value: unknown): MealType | null {
-  return value === 'breakfast' || value === 'lunch' || value === 'dinner' || value === 'snack'
-    ? value
-    : null;
-}
-
-function toMealItemSource(value: unknown): MealItemSource | null {
-  return value === 'ai' || value === 'manual' ? value : null;
-}
-
-const BMI_CATEGORIES: BmiCategory[] = [
-  'underweight',
-  'normal',
-  'pre_obese',
-  'obese_1',
-  'obese_2',
-  'obese_3',
-];
-
-function toBmiCategory(value: unknown): BmiCategory | null {
-  return typeof value === 'string' && (BMI_CATEGORIES as string[]).includes(value)
-    ? (value as BmiCategory)
-    : null;
 }
 
 // 하나라도 어긋나면 통째로 null — 반쪽짜리 권고를 그리느니 카드를 숨기는 편이 낫다.
@@ -743,8 +665,8 @@ function parseProfileResponse(value: unknown): ProfileResponse | null {
     return null;
   }
 
-  const sex = toSex(value.sex);
-  const activity_level = toActivityLevel(value.activity_level);
+  const sex = oneOf(SEXES, value.sex);
+  const activity_level = oneOf(ACTIVITY_LEVELS, value.activity_level);
   const height_cm = toNumber(value.height_cm);
   const weight_kg = toNumber(value.weight_kg);
 
@@ -770,7 +692,7 @@ function parseProfileResponse(value: unknown): ProfileResponse | null {
     activity_level,
     // 파생 지표는 구버전 서버엔 없다 — 누락·형식 불일치면 null 로 눕히고 화면이 카드를 숨긴다.
     bmi: toNullableNumber(value.bmi) ?? null,
-    bmi_category: toBmiCategory(value.bmi_category),
+    bmi_category: oneOf(BMI_CATEGORIES, value.bmi_category),
     bmi_category_label: typeof value.bmi_category_label === 'string' ? value.bmi_category_label : null,
     bmi_notice: typeof value.bmi_notice === 'string' ? value.bmi_notice : null,
     activity_guide: parseActivityGuide(value.activity_guide),
@@ -782,7 +704,7 @@ function parseGoalResponse(value: unknown): GoalResponse | null {
     return null;
   }
 
-  const goal_type = toGoalType(value.goal_type);
+  const goal_type = oneOf(GOAL_TYPES, value.goal_type);
   const target_weight_kg = toNullableNumber(value.target_weight_kg);
 
   if (
@@ -808,26 +730,14 @@ function parseGoalResponse(value: unknown): GoalResponse | null {
   };
 }
 
-function parseMealBreakdown(value: unknown): MealBreakdown | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  if (
-    typeof value.breakfast !== 'number' ||
-    typeof value.lunch !== 'number' ||
-    typeof value.dinner !== 'number' ||
-    typeof value.snack !== 'number'
-  ) {
-    return null;
-  }
-
-  return {
-    breakfast: value.breakfast,
-    lunch: value.lunch,
-    dinner: value.dinner,
-    snack: value.snack,
-  };
+function isMealBreakdown(value: unknown): value is MealBreakdown {
+  return (
+    isRecord(value) &&
+    typeof value.breakfast === 'number' &&
+    typeof value.lunch === 'number' &&
+    typeof value.dinner === 'number' &&
+    typeof value.snack === 'number'
+  );
 }
 
 function parseDaySummary(value: unknown): DaySummary | null {
@@ -835,14 +745,12 @@ function parseDaySummary(value: unknown): DaySummary | null {
     return null;
   }
 
-  const meals = parseMealBreakdown(value.meals);
-
   if (
     typeof value.date !== 'string' ||
     (value.target_kcal !== null && typeof value.target_kcal !== 'number') ||
     typeof value.consumed_kcal !== 'number' ||
     (value.remaining_kcal !== null && typeof value.remaining_kcal !== 'number') ||
-    meals === null
+    !isMealBreakdown(value.meals)
   ) {
     return null;
   }
@@ -852,7 +760,7 @@ function parseDaySummary(value: unknown): DaySummary | null {
     target_kcal: value.target_kcal,
     consumed_kcal: value.consumed_kcal,
     remaining_kcal: value.remaining_kcal,
-    meals,
+    meals: value.meals,
     nutrients: parseDayNutrients(value.nutrients),
   };
 }
@@ -955,7 +863,7 @@ function parseMealItem(value: unknown): MealItem | null {
   }
 
   const serving_ratio = toNumber(value.serving_ratio);
-  const source = toMealItemSource(value.source);
+  const source = oneOf(MEAL_ITEM_SOURCES, value.source);
   const confidence = toNullableNumber(value.confidence);
 
   if (
@@ -991,7 +899,7 @@ function parseMealLog(value: unknown): MealLog | null {
     return null;
   }
 
-  const meal_type = toMealType(value.meal_type);
+  const meal_type = oneOf(MEAL_TYPES, value.meal_type);
 
   if (
     typeof value.id !== 'number' ||
@@ -1004,16 +912,10 @@ function parseMealLog(value: unknown): MealLog | null {
     return null;
   }
 
-  const items: MealItem[] = [];
+  const items = value.items.map(parseMealItem);
 
-  for (const item of value.items) {
-    const parsed = parseMealItem(item);
-
-    if (parsed === null) {
-      return null;
-    }
-
-    items.push(parsed);
+  if (items.includes(null)) {
+    return null;
   }
 
   return {
@@ -1022,7 +924,7 @@ function parseMealLog(value: unknown): MealLog | null {
     logged_at: value.logged_at,
     total_kcal: value.total_kcal,
     photo_s3_key: value.photo_s3_key ?? null,
-    items,
+    items: items as MealItem[],
   };
 }
 
@@ -1064,23 +966,17 @@ function parseTrendsResponse(value: unknown): TrendsResponse | null {
     return null;
   }
 
-  const days: TrendDay[] = [];
+  const days = value.days.map(parseTrendDay);
 
-  for (const item of value.days) {
-    const parsed = parseTrendDay(item);
-
-    if (parsed === null) {
-      return null;
-    }
-
-    days.push(parsed);
+  if (days.includes(null)) {
+    return null;
   }
 
   return {
     start_date: value.start_date,
     end_date: value.end_date,
     target_kcal,
-    days,
+    days: days as TrendDay[],
     // 형식이 어긋나면 카드만 접는다 — 리포트 전체를 막지 않는다(옛 서버 호환도 겸한다).
     nutrients: parseNutrientTrends(value.nutrients),
   };
@@ -1091,19 +987,9 @@ function parseNutrientTrends(value: unknown): NutrientTrends | null {
     return null;
   }
 
-  const axes: NutrientTrendAxis[] = [];
+  const axes = value.axes.map(parseNutrientTrendAxis);
 
-  for (const item of value.axes) {
-    const parsed = parseNutrientTrendAxis(item);
-
-    if (parsed === null) {
-      return null;
-    }
-
-    axes.push(parsed);
-  }
-
-  return { axes, notice: value.notice };
+  return axes.includes(null) ? null : { axes: axes as NutrientTrendAxis[], notice: value.notice };
 }
 
 function parseNutrientTrendAxis(value: unknown): NutrientTrendAxis | null {
@@ -1121,29 +1007,25 @@ function parseNutrientTrendAxis(value: unknown): NutrientTrendAxis | null {
     return null;
   }
 
-  const days: NutrientTrendDay[] = [];
+  const days = value.days.map((item): NutrientTrendDay | null =>
+    isRecord(item) && typeof item.date === 'string' && typeof item.consumed_mg === 'number'
+      ? {
+          date: item.date,
+          consumed_mg: item.consumed_mg,
+          measured_items: typeof item.measured_items === 'number' ? item.measured_items : 0,
+          total_items: typeof item.total_items === 'number' ? item.total_items : 0,
+        }
+      : null
+  );
 
-  for (const item of value.days) {
-    if (
-      !isRecord(item) ||
-      typeof item.date !== 'string' ||
-      typeof item.consumed_mg !== 'number'
-    ) {
-      return null;
-    }
-
-    days.push({
-      date: item.date,
-      consumed_mg: item.consumed_mg,
-      measured_items: typeof item.measured_items === 'number' ? item.measured_items : 0,
-      total_items: typeof item.total_items === 'number' ? item.total_items : 0,
-    });
+  if (days.includes(null)) {
+    return null;
   }
 
   return {
     nutrient,
     label: value.label,
-    days,
+    days: days as NutrientTrendDay[],
     average_mg: typeof value.average_mg === 'number' ? value.average_mg : null,
     recorded_days: value.recorded_days,
     limit_mg: typeof value.limit_mg === 'number' ? value.limit_mg : null,
@@ -1153,16 +1035,12 @@ function parseNutrientTrendAxis(value: unknown): NutrientTrendAxis | null {
   };
 }
 
-function toFoodWarningSource(value: unknown): FoodWarningSource | null {
-  return value === 'condition' || value === 'allergy' ? value : null;
-}
-
 function parseFoodWarning(value: unknown): FoodWarning | null {
   if (!isRecord(value)) {
     return null;
   }
 
-  const source = toFoodWarningSource(value.source);
+  const source = oneOf(FOOD_WARNING_SOURCES, value.source);
 
   if (
     source === null ||
@@ -1180,23 +1058,12 @@ function parseFoodWarning(value: unknown): FoodWarning | null {
     label: value.label,
     matched_keyword: value.matched_keyword,
     matched_label: value.matched_label,
-    nutrient: toFoodWarningNutrient(value.nutrient),
+    nutrient: oneOf(FOOD_WARNING_NUTRIENTS, value.nutrient),
     nutrient_unit: value.nutrient_unit === 'g' || value.nutrient_unit === 'mg' ? value.nutrient_unit : null,
     // 구버전 서버엔 없다 — 관대하게 null 로 두고 앱은 수치 없이 문구만 그린다.
     nutrient_mg: toNullableNumber(value.nutrient_mg) ?? null,
-    tier: toFoodWarningTier(value.tier),
+    tier: oneOf(NUTRIENT_TIERS, value.tier),
   };
-}
-
-function toFoodWarningTier(value: unknown): FoodWarningTier | null {
-  return value === 'low' || value === 'mid' || value === 'high' ? value : null;
-}
-
-// 서버가 아는 축이면 그대로, 그 외/누락(구버전)은 null.
-function toFoodWarningNutrient(value: unknown): FoodWarningNutrient | null {
-  return value === 'sodium' || value === 'potassium' || value === 'phosphorus' || value === 'sugar'
-    ? value
-    : null;
 }
 
 function parseWeightLog(value: unknown): WeightLog | null {

@@ -1,28 +1,22 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Redirect, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Screen } from '@/components/screen';
 import { SessionLoading } from '@/components/session-loading';
 import {
   consumeKakaoWebRedirect,
   KakaoCancelledError,
   KakaoLinkExpiredError,
   KakaoNotRegisteredError,
+  KakaoStartResult,
   loginWithKakao,
   signupWithKakao,
   startKakaoLogin,
 } from '@/services/auth-api';
 import { setAuthSession, useAuthSession } from '@/services/auth-session';
+import { formatPlanPrice } from '@/services/format';
 import { FALLBACK_PLANS, fetchPlans, Plan } from '@/services/subscription-api';
 
 // 가입 시 기본 선택. 서버도 plan_code 미지정 시 이 무료 플랜을 부여한다.
@@ -50,12 +44,25 @@ export default function AuthScreen() {
   const [plans, setPlans] = useState<Plan[]>(FALLBACK_PLANS);
   const [planCode, setPlanCode] = useState(DEFAULT_PLAN_CODE);
 
+  // 카카오 콜백 결과를 로그인/가입 분기로 잇는다. 최초 시작(startKakao)과 웹 페이지 복귀
+  // (아래 useEffect) 양쪽이 같은 분기를 탄다 — 신규 회원이면 가입 단계로, 아니면 로그인까지
+  // 마친다. useCallback(빈 deps)으로 정의해 두 곳에서 항상 같은 참조를 쓴다.
+  const applyKakaoStart = useCallback(async (started: KakaoStartResult) => {
+    // 연동 코드는 TTL 10분·1회용이다. 가입 단계로 넘어갈 수 있으니 먼저 보관한다.
+    setLinkCode(started.link_code);
+
+    if (started.is_new) {
+      setStage('signup');
+
+      return;
+    }
+
+    setAuthSession(await loginWithKakao(started.link_code));
+  }, []);
+
   // 웹은 서버 콜백에서 /auth?code=…로 **전체 페이지 이동**해 돌아온다 (팝업이 아니다 —
   // 이유는 services/auth-api.ts의 startKakaoLogin 주석 참고). 마운트 시 쿼리에서 결과를 읽어
   // 로그인/가입을 잇는다. 네이티브에서는 consumeKakaoWebRedirect()가 항상 null이라 no-op이다.
-  //
-  // 아래 startKakao와 로직이 겹치지만 그 함수는 조기 반환(로딩·인증됨) 뒤에 정의되므로 여기서
-  // 참조할 수 없다. 효과 안에 가둬 둔다.
   useEffect(() => {
     let isActive = true;
 
@@ -82,17 +89,9 @@ export default function AuthScreen() {
       }
 
       setIsStarting(true);
-      // 연동 코드는 TTL 10분·1회용이다. 가입 단계로 넘어갈 수 있으니 먼저 보관한다.
-      setLinkCode(started.link_code);
 
       try {
-        if (started.is_new) {
-          setStage('signup');
-
-          return;
-        }
-
-        setAuthSession(await loginWithKakao(started.link_code));
+        await applyKakaoStart(started);
       } catch (error) {
         if (error instanceof KakaoNotRegisteredError) {
           setStage('signup');
@@ -123,7 +122,7 @@ export default function AuthScreen() {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [applyKakaoStart]);
 
   // 가입 단계에 들어올 때만 가격표를 읽는다(무인증 GET). 실패해도 번들 폴백으로 그린다 —
   // 네트워크 오류로 가입 자체가 막히면 안 된다 (선택지 데이터 규칙, DESIGN.md).
@@ -196,18 +195,7 @@ export default function AuthScreen() {
     setErrorMessage(null);
 
     try {
-      const started = await startKakaoLogin({ switchAccount });
-
-      // 연동 코드는 TTL 10분·1회용이다. 가입 단계로 넘어갈 수 있으니 먼저 보관한다.
-      setLinkCode(started.link_code);
-
-      // 신규 회원은 동의·요금제를 받고 나서 가입한다.
-      if (started.is_new) {
-        setStage('signup');
-        return;
-      }
-
-      setAuthSession(await loginWithKakao(started.link_code));
+      await applyKakaoStart(await startKakaoLogin({ switchAccount }));
     } catch (error) {
       // 사용자가 취소한 경우다 — 에러 박스를 띄우지 않고 조용히 원상복귀한다.
       if (error instanceof KakaoCancelledError) {
@@ -266,138 +254,132 @@ export default function AuthScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <Image
-              accessibilityIgnoresInvertColors
-              source={require('@/assets/images/meal_care_logo.png')}
-              style={styles.logoMark}
-            />
-            <Text style={styles.kicker}>CARE TABLE</Text>
-            <Text style={styles.title}>
-              {isSignup ? '거의 다 됐어요' : '카카오로\n식단 기록을 시작해요'}
-            </Text>
-            <Text style={styles.description}>
-              {isSignup
-                ? '약관에 동의하고 요금제를 고르면 가입이 끝나요.'
-                : '비밀번호 없이 카카오 계정으로 가입하고 로그인합니다.'}
-            </Text>
+    <Screen gap={18} contentStyle={styles.content}>
+      <View style={styles.header}>
+        <Image
+          accessibilityIgnoresInvertColors
+          source={require('@/assets/images/meal_care_logo.png')}
+          style={styles.logoMark}
+        />
+        <Text style={styles.kicker}>CARE TABLE</Text>
+        <Text style={styles.title}>
+          {isSignup ? '거의 다 됐어요' : '카카오로\n식단 기록을 시작해요'}
+        </Text>
+        <Text style={styles.description}>
+          {isSignup
+            ? '약관에 동의하고 요금제를 고르면 가입이 끝나요.'
+            : '비밀번호 없이 카카오 계정으로 가입하고 로그인합니다.'}
+        </Text>
+      </View>
+
+      <View style={styles.form}>
+        {isSignup ? (
+          <>
+            <View style={styles.consentSection}>
+              <Text style={styles.label}>약관 동의</Text>
+              <Pressable
+                onPress={toggleAgreeAll}
+                style={({ pressed }) => [styles.agreeAllRow, pressed && styles.pressed]}>
+                <CheckBox isChecked={hasAgreedAll} />
+                <Text style={styles.agreeAllText}>모두 동의</Text>
+              </Pressable>
+              <ConsentRow
+                href="/legal/terms"
+                isChecked={agreedTerms}
+                label="[필수] 서비스 이용약관"
+                onToggle={() => setAgreedTerms((prev) => !prev)}
+              />
+              <ConsentRow
+                href="/legal/privacy"
+                isChecked={agreedPrivacy}
+                label="[필수] 개인정보 처리방침"
+                onToggle={() => setAgreedPrivacy((prev) => !prev)}
+              />
+            </View>
+
+            <View style={styles.planSection}>
+              <Text style={styles.label}>요금제</Text>
+              <Text style={styles.planGuide}>
+                무료로 시작하고 언제든지 내 정보에서 바꿀 수 있어요.
+              </Text>
+              {plans.map((plan) => (
+                <PlanCard
+                  isSelected={plan.code === planCode}
+                  key={plan.code}
+                  onPress={() => setPlanCode(plan.code)}
+                  plan={plan}
+                />
+              ))}
+            </View>
+          </>
+        ) : null}
+
+        {errorMessage ? (
+          <View style={styles.errorBox}>
+            <MaterialIcons name="error-outline" size={20} color="#b8524e" />
+            <Text style={styles.errorText}>{errorMessage}</Text>
           </View>
+        ) : null}
 
-          <View style={styles.form}>
-            {isSignup ? (
-              <>
-                <View style={styles.consentSection}>
-                  <Text style={styles.label}>약관 동의</Text>
-                  <Pressable
-                    onPress={toggleAgreeAll}
-                    style={({ pressed }) => [styles.agreeAllRow, pressed && styles.pressed]}>
-                    <CheckBox isChecked={hasAgreedAll} />
-                    <Text style={styles.agreeAllText}>모두 동의</Text>
-                  </Pressable>
-                  <ConsentRow
-                    href="/legal/terms"
-                    isChecked={agreedTerms}
-                    label="[필수] 서비스 이용약관"
-                    onToggle={() => setAgreedTerms((prev) => !prev)}
-                  />
-                  <ConsentRow
-                    href="/legal/privacy"
-                    isChecked={agreedPrivacy}
-                    label="[필수] 개인정보 처리방침"
-                    onToggle={() => setAgreedPrivacy((prev) => !prev)}
-                  />
-                </View>
+        {isSignup ? (
+          <>
+            <Pressable
+              disabled={!canSignup}
+              onPress={() => void completeSignup()}
+              style={({ pressed }) => [
+                styles.primaryButton,
+                !canSignup && styles.primaryButtonDisabled,
+                pressed && canSignup && styles.pressed,
+              ]}>
+              {isSigningUp ? (
+                <ActivityIndicator color="#22211f" />
+              ) : (
+                <>
+                  <MaterialIcons name="verified-user" size={20} color="#22211f" />
+                  <Text style={styles.primaryButtonText}>가입 완료</Text>
+                </>
+              )}
+            </Pressable>
 
-                <View style={styles.planSection}>
-                  <Text style={styles.label}>요금제</Text>
-                  <Text style={styles.planGuide}>
-                    무료로 시작하고 언제든지 내 정보에서 바꿀 수 있어요.
-                  </Text>
-                  {plans.map((plan) => (
-                    <PlanCard
-                      isSelected={plan.code === planCode}
-                      key={plan.code}
-                      onPress={() => setPlanCode(plan.code)}
-                      plan={plan}
-                    />
-                  ))}
-                </View>
-              </>
-            ) : null}
+            <Pressable
+              disabled={isSigningUp}
+              onPress={() => void switchKakaoAccount()}
+              style={({ pressed }) => [styles.textButton, pressed && styles.pressed]}>
+              <Text style={styles.textButtonLabel}>다른 카카오 계정으로 시작하기</Text>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <Pressable
+              disabled={isStarting}
+              onPress={() => void startKakao()}
+              style={({ pressed }) => [
+                styles.kakaoButton,
+                isStarting && styles.buttonDisabled,
+                pressed && !isStarting && styles.pressed,
+              ]}>
+              {isStarting ? (
+                <ActivityIndicator color="#22211f" />
+              ) : (
+                <>
+                  <MaterialIcons name="chat-bubble" size={20} color="#22211f" />
+                  <Text style={styles.kakaoButtonText}>카카오로 시작하기</Text>
+                </>
+              )}
+            </Pressable>
 
-            {errorMessage ? (
-              <View style={styles.errorBox}>
-                <MaterialIcons name="error-outline" size={20} color="#b8524e" />
-                <Text style={styles.errorText}>{errorMessage}</Text>
-              </View>
-            ) : null}
-
-            {isSignup ? (
-              <>
-                <Pressable
-                  disabled={!canSignup}
-                  onPress={() => void completeSignup()}
-                  style={({ pressed }) => [
-                    styles.primaryButton,
-                    !canSignup && styles.primaryButtonDisabled,
-                    pressed && canSignup && styles.pressed,
-                  ]}>
-                  {isSigningUp ? (
-                    <ActivityIndicator color="#22211f" />
-                  ) : (
-                    <>
-                      <MaterialIcons name="verified-user" size={20} color="#22211f" />
-                      <Text style={styles.primaryButtonText}>가입 완료</Text>
-                    </>
-                  )}
-                </Pressable>
-
-                <Pressable
-                  disabled={isSigningUp}
-                  onPress={() => void switchKakaoAccount()}
-                  style={({ pressed }) => [styles.textButton, pressed && styles.pressed]}>
-                  <Text style={styles.textButtonLabel}>다른 카카오 계정으로 시작하기</Text>
-                </Pressable>
-              </>
-            ) : (
-              <>
-                <Pressable
-                  disabled={isStarting}
-                  onPress={() => void startKakao()}
-                  style={({ pressed }) => [
-                    styles.kakaoButton,
-                    isStarting && styles.buttonDisabled,
-                    pressed && !isStarting && styles.pressed,
-                  ]}>
-                  {isStarting ? (
-                    <ActivityIndicator color="#22211f" />
-                  ) : (
-                    <>
-                      <MaterialIcons name="chat-bubble" size={20} color="#22211f" />
-                      <Text style={styles.kakaoButtonText}>카카오로 시작하기</Text>
-                    </>
-                  )}
-                </Pressable>
-
-                {/* 브라우저에 카카오 세션이 남아 있으면 위 버튼은 늘 같은 계정으로 들어간다.
-                    계정을 바꾸려면 카카오에 로그인 화면을 다시 띄우라고 요청해야 한다. */}
-                <Pressable
-                  disabled={isStarting}
-                  onPress={() => void switchKakaoAccount()}
-                  style={({ pressed }) => [styles.textButton, pressed && styles.pressed]}>
-                  <Text style={styles.textButtonLabel}>다른 카카오 계정으로 로그인</Text>
-                </Pressable>
-              </>
-            )}
-          </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+            {/* 브라우저에 카카오 세션이 남아 있으면 위 버튼은 늘 같은 계정으로 들어간다.
+                계정을 바꾸려면 카카오에 로그인 화면을 다시 띄우라고 요청해야 한다. */}
+            <Pressable
+              disabled={isStarting}
+              onPress={() => void switchKakaoAccount()}
+              style={({ pressed }) => [styles.textButton, pressed && styles.pressed]}>
+              <Text style={styles.textButtonLabel}>다른 카카오 계정으로 로그인</Text>
+            </Pressable>
+          </>
+        )}
+      </View>
+    </Screen>
   );
 }
 
@@ -474,25 +456,11 @@ function PlanCard({
   );
 }
 
-function formatPlanPrice(priceKrw: number): string {
-  return priceKrw === 0 ? '무료' : `월 ${priceKrw.toLocaleString()}원`;
-}
-
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f7f6f4',
-  },
-  scrollContent: {
+  content: {
     flexGrow: 1,
     justifyContent: 'center',
     padding: 22,
-  },
-  container: {
-    alignSelf: 'center',
-    gap: 18,
-    maxWidth: 720,
-    width: '100%',
   },
   header: {
     gap: 10,

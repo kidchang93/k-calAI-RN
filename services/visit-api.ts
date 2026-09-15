@@ -1,5 +1,5 @@
 import { apiUrl } from '@/services/api-base';
-import { apiFetch, readErrorMessage } from '@/services/http';
+import { apiFetch, ensureOk, isRecord, JSON_HEADERS, readOk } from '@/services/http';
 
 // 진료 일정 (서버 `docs/CARE_LOOP.md` §1·§4-3).
 //
@@ -21,30 +21,24 @@ export type NextVisit = {
   notice: string;
 };
 
-export const VISIT_API_URL = apiUrl('/api', process.env.EXPO_PUBLIC_HEALTH_API_URL);
+const VISIT_API_URL = apiUrl('/api');
 
 function parseNextVisit(value: unknown): NextVisit {
-  if (typeof value !== 'object' || value === null) {
+  if (!isRecord(value)) {
     return { scheduled_on: null, outcome: null, notice: '' };
   }
 
-  const record = value as Record<string, unknown>;
-
   return {
-    scheduled_on: typeof record.scheduled_on === 'string' ? record.scheduled_on : null,
-    outcome: typeof record.outcome === 'string' ? record.outcome : null,
-    notice: typeof record.notice === 'string' ? record.notice : '',
+    scheduled_on: typeof value.scheduled_on === 'string' ? value.scheduled_on : null,
+    outcome: typeof value.outcome === 'string' ? value.outcome : null,
+    notice: typeof value.notice === 'string' ? value.notice : '',
   };
 }
 
 export async function getNextVisit(): Promise<NextVisit> {
   const response = await apiFetch(`${VISIT_API_URL}/me/next-visit`);
 
-  if (!response.ok) {
-    throw new Error((await readErrorMessage(response)) || '진료 일정을 불러오지 못했습니다.');
-  }
-
-  return parseNextVisit(await response.json());
+  return parseNextVisit(await readOk(response, '진료 일정을 불러오지 못했습니다'));
 }
 
 // `outcome` 을 생략하면 서버가 기존 메모를 그대로 둔다. 빈 문자열을 보내면 지운다.
@@ -54,7 +48,7 @@ export async function setNextVisit(
 ): Promise<NextVisit> {
   const response = await apiFetch(`${VISIT_API_URL}/me/next-visit`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: JSON_HEADERS,
     body: JSON.stringify(
       outcome === undefined
         ? { scheduled_on: scheduledOn }
@@ -62,20 +56,14 @@ export async function setNextVisit(
     ),
   });
 
-  if (!response.ok) {
-    // 400 은 범위를 벗어난 날짜(오타 방어)다 — 서버가 사용자용 한국어 문장을 준다.
-    throw new Error((await readErrorMessage(response)) || '진료 일정을 저장하지 못했습니다.');
-  }
-
-  return parseNextVisit(await response.json());
+  // 400 은 범위를 벗어난 날짜(오타 방어)다 — 서버가 사용자용 한국어 문장을 준다.
+  return parseNextVisit(await readOk(response, '진료 일정을 저장하지 못했습니다'));
 }
 
 export async function clearNextVisit(): Promise<void> {
   const response = await apiFetch(`${VISIT_API_URL}/me/next-visit`, { method: 'DELETE' });
 
-  if (!response.ok && response.status !== 204) {
-    throw new Error((await readErrorMessage(response)) || '진료 일정을 삭제하지 못했습니다.');
-  }
+  await ensureOk(response, '진료 일정을 삭제하지 못했습니다');
 }
 
 // 'YYYY-MM-DD' 가 오늘부터 며칠 뒤인가. 지났으면 음수다.

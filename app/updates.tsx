@@ -1,13 +1,14 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
+import { Screen } from '@/components/screen';
 import {
   CHANGE_TYPE_LABELS,
   CHANGELOG,
   ChangelogEntry,
   ChangeType,
 } from '@/constants/changelog';
+import { formatYearMonthDay } from '@/services/format';
 
 // 변화 유형별 배지 색. new=민트(진한 틴트), improved=민트(옅은 틴트), fixed=중립.
 const TYPE_COLORS: Record<ChangeType, { bg: string; fg: string }> = {
@@ -18,34 +19,24 @@ const TYPE_COLORS: Record<ChangeType, { bg: string; fg: string }> = {
 
 export default function UpdatesScreen() {
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.container}>
-          <BackButton />
+    <Screen gap={16} contentStyle={styles.content}>
+      <BackButton />
 
-          <View style={styles.header}>
-            <Text style={styles.title}>업데이트 이력</Text>
-            <Text style={styles.subtitle}>케어테이블이 어떻게 좋아지고 있는지 알려드려요.</Text>
-          </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>업데이트 이력</Text>
+        <Text style={styles.subtitle}>케어테이블이 어떻게 좋아지고 있는지 알려드려요.</Text>
+      </View>
 
-          {CHANGELOG.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyText}>아직 안내해드릴 업데이트가 없어요.</Text>
-            </View>
-          ) : (
-            <View style={styles.list}>
-              {CHANGELOG.map((entry, index) => (
-                <UpdateCard
-                  key={`${entry.date}-${entry.title}`}
-                  entry={entry}
-                  isLatest={index === 0}
-                />
-              ))}
-            </View>
-          )}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+      <View style={styles.list}>
+        {CHANGELOG.map((entry, index) => (
+          <UpdateCard
+            key={`${entry.date}-${entry.title}`}
+            entry={entry}
+            isLatest={index === 0}
+          />
+        ))}
+      </View>
+    </Screen>
   );
 }
 
@@ -55,7 +46,7 @@ function UpdateCard({ entry, isLatest }: { entry: ChangelogEntry; isLatest: bool
       <View style={styles.cardHead}>
         <View style={styles.cardHeadText}>
           <Text style={styles.cardTitle}>{entry.title}</Text>
-          <Text style={styles.cardDate}>{formatDate(entry.date)}</Text>
+          <Text style={styles.cardDate}>{formatYearMonthDay(entry.date)}</Text>
         </View>
         {isLatest ? (
           <View style={styles.latestBadge}>
@@ -82,13 +73,6 @@ function UpdateCard({ entry, isLatest }: { entry: ChangelogEntry; isLatest: bool
       </View>
     </View>
   );
-}
-
-// 'YYYY-MM-DD' → '2026년 7월 16일'
-function formatDate(date: string): string {
-  const [year, month, day] = date.split('-');
-
-  return `${Number(year)}년 ${Number(month)}월 ${Number(day)}일`;
 }
 
 const styles = StyleSheet.create({
@@ -118,21 +102,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
   },
-  container: {
-    alignSelf: 'center',
-    gap: 16,
-    maxWidth: 720,
-    width: '100%',
-  },
-  emptyBox: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    padding: 32,
-  },
-  emptyText: {
-    color: '#a9a6a1',
-    fontSize: 14,
+  content: {
+    paddingBottom: 36,
   },
   header: {
     gap: 4,
@@ -165,14 +136,6 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: 12,
-  },
-  safeArea: {
-    backgroundColor: '#f7f6f4',
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 36,
   },
   subtitle: {
     color: '#5c5b57',

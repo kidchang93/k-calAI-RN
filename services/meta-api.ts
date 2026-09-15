@@ -1,5 +1,5 @@
 import { apiUrl } from '@/services/api-base';
-import { apiFetch, readErrorMessage } from '@/services/http';
+import { apiFetch, ensure, isRecord, readOk } from '@/services/http';
 
 // kcalAI-model/docs/DATA_MODEL.md 10장 계약.
 // GET /api/meta/options — 온보딩 질병·알러지 선택지. Bearer 필수,
@@ -44,30 +44,15 @@ export const FALLBACK_ALLERGEN_OPTIONS: MetaOption[] = [
   { code: 'peach', label: '복숭아' },
 ];
 
-export const META_API_URL = apiUrl('/api/meta', process.env.EXPO_PUBLIC_META_API_URL);
+const META_API_URL = apiUrl('/api/meta');
 
 export async function getMetaOptions(): Promise<MetaOptions> {
   const response = await apiFetch(`${META_API_URL}/options`);
 
-  if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `선택지 목록 조회 실패: ${response.status}`);
-  }
-
-  const parsed = parseMetaOptions((await response.json()) as unknown);
-
-  if (parsed === null) {
-    throw new Error('서버 응답 형식이 올바르지 않습니다.');
-  }
-
-  return parsed;
+  return ensure(parseMetaOptions(await readOk(response, '선택지 목록 조회 실패')));
 }
 
 // ── 내부 헬퍼 (export 안 함) ────────────────────────────────────────────────
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
 
 function parseMetaOption(value: unknown): MetaOption | null {
   if (!isRecord(value)) {
@@ -86,19 +71,9 @@ function parseMetaOptionList(value: unknown): MetaOption[] | null {
     return null;
   }
 
-  const options: MetaOption[] = [];
+  const options = value.map(parseMetaOption);
 
-  for (const item of value) {
-    const parsed = parseMetaOption(item);
-
-    if (parsed === null) {
-      return null;
-    }
-
-    options.push(parsed);
-  }
-
-  return options;
+  return options.includes(null) ? null : (options as MetaOption[]);
 }
 
 function parseMetaOptions(value: unknown): MetaOptions | null {

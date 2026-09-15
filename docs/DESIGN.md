@@ -47,7 +47,7 @@
 | 로그인·회원가입 탭을 없애고 진입점을 버튼 하나로 | `app/auth.tsx` | 신규 여부는 서버가 `is_new`로 알려준다. 사용자에게 "가입인가 로그인인가"를 먼저 묻는 것은 앱이 모르는 것을 사용자에게 떠넘기는 질문이다 |
 | 카카오 취소(`error=cancelled`)는 에러 배너를 띄우지 않는다 | `KakaoCancelledError` | 사용자가 스스로 닫은 것은 실패가 아니다. 오류로 표시하면 앱이 고장난 것처럼 보인다 |
 | 연동 코드 400(만료·소비)은 화면을 '카카오' 단계로 되돌리고 재시도를 안내 | `KakaoLinkExpiredError`, `app/auth.tsx` | 코드는 1회용·TTL 10분이다. 동의 화면에 오래 머물면 죽는데, 그 코드를 붙들고 재시도 버튼을 주면 영원히 실패한다 |
-| 목표 수정 화면은 수동 수정이 없으면 `target_kcal`을 보내지 않는다 | `app/me/goal.tsx` (온보딩 `goal.tsx`와 동일 규칙) | 산출의 단일 진실은 서버 |
+| 목표 수정 화면은 수동 수정이 없으면 `target_kcal`을 보내지 않는다 | `components/goal-form.tsx`의 `toGoalRequest` (온보딩·내 정보 공용) | 산출의 단일 진실은 서버 |
 | 질병·알러지 수정 화면은 저장값 GET 실패 시 폼을 그리지 않는다 (메타 옵션 실패만 번들 폴백) | `app/me/conditions.tsx`, `app/me/allergies.tsx` | replace-all PUT이라 프리필 없이 저장하면 기존 값(알러지 severity 포함)을 지운다. 온보딩과 달리 수정 화면은 기존 데이터가 걸려 있다 |
 | 추이 차트는 라이브러리 없이 View 높이 비례 순수 RN 바 차트 | `app/(tabs)/trends.tsx` | 주 7·월 30개 바 수준에 차트 의존성은 과하다. Expo SDK 54가 버전을 고정하는 `package.json`도 불변 |
 | 추이의 `target_kcal: null`은 목표 관련 표기를 전부 생략한다 (0으로 취급 금지) | `app/(tabs)/trends.tsx` | 0으로 치면 모든 날이 "초과"가 되고 달성일 계산이 왜곡된다 — summary(홈)와 동일 규칙. 기준선·범례·달성일 셀을 아예 그리지 않는다 |
@@ -60,14 +60,14 @@
 | 그룹 나가기·삭제·멤버 제거 실패는 서버 한국어 `detail`을 Alert로 그대로 표시 | `app/groups/[id].tsx` | 400/403/404 detail이 사용자용 한국어 문장으로 확정된 계약 (DATA_MODEL.md 17장). 성공 시 나가기·삭제는 `router.back()` — 목록이 `useFocusEffect`로 재조회 |
 | 회원 탈퇴는 **2단계 Alert 확인** 후 성공 시에만 `clearAuthSession()` | `app/(tabs)/account.tsx`, `deleteAccount` | 물리 삭제 파기(DATA_MODEL.md 18장)라 되돌릴 수 없다. 2차 Alert에 파기 항목(끼니·체중·검사 수치 기록·소유 그룹)을 명시. 로그아웃과 달리 서버 파기가 확인돼야 세션을 지운다 — 실패 시 세션 유지 + 오류 Alert |
 | 402(요금제 한도)를 `apiFetch` **한 곳에서** `PlanLimitError`로 변환 | `services/http.ts` | 서버가 어느 라우트에서든 같은 본문을 준다. 각 API 클라이언트가 따로 처리하면 업그레이드 유도가 화면마다 어긋난다 — 호출부는 `instanceof`로만 분기한다 |
-| 402는 `ErrorBanner`(다시 시도)가 아니라 `PlanLimitBanner`(요금제 업그레이드) | `components/plan-limit-banner.tsx` | 한도 초과는 재시도로 풀리지 않는다. 429(기다리면 풀림)와 달리 402는 "결제해야 풀린다"는 뜻이라 다음 행동이 다르다 |
+| 402는 `ErrorBanner`를 `actionLabel="요금제 업그레이드"` + `onRetry={() => router.push('/plan')}`로 그린다(다시 시도 아님) | `components/error-banner.tsx` | 한도 초과는 재시도로 풀리지 않는다. 429(기다리면 풀림)와 달리 402는 "결제해야 풀린다"는 뜻이라 다음 행동이 다르다. 2026-09-14 전용 `PlanLimitBanner` 컴포넌트 삭제 |
 | 요금제 `code`·`resource`를 앱에서 유니온으로 굳히지 않는다 (`string` 유지) | `services/subscription-api.ts`, `services/http.ts` | 요금제는 서버 참조 테이블(`plans`)이 정본이다. 플랜을 추가할 때 앱을 함께 배포해야 하는 결합을 만들지 않는다 (서버 `subscription_schema.py`의 같은 판단) |
 | 가입 화면의 요금제는 `GET /api/plans`로 그리고, 실패 시 번들 폴백(`FALLBACK_PLANS`) | `app/auth.tsx` | 메타 옵션과 같은 규칙 — 네트워크 오류로 **가입 자체가 막히면 안 된다**. 기본 선택은 Lite(무료)로, 서버의 `plan_code` 미지정 기본값과 일치시킨다 |
 | 동의·요금제는 **가입 바디에만** 싣는다 (로그인 바디는 `{ link_code }` 하나) | `services/auth-api.ts` | 서버가 `kakao/login`과 `kakao/signup`을 분리했다. 기존 회원에게는 동의·요금제 UI를 렌더하지도 않는다 |
 | ~~유료 플랜 변경 버튼 옆에 "결제 연동 준비 중 — 지금은 즉시 적용됩니다" 명시~~ **해소** (2026-07-16) | `app/plan.tsx` | 토스페이먼츠 자동결제가 붙어 유료 전환이 실제 청구를 거친다. 아래 결제 관련 행들이 대체한다 |
 | 유료 전환은 **오직 결제 흐름**. `changePlan`(PUT)을 업그레이드에 쓰지 않는다 | `app/plan.tsx`, `services/subscription-api.ts` | 서버가 유료 플랜 PUT을 400으로 막는다(24장) — 이 경로엔 결제 검증이 없어 열어 두면 누구나 Premium이 된다. `changePlan`은 무료 전환 전용으로만 남긴다 |
 | 유료 구독자의 '그만두기'는 무료 전환(PUT lite)이 아니라 **자동결제 해지**(cancel) | `app/plan.tsx`, `services/billing-api.ts` | PUT lite는 즉시 적용되며 **남은 유료 기간을 포기시킨다** — 이미 낸 돈을 버리는 버튼을 무심코 누르게 두지 않는다. cancel은 기간을 지키고 갱신만 끈다. 그래서 무료 카드에는 버튼 대신 "해지하면 남은 기간 뒤 전환돼요" 안내만 둔다 |
-| 해지 확인을 `Alert.alert`가 아니라 **화면 안 2단계 확인**으로 | `app/plan.tsx` `confirmBox` | react-native-web의 `Alert.alert`는 **no-op**(`static alert() {}`)이다. 결제 주 무대가 웹인데 Alert로 물으면 웹에서 확인이 통째로 사라진다. 인라인 확인은 두 플랫폼에서 같게 동작한다 (회원 탈퇴의 2단계 Alert는 네이티브 전용 흐름이라 그대로 둔다) |
+| 해지·플랜 변경 확인은 `Alert.alert`를 직접 쓰지 않고 **`confirmDialog`**로 | `app/plan.tsx`, `services/dialog.ts` | react-native-web의 `Alert.alert`는 **no-op**(`static alert() {}`)이다. 결제 주 무대가 웹인데 Alert로 물으면 웹에서 확인이 통째로 사라진다. `confirmDialog`는 웹은 `window.confirm`, 네이티브는 `Alert.alert`로 내려가 두 플랫폼에서 같게 동작한다 (2026-09-14: 화면 안 2단계 확인 박스에서 교체) |
 | 토스 SDK를 npm이 아니라 **웹에서만 script 태그로 동적 로드** | `services/toss-sdk.ts` | SDK가 브라우저 전용(`window`·`document`)이라 번들에 넣으면 네이티브가 DOM 없는 런타임에서 평가한다. `package.json`도 Expo SDK 54가 고정한다 — 의존성을 늘리지 않는 편이 맞다. `window` 접근은 `billingReturnUrl()`로 services 안에 가둔다 (화면은 DOM을 모른다) |
 | 네이티브에는 결제 버튼 대신 "결제는 웹에서 진행해주세요" 안내 | `app/plan.tsx`, `isBillingSupported()` | 토스 결제창은 브라우저 전용이고, 마켓 정책상 디지털 상품은 인앱결제를 붙여야 한다(예정). 누를 수 없는 버튼을 그려 두고 눌렀을 때 실패시키지 않는다 |
 | `confirm`은 마운트 1회(ref 가드), 실패해도 **재호출하지 않는다** | `app/billing/success.tsx` | `authKey`는 1회용이라 두 번째 호출은 반드시 실패한다. 실패 시 '다시 시도'는 confirm 재전송이 아니라 `/plan`에서 결제를 처음부터 |
@@ -117,33 +117,24 @@
 
 1. `services/<domain>-api.ts` 파일을 만듭니다.
 2. 서버 응답 형태를 `type`으로 선언하고 **export** 합니다. 필드명은 서버의 `snake_case`를 그대로 씁니다.
-3. 기본 URL에 `Platform.OS === 'android'` 분기를 넣고, `EXPO_PUBLIC_*` 환경변수로 덮어쓸 수 있게 합니다.
+3. 경로는 `services/api-base.ts`의 `apiUrl(path)`로 만듭니다. 오리진(로컬/Android 에뮬레이터/`EXPO_PUBLIC_API_ORIGIN`)은 `api-base.ts`가 이미 결정하므로 서비스 파일에 `Platform.OS` 분기나 서비스별 환경변수를 두지 않습니다.
 
 ```typescript
-const DEFAULT_X_API_URL =
-  Platform.OS === 'android' ? 'http://10.0.2.2:8000/api/x' : 'http://127.0.0.1:8000/api/x';
+import { apiUrl } from '@/services/api-base';
 
-export const X_API_URL = process.env.EXPO_PUBLIC_X_API_URL ?? DEFAULT_X_API_URL;
+const X_API_URL = apiUrl('/api/x');
 ```
 
-4. `async function`을 작성합니다. 반드시 다음 순서를 지킵니다.
+4. `async function`을 작성합니다. 인증이 필요하면 `fetch` 대신 `apiFetch`(세션 있으면 Bearer 첨부, 401 시 세션 정리, 402를 `PlanLimitError`로 변환)를, 응답 처리에는 `readOk`/`ensureOk`(`services/http.ts`)를 씁니다.
 
 ```typescript
+import { apiFetch, ensure, isRecord, readOk } from '@/services/http';
+
 export async function doSomething(input: Input): Promise<Output> {
-  const response = await fetch(X_API_URL, { method: 'POST', headers: {...}, body: ... });
+  const response = await apiFetch(X_API_URL, { method: 'POST', body: JSON.stringify(input) });
+  const data = await readOk(response, '작업 실패');   // !ok면 서버 detail(+한국어 폴백)로 던짐
 
-  if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `작업 실패: ${response.status}`);   // 한국어 폴백 메시지
-  }
-
-  const data = (await response.json()) as { field?: unknown };
-
-  if (typeof data.field !== 'string') {                            // 런타임 검증 필수
-    throw new Error('서버 응답에 field 값이 없습니다.');
-  }
-
-  return data.field;
+  return ensure(parseOutput(data));                   // 런타임 검증 필수 — services/http.ts 헬퍼 참고
 }
 ```
 
@@ -153,7 +144,7 @@ export async function doSomething(input: Input): Promise<Output> {
 
 1. `app/` 하위에 파일을 만듭니다. 파일명이 곧 경로입니다. **라우트가 아닌 파일을 `app/`에 두지 마세요.**
 2. `export default function <Name>Screen()` 형태로 기본 export 합니다.
-3. `SafeAreaView`(`react-native-safe-area-context`에서 import — react-native의 것은 deprecated) → `ScrollView contentContainerStyle={styles.container}` 골격을 따릅니다.
+3. 틀은 `components/screen.tsx`의 `<Screen>`(SafeAreaView → ScrollView → 최대 720 컨테이너)을 씁니다. 로딩 카드는 `LoadingState`, 제출 버튼은 `PrimaryButton`, 탭 밖 스택 `_layout.tsx`는 `AuthGuardStack`입니다. 틀을 직접 짜야 하면 `SafeAreaView`는 `react-native-safe-area-context`에서 import 합니다(react-native의 것은 deprecated).
 4. 화면 전용 하위 컴포넌트는 **같은 파일 하단에 named function**으로 둡니다 (`ActionButton`, `PredictionRow`, `StatusItem`). 여러 화면이 공유할 때만 `components/`로 승격합니다.
 5. `StyleSheet.create`를 파일 맨 아래에 둡니다.
 6. 탭에 노출하려면 `app/(tabs)/_layout.tsx`에 `<Tabs.Screen>`을 추가합니다.

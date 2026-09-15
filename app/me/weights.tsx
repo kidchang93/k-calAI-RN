@@ -1,20 +1,12 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
 import { ErrorBanner } from '@/components/error-banner';
+import { LoadingState } from '@/components/loading-state';
+import { Screen } from '@/components/screen';
+import { formatMeasuredAt } from '@/services/format';
 import { createWeight, getWeights, WeightLog } from '@/services/health-api';
 
 // 최근 기록만 보여준다. 그래프는 진료 탭에 있다 — 이 화면의 범위가 아니다.
@@ -71,107 +63,71 @@ export default function WeightsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardView}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          <View style={styles.container}>
-            <BackButton />
+    <Screen keyboard="avoid">
+      <BackButton />
 
-            <View style={styles.header}>
-              <Text style={styles.title}>체중 기록</Text>
-              <Text style={styles.subtitle}>오늘 잰 몸무게를 기록해두면 변화를 볼 수 있어요.</Text>
-            </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>체중 기록</Text>
+        <Text style={styles.subtitle}>오늘 잰 몸무게를 기록해두면 변화를 볼 수 있어요.</Text>
+      </View>
 
-            <View style={styles.formRow}>
-              <View style={styles.inputRow}>
-                <TextInput
-                  keyboardType="numeric"
-                  onChangeText={setWeightText}
-                  placeholder="70.5"
-                  placeholderTextColor="#a9a6a1"
-                  style={styles.input}
-                  value={weightText}
-                />
-                <Text style={styles.unit}>kg</Text>
-              </View>
-              <Pressable
-                disabled={!isValid || isSaving}
-                onPress={() => void save()}
-                style={({ pressed }) => [
-                  styles.primaryButton,
-                  (!isValid || isSaving) && styles.primaryButtonDisabled,
-                  pressed && styles.pressed,
-                ]}>
-                {isSaving ? (
-                  <ActivityIndicator color="#22211f" />
-                ) : (
-                  <Text style={styles.primaryButtonText}>기록</Text>
-                )}
-              </Pressable>
-            </View>
+      <View style={styles.formRow}>
+        <View style={styles.inputRow}>
+          <TextInput
+            keyboardType="numeric"
+            onChangeText={setWeightText}
+            placeholder="70.5"
+            placeholderTextColor="#a9a6a1"
+            style={styles.input}
+            value={weightText}
+          />
+          <Text style={styles.unit}>kg</Text>
+        </View>
+        <Pressable
+          disabled={!isValid || isSaving}
+          onPress={() => void save()}
+          style={({ pressed }) => [
+            styles.primaryButton,
+            (!isValid || isSaving) && styles.primaryButtonDisabled,
+            pressed && styles.pressed,
+          ]}>
+          {isSaving ? (
+            <ActivityIndicator color="#22211f" />
+          ) : (
+            <Text style={styles.primaryButtonText}>기록</Text>
+          )}
+        </Pressable>
+      </View>
 
-            {errorMessage ? (
-              <ErrorBanner message={errorMessage} onRetry={() => void loadWeights()} />
-            ) : null}
+      {errorMessage ? (
+        <ErrorBanner message={errorMessage} onRetry={() => void loadWeights()} />
+      ) : null}
 
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>최근 기록</Text>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>최근 기록</Text>
 
-              {isLoading ? (
-                <View style={styles.stateBox}>
-                  <ActivityIndicator color="#2a7d76" />
-                  <Text style={styles.stateText}>체중 기록을 불러오는 중입니다.</Text>
-                </View>
-              ) : weights.length === 0 ? (
-                <View style={styles.stateBox}>
-                  <MaterialIcons color="#a9a6a1" name="monitor-weight" size={32} />
-                  <Text style={styles.stateText}>아직 기록이 없어요. 첫 체중을 기록해보세요.</Text>
-                </View>
-              ) : (
-                weights.map((log) => (
-                  <View key={log.id} style={styles.weightRow}>
-                    <MaterialIcons color="#5c5b57" name="monitor-weight" size={18} />
-                    <Text style={styles.weightDate}>{formatMeasuredAt(log.measured_at)}</Text>
-                    <Text style={styles.weightValue}>{`${log.weight_kg.toLocaleString()} kg`}</Text>
-                  </View>
-                ))
-              )}
-            </View>
+        {isLoading ? (
+          <LoadingState label="체중 기록을 불러오는 중입니다." />
+        ) : weights.length === 0 ? (
+          <View style={styles.stateBox}>
+            <MaterialIcons color="#a9a6a1" name="monitor-weight" size={32} />
+            <Text style={styles.stateText}>아직 기록이 없어요. 첫 체중을 기록해보세요.</Text>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        ) : (
+          weights.map((log) => (
+            <View key={log.id} style={styles.weightRow}>
+              <MaterialIcons color="#5c5b57" name="monitor-weight" size={18} />
+              <Text style={styles.weightDate}>{formatMeasuredAt(log.measured_at)}</Text>
+              <Text style={styles.weightValue}>{`${log.weight_kg.toLocaleString()} kg`}</Text>
+            </View>
+          ))
+        )}
+      </View>
+    </Screen>
   );
 }
 
-// 서버의 UTC ISO 문자열을 기기 로컬 날짜·시각으로 표시한다.
-function formatMeasuredAt(isoText: string): string {
-  const date = new Date(isoText);
-
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-
-  return `${date.getFullYear()}.${month}.${day} ${hours}:${minutes}`;
-}
-
 const styles = StyleSheet.create({
-  container: {
-    alignSelf: 'center',
-    gap: 20,
-    maxWidth: 720,
-    width: '100%',
-  },
   formRow: {
     flexDirection: 'row',
     gap: 10,
@@ -197,9 +153,6 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
   },
-  keyboardView: {
-    flex: 1,
-  },
   pressed: {
     opacity: 0.74,
   },
@@ -217,13 +170,6 @@ const styles = StyleSheet.create({
     color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
-  },
-  safeArea: {
-    backgroundColor: '#f7f6f4',
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
   },
   section: {
     gap: 10,

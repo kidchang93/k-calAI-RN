@@ -1,11 +1,9 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import Head from 'expo-router/head';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import 'react-native-reanimated';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { restoreAuthSession } from '@/services/auth-session';
 
 export const unstable_settings = {
@@ -33,8 +31,6 @@ const NAV_THEME = {
 //   - 미인증 상태로 (tabs) 진입  → app/(tabs)/_layout.tsx
 //   - 인증 상태로 auth 진입      → app/auth.tsx
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   // 저장된 세션을 복원한다. 여기서는 네비게이션을 하지 않는다.
   // 복원이 끝나면 각 라우트의 <Redirect> 가드가 스스로 이동을 판단한다.
   useEffect(() => {
@@ -42,7 +38,7 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : NAV_THEME}>
+    <ThemeProvider value={NAV_THEME}>
       {/* 브라우저 탭 제목. **`app/+html.tsx`의 <title>만으로는 안 된다** — expo-router 가
           react-helmet 으로 문서 head 를 관리해서, 아무도 title 을 주지 않으면 빈 태그로
           덮어쓴다(2026-08-18 운영에서 빈 제목 확인). Stack 의 `screenOptions.title` 도

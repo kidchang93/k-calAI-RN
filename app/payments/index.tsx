@@ -1,12 +1,14 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
 import { ErrorBanner } from '@/components/error-banner';
+import { LoadingState } from '@/components/loading-state';
 import { PaymentStatusBadge } from '@/components/payment-status-badge';
+import { Screen } from '@/components/screen';
+import { formatIsoDate } from '@/services/format';
 import { getPayments, PaymentItem } from '@/services/payment-api';
 
 export default function PaymentsScreen() {
@@ -36,48 +38,41 @@ export default function PaymentsScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.container}>
-          <BackButton />
+    <Screen>
+      <BackButton />
 
-          <View style={styles.header}>
-            <Text style={styles.title}>결제 내역</Text>
-            <Text style={styles.subtitle}>요금제 결제와 영수증을 여기서 확인하세요.</Text>
-          </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>결제 내역</Text>
+        <Text style={styles.subtitle}>요금제 결제와 영수증을 여기서 확인하세요.</Text>
+      </View>
 
-          {isLoading ? (
-            <View style={styles.stateBox}>
-              <ActivityIndicator color="#2a7d76" />
-              <Text style={styles.stateText}>결제 내역을 불러오는 중입니다.</Text>
-            </View>
-          ) : errorMessage ? (
-            <ErrorBanner message={errorMessage} onRetry={() => void loadPayments()} />
-          ) : payments === null || payments.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <MaterialIcons color="#2a7d76" name="receipt-long" size={28} />
-              <Text style={styles.emptyTitle}>아직 결제 내역이 없어요</Text>
-              <Text style={styles.emptyText}>결제가 발생하면 영수증을 여기서 확인할 수 있어요.</Text>
-            </View>
-          ) : (
-            <View style={styles.paymentList}>
-              {payments.map((payment) => (
-                <PaymentRow
-                  key={payment.id}
-                  payment={payment}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/payments/[id]',
-                      params: { id: String(payment.id) },
-                    })
-                  }
-                />
-              ))}
-            </View>
-          )}
+      {isLoading ? (
+        <LoadingState label="결제 내역을 불러오는 중입니다." />
+      ) : errorMessage ? (
+        <ErrorBanner message={errorMessage} onRetry={() => void loadPayments()} />
+      ) : payments === null || payments.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <MaterialIcons color="#2a7d76" name="receipt-long" size={28} />
+          <Text style={styles.emptyTitle}>아직 결제 내역이 없어요</Text>
+          <Text style={styles.emptyText}>결제가 발생하면 영수증을 여기서 확인할 수 있어요.</Text>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      ) : (
+        <View style={styles.paymentList}>
+          {payments.map((payment) => (
+            <PaymentRow
+              key={payment.id}
+              payment={payment}
+              onPress={() =>
+                router.push({
+                  pathname: '/payments/[id]',
+                  params: { id: String(payment.id) },
+                })
+              }
+            />
+          ))}
+        </View>
+      )}
+    </Screen>
   );
 }
 
@@ -98,7 +93,7 @@ function PaymentRow({ payment, onPress }: { payment: PaymentItem; onPress: () =>
         </View>
         <View style={styles.paymentBottomLine}>
           <Text style={styles.paymentMeta}>
-            {formatDate(payment.approved_at ?? payment.created_at)}
+            {formatIsoDate(payment.approved_at ?? payment.created_at)}
           </Text>
           <PaymentStatusBadge status={payment.status} />
         </View>
@@ -108,28 +103,7 @@ function PaymentRow({ payment, onPress }: { payment: PaymentItem; onPress: () =>
   );
 }
 
-// 서버의 ISO 문자열을 기기 로컬 날짜(YYYY.MM.DD)로 표시한다.
-function formatDate(isoText: string): string {
-  const date = new Date(isoText);
-
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-
-  return `${year}.${month}.${day}`;
-}
-
 const styles = StyleSheet.create({
-  container: {
-    alignSelf: 'center',
-    gap: 20,
-    maxWidth: 720,
-    width: '100%',
-  },
   emptyCard: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
@@ -194,24 +168,6 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.74,
-  },
-  safeArea: {
-    backgroundColor: '#f7f6f4',
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-  },
-  stateBox: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    gap: 12,
-    padding: 32,
-  },
-  stateText: {
-    color: '#5c5b57',
-    fontSize: 14,
   },
   subtitle: {
     color: '#5c5b57',

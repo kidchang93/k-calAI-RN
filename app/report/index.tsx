@@ -7,14 +7,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton } from '@/components/back-button';
 import { ErrorBanner } from '@/components/error-banner';
 import { MedicalDisclaimer } from '@/components/medical-disclaimer';
+import { MEAL_TYPE_LABELS } from '@/constants/meal';
 import { formatFoodLabel } from '@/services/food-label';
-import {
-  getMedicalReport,
-  MealType,
-  MedicalReport,
-  recentDateRange,
-  ReportMeal,
-} from '@/services/health-api';
+import { formatGeneratedAt } from '@/services/format';
+import { getMedicalReport, MedicalReport, recentDateRange, ReportMeal } from '@/services/health-api';
 import { getConsents, isSensitiveConsentOutdated } from '@/services/onboarding-api';
 
 // 진료·영양상담에 가져가는 기록. 목표 지표의 첫 항목("진료에서 실제로 열어 보였는가",
@@ -23,13 +19,6 @@ import { getConsents, isSensitiveConsentOutdated } from '@/services/onboarding-a
 // **웹에서는 인쇄(PDF 저장)가 되고 네이티브에서는 안 된다.** 결제와 같은 이유로 주 무대가
 // 웹이라(FastAPI 가 webapp 을 서빙) 우선 웹에 맞춘다. 네이티브에는 버튼 대신 안내를 둔다 —
 // 누를 수 없는 버튼을 그려 놓고 눌렀을 때 실패시키지 않는다 (docs/DESIGN.md 의 결제 선례).
-
-const MEAL_TYPE_LABELS: Record<MealType, string> = {
-  breakfast: '아침',
-  lunch: '점심',
-  dinner: '저녁',
-  snack: '간식',
-};
 
 const PERIOD_DAYS = 30;
 
@@ -281,19 +270,6 @@ function groupByDate(meals: ReportMeal[]): [string, ReportMeal[]][] {
   }
 
   return [...map.entries()];
-}
-
-// ISO → '2026-07-25 10:34'
-function formatGeneratedAt(value: string): string {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  const pad = (n: number) => String(n).padStart(2, '0');
-
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 const styles = StyleSheet.create({

@@ -1,21 +1,11 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
 import { ErrorBanner } from '@/components/error-banner';
-import { PlanLimitBanner } from '@/components/plan-limit-banner';
+import { PrimaryButton } from '@/components/primary-button';
+import { Screen } from '@/components/screen';
 import { joinGroup } from '@/services/group-api';
 import { readInviteCodeParam } from '@/services/group-invite';
 import { PlanLimitError } from '@/services/http';
@@ -58,78 +48,57 @@ export default function GroupJoinScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardView}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          <View style={styles.container}>
-            <BackButton />
+    <Screen keyboard="avoid">
+      <BackButton />
 
-            <View style={styles.header}>
-              <Text style={styles.title}>초대코드로 참여</Text>
-              <Text style={styles.subtitle}>
-                {isFromInviteLink
-                  ? '초대 링크의 코드를 채워두었어요. 참여하기를 누르면 그룹에 들어갑니다.'
-                  : '그룹 멤버에게 받은 8자리 코드를 입력해주세요.'}
-              </Text>
-            </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>초대코드로 참여</Text>
+        <Text style={styles.subtitle}>
+          {isFromInviteLink
+            ? '초대 링크의 코드를 채워두었어요. 참여하기를 누르면 그룹에 들어갑니다.'
+            : '그룹 멤버에게 받은 8자리 코드를 입력해주세요.'}
+        </Text>
+      </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>초대코드</Text>
-              <View style={styles.inputRow}>
-                <TextInput
-                  autoCapitalize="characters"
-                  autoCorrect={false}
-                  maxLength={8}
-                  onChangeText={setCode}
-                  placeholder="A7K2MPQ9"
-                  placeholderTextColor="#a9a6a1"
-                  style={styles.input}
-                  value={code}
-                />
-              </View>
-            </View>
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>초대코드</Text>
+        <View style={styles.inputRow}>
+          <TextInput
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={8}
+            onChangeText={setCode}
+            placeholder="A7K2MPQ9"
+            placeholderTextColor="#a9a6a1"
+            style={styles.input}
+            value={code}
+          />
+        </View>
+      </View>
 
-            {errorMessage ? (
-              <ErrorBanner message={errorMessage} onRetry={() => void join()} />
-            ) : null}
+      {errorMessage ? (
+        <ErrorBanner message={errorMessage} onRetry={() => void join()} />
+      ) : null}
 
-            {planLimitMessage ? (
-              <PlanLimitBanner message={planLimitMessage} onUpgrade={() => router.push('/plan')} />
-            ) : null}
+      {planLimitMessage ? (
+        <ErrorBanner
+          actionLabel="요금제 업그레이드"
+          message={planLimitMessage}
+          onRetry={() => router.push('/plan')}
+        />
+      ) : null}
 
-            <Pressable
-              disabled={!isValid || isJoining}
-              onPress={() => void join()}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                (!isValid || isJoining) && styles.primaryButtonDisabled,
-                pressed && styles.pressed,
-              ]}>
-              {isJoining ? (
-                <ActivityIndicator color="#22211f" />
-              ) : (
-                <Text style={styles.primaryButtonText}>참여하기</Text>
-              )}
-            </Pressable>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      <PrimaryButton
+        disabled={!isValid}
+        label="참여하기"
+        loading={isJoining}
+        onPress={() => void join()}
+      />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    alignSelf: 'center',
-    gap: 20,
-    maxWidth: 720,
-    width: '100%',
-  },
   header: {
     gap: 4,
   },
@@ -154,38 +123,10 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
   },
-  keyboardView: {
-    flex: 1,
-  },
   label: {
     color: '#5c5b57',
     fontSize: 14,
     fontWeight: '700',
-  },
-  pressed: {
-    opacity: 0.74,
-  },
-  primaryButton: {
-    alignItems: 'center',
-    backgroundColor: '#60beb8',
-    borderRadius: 8,
-    marginTop: 8,
-    paddingVertical: 14,
-  },
-  primaryButtonDisabled: {
-    backgroundColor: '#99d2ce',
-  },
-  primaryButtonText: {
-    color: '#22211f',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  safeArea: {
-    backgroundColor: '#f7f6f4',
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
   },
   subtitle: {
     color: '#5c5b57',

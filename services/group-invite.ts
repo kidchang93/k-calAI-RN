@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
 
+import { getWebStorage } from '@/services/auth-session';
+
 // 그룹 초대 링크. 받는 사람이 8자 코드를 손으로 옮겨 적지 않도록 링크에 코드를 실어 보낸다.
 // 목적지는 인증 가드 밖의 `/invite` 라우트다 — 미가입자가 링크를 열어도 로그인으로 튕기면서
 // 코드가 유실되지 않아야 하기 때문이다 (app/invite.tsx).
@@ -16,6 +18,8 @@ const PENDING_INVITE_KEY = 'pending-group-invite';
 const INVITE_CODE_PATTERN = /^[A-Z0-9]{8}$/;
 
 // 로그인 전에 열린 초대 링크의 코드. 로그인·온보딩을 마치고 홈에 도달하면 소비된다.
+// 웹은 카카오 로그인이 페이지를 오갈 수 있어 localStorage 에도 남긴다(세션 영속화와 같은 이유).
+// 네이티브는 유니버설 링크가 없어 미로그인 딥링크 자체가 생기지 않으므로 메모리로 충분하다.
 let pendingInviteCode: string | null = null;
 
 export function normalizeInviteCode(value: string): string {
@@ -67,20 +71,6 @@ export function consumePendingInvite(): string | null {
   getWebStorage()?.removeItem(PENDING_INVITE_KEY);
 
   return code !== null && isInviteCode(code) ? code : null;
-}
-
-// 웹은 카카오 로그인이 페이지를 오갈 수 있어 localStorage 에도 남긴다(세션 영속화와 같은 이유).
-// 네이티브는 유니버설 링크가 없어 미로그인 딥링크 자체가 생기지 않으므로 메모리로 충분하다.
-function getWebStorage(): Storage | null {
-  if (Platform.OS !== 'web' || typeof window === 'undefined') {
-    return null;
-  }
-
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
 }
 
 function inviteOrigin(): string {

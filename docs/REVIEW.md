@@ -53,7 +53,7 @@ npm start              # 그 다음 앱
 
 - [ ] 화면이 `fetch`를 직접 호출하지 않는가.
 - [ ] `services/`가 컴포넌트/JSX를 포함하지 않는가.
-- [ ] `components/`가 `services/`를 import 하지 않는가.
+- [ ] `components/`가 `services/`를 import 하지 않는가 (예외: `services/`의 **타입**과 `useAuthSession` 훅 — `docs/ARCHITECTURE.md` 의존성 표).
 - [ ] `app/`에 라우트가 아닌 파일을 추가하지 않았는가.
 - [ ] `@/` 별칭을 썼는가. 상대 경로가 아닌가.
 
@@ -91,9 +91,8 @@ npm start              # 그 다음 앱
 | 서버 오류 메시지를 그대로 신뢰 | `/api/predict` 등은 사용자용 한국어 `detail`을 줍니다. (`/api/s3/*`·레거시 `/api/gpt-predict`는 서버에서 제거됨 — 2026-07-12) |
 | `127.0.0.1`로 Android 에뮬레이터 테스트 | 에뮬레이터 자신을 가리킵니다. `10.0.2.2`여야 합니다. |
 | `app/`에 헬퍼 파일 추가 | expo-router가 라우트로 등록합니다. |
-| `npm run reset-project` 실행 | `app/`을 `app-example/`로 옮기고 스캐폴드로 덮어씁니다. |
 
-> 과거 "흔한 실수"였다가 해소된 것: 세션 영속화 없음(→ `auth-session.ts`가 `expo-secure-store`로 영속화), `Authorization` 헤더 없음(→ `apiFetch`가 Bearer 첨부), `readErrorMessage` 중복 정의(→ `services/http.ts` 단일 정의로 공통화), 다크모드 테마 인프라(→ 라이트 전용 확정으로 `ThemedText`·`constants/theme` 등 제거), Expo 템플릿 잔재(→ `modal.tsx`·`hello-wave.tsx` 등 삭제).
+> 과거 "흔한 실수"였다가 해소된 것: 세션 영속화 없음(→ `auth-session.ts`가 `expo-secure-store`로 영속화), `Authorization` 헤더 없음(→ `apiFetch`가 Bearer 첨부), `readErrorMessage` 중복 정의(→ `services/http.ts` 단일 정의로 공통화), 다크모드 테마 인프라(→ 라이트 전용 확정으로 `ThemedText`·`constants/theme` 등 제거), Expo 템플릿 잔재(→ `modal.tsx`·`hello-wave.tsx` 등 삭제), `npm run reset-project`(→ 2026-09-14 스크립트 자체를 삭제).
 
 ## 커밋
 

@@ -50,7 +50,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { CALORIE_API_URL, Prediction, uploadFoodPhoto } from '@/services/calorie-api';
+import { FoodDetection, PredictResult, uploadFoodPhoto } from '@/services/calorie-api';
 ```
 
 - `react-native`에서 가져오는 심볼은 알파벳 순으로 정렬합니다.
@@ -142,23 +142,23 @@ actionButton: {
 ## 서비스 모듈
 
 ```typescript
-import { Platform } from 'react-native';
+import { apiUrl } from '@/services/api-base';
+import { apiFetch, readOk } from '@/services/http';
 
 // 1. 타입 export
-export type Prediction = { label: string; score: number };
+export type FoodDetection = { label: string; score: number };
 
-// 2. 기본 URL + 플랫폼 분기
-const DEFAULT_API_URL =
-  Platform.OS === 'android' ? 'http://10.0.2.2:8000/api/predict' : 'http://127.0.0.1:8000/api/predict';
+// 2. 경로 — 오리진은 api-base.ts가 정하므로 서비스 파일에 호스트 분기·환경변수를 두지 않는다.
+const CALORIE_API_URL = apiUrl('/api/predict');
 
-// 3. 환경변수 override
-export const CALORIE_API_URL = process.env.EXPO_PUBLIC_CALORIE_API_URL ?? DEFAULT_API_URL;
+// 3. 공개 async 함수 — apiFetch(세션 있으면 Bearer 첨부) + readOk(!ok면 detail로 던지고 JSON 반환)
+export async function uploadFoodPhoto(asset: PhotoAsset): Promise<FoodDetection[]> {
+  const response = await apiFetch(CALORIE_API_URL, { method: 'POST', body: formData });
+  const data = (await readOk(response, '업로드 실패')) as { foods?: unknown };
+  // ... 런타임 검증 후 반환
+}
 
-// 4. 공개 async 함수
-export async function uploadFoodPhoto(asset: PhotoAsset): Promise<Prediction[]> { ... }
-
-// 5. 모듈 내부 헬퍼 (파일 하단, export 안 함)
-async function readErrorMessage(response: Response) { ... }
+// 4. 모듈 내부 헬퍼 (파일 하단, export 안 함)
 ```
 
 - 기본값은 `??`를 씁니다. `||`를 쓰지 않습니다 (빈 문자열이 유효값일 수 있음).
@@ -196,12 +196,11 @@ async function readErrorMessage(response: Response) { ... }
 
 | 금지 | 대신 |
 |------|------|
-| `npm run reset-project` | 실행하지 않음 (`app/`을 파괴적으로 이동) |
 | `app/`에 라우트 아닌 파일 배치 | `components/` 또는 `services/` |
 | 루트 레이아웃에서 `router.replace()` 호출 | `<Redirect href="..." />` (네비게이터 마운트 전 호출 시 예외) |
 | 화면에서 `fetch` 직접 호출 | `services/<domain>-api.ts`에 함수 추가 |
 | `services/`에서 컴포넌트/JSX 작성 | `components/` |
-| `components/`가 `services/`를 import | props로 주입 |
+| `components/`가 `services/`를 import | props로 주입 (예외: `services/`의 **타입**과 `services/auth-session.ts`의 `useAuthSession` 훅 — `docs/ARCHITECTURE.md` 의존성 표 참고) |
 | `any` | `unknown` + 타입 가드 |
 | `interface Props {}` | 인라인 타입 또는 `type XxxProps` |
 | `{cond && <View />}` | `{cond ? <View /> : null}` |
@@ -216,10 +215,14 @@ async function readErrorMessage(response: Response) { ... }
 
 ## 공통 HTTP 모듈
 
+기본 오리진은 `services/api-base.ts`의 `apiUrl(path)`가 정합니다 — 새 서비스는 `apiUrl('/api/…')`를 쓰고, 서비스 파일마다 호스트 분기·`EXPO_PUBLIC_*_API_URL` 환경변수를 따로 두지 않습니다.
+
 네트워크 공통 코드는 `services/http.ts`에 있습니다.
 
-- `readErrorMessage(response)` — 서버 오류 메시지 추출. 배열 `detail`(Pydantic 422)을 `\n`으로 join 합니다. `auth-api.ts`·`calorie-api.ts`가 공유합니다. **재정의하지 마세요.**
-- `apiFetch(input, init)` — 세션이 있으면 `Authorization: Bearer <access_token>`을 붙이고, `401`이면 `clearAuthSession()`으로 세션을 비웁니다. 인증이 필요한 요청은 `fetch` 대신 `apiFetch`를 씁니다.
+- `apiFetch(input, init)` — 세션이 있으면 `Authorization: Bearer <access_token>`을 붙이고, `401`이면 `clearAuthSession()`으로 세션을 비우고, `402`면 `PlanLimitError`로 던집니다. 인증이 필요한 요청은 `fetch` 대신 `apiFetch`를 씁니다.
+- `readOk(response, fallback, statusErrors?)` — `apiFetch`의 응답을 받아 `!ok`면 `readErrorMessage`로 뽑은 서버 메시지(없으면 `${fallback}: status`)로 던지고, `ok`면 JSON을 그대로 돌려줍니다(204는 `null`). `ensureOk`는 본문이 필요 없을 때(DELETE 등) 씁니다.
+- `readErrorMessage(response)` — 서버 오류 메시지 추출. 배열 `detail`(Pydantic 422)을 `\n`으로 join 합니다. `readOk`/`ensureOk`가 내부에서 씁니다. **재정의하지 마세요.**
+- `isRecord`·`toNumber`·`oneOf`·`ensure`·`ensureList` — 응답 런타임 검증 헬퍼.
 
 인증 API(`kakao/login`, `kakao/signup`)는 세션 발급 전 단계라 **순수 `fetch`**를 씁니다 (헤더 미첨부). `logout`만 `apiFetch`로 Bearer를 붙입니다.
 

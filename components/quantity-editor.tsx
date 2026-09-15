@@ -23,11 +23,12 @@ export type QuantityValue = {
   basePerServing: number | null;
 };
 
-const SERVING_RATIO_OPTIONS: { value: string; label: string; ratio: number }[] = [
-  { value: '0.5', label: '0.5인분', ratio: 0.5 },
-  { value: '1', label: '1인분', ratio: 1 },
-  { value: '1.5', label: '1.5인분', ratio: 1.5 },
-  { value: '2', label: '2인분', ratio: 2 },
+// value 가 곧 serving_ratio 다(칩이 돌려준 문자열을 Number 로 읽는다).
+const SERVING_RATIO_OPTIONS: { value: string; label: string }[] = [
+  { value: '0.5', label: '0.5인분' },
+  { value: '1', label: '1인분' },
+  { value: '1.5', label: '1.5인분' },
+  { value: '2', label: '2인분' },
 ];
 
 const UNIT_OPTIONS: { value: QuantityUnit; label: string }[] = [
@@ -202,7 +203,7 @@ export function QuantityEditor({
         <ChipGroup
           options={SERVING_RATIO_OPTIONS}
           selectedValues={[String(value.serving_ratio)]}
-          onToggle={(option) => selectServing(servingRatioOf(option))}
+          onToggle={(option) => selectServing(Number(option))}
         />
       )}
 
@@ -227,12 +228,6 @@ export function QuantityEditor({
       </View>
     </View>
   );
-}
-
-function servingRatioOf(value: string): number {
-  const option = SERVING_RATIO_OPTIONS.find((item) => item.value === value);
-
-  return option ? option.ratio : 1;
 }
 
 const styles = StyleSheet.create({

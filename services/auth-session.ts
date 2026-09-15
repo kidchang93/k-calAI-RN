@@ -1,5 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import { Platform } from 'react-native';
 
 import type { AuthTokenResponse } from '@/services/auth-api';
@@ -11,9 +11,10 @@ const STORAGE_KEY = 'auth-session';
 // (웹은 정식 지원 대상이다 — 새로고침해도 로그인이 유지되어야 한다.)
 const isWeb = Platform.OS === 'web';
 
-function getWebStorage(): Storage | null {
-  // 정적 렌더링(SSR) 등 window가 없는 환경을 방어한다.
-  if (typeof window === 'undefined') {
+// 웹 localStorage. 네이티브·정적 렌더링(SSR)처럼 window가 없는 환경은 null.
+// group-invite.ts·yesterday-summary.ts도 이걸 쓴다 (이 파일은 services를 import하지 않아 순환이 없다).
+export function getWebStorage(): Storage | null {
+  if (!isWeb || typeof window === 'undefined') {
     return null;
   }
 
@@ -76,6 +77,8 @@ export type AuthSessionState =
 
 let currentSession: AuthTokenResponse | null = null;
 let hydrated = false;
+// useSyncExternalStore는 매 렌더 같은 참조를 받아야 하므로 notify 시점에만 새로 만든다.
+let snapshot: AuthSessionState = { status: 'loading' };
 const listeners = new Set<() => void>();
 
 export function getAuthSession() {
@@ -120,21 +123,23 @@ export async function restoreAuthSession() {
 }
 
 export function useAuthSession(): AuthSessionState {
-  const [state, setState] = useState<AuthSessionState>(getStateSnapshot);
-
-  useEffect(() => {
-    const listener = () => setState(getStateSnapshot());
-    listeners.add(listener);
-
-    return () => {
-      listeners.delete(listener);
-    };
-  }, []);
-
-  return state;
+  // 세 번째 인자(서버 스냅샷)는 웹 정적 렌더링(app.json web.output = static)에서 필수다.
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
 
-function getStateSnapshot(): AuthSessionState {
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function getSnapshot(): AuthSessionState {
+  return snapshot;
+}
+
+function computeSnapshot(): AuthSessionState {
   if (!hydrated) {
     return { status: 'loading' };
   }
@@ -160,30 +165,50 @@ function readDevSession(): AuthTokenResponse | null {
 
 function parseSession(raw: string): AuthTokenResponse | null {
   try {
-    const data = JSON.parse(raw) as unknown;
-
-    return isAuthTokenResponse(data) ? data : null;
+    return parseAuthTokenResponse(JSON.parse(raw) as unknown);
   } catch {
     return null;
   }
 }
 
-function isAuthTokenResponse(value: unknown): value is AuthTokenResponse {
+// 로그인·가입 응답(auth-api.ts)과 저장·개발 세션 복원이 같은 검증을 쓴다. http.ts의 isRecord를 쓰지 않는
+// 이유: http.ts가 이 파일을 import하므로 되돌려 import하면 순환이 된다.
+export function parseAuthTokenResponse(value: unknown): AuthTokenResponse | null {
   if (typeof value !== 'object' || value === null) {
-    return false;
+    return null;
   }
 
   const candidate = value as Record<string, unknown>;
 
-  return (
-    typeof candidate.access_token === 'string' &&
-    typeof candidate.token_type === 'string' &&
-    typeof candidate.expires_at === 'string' &&
-    typeof candidate.user === 'object' &&
-    candidate.user !== null
-  );
+  if (
+    typeof candidate.access_token !== 'string' ||
+    typeof candidate.token_type !== 'string' ||
+    typeof candidate.expires_at !== 'string' ||
+    typeof candidate.user !== 'object' ||
+    candidate.user === null
+  ) {
+    return null;
+  }
+
+  const user = candidate.user as Record<string, unknown>;
+
+  if (typeof user.id !== 'number' || typeof user.created_at !== 'string') {
+    return null;
+  }
+
+  return {
+    access_token: candidate.access_token,
+    token_type: candidate.token_type,
+    expires_at: candidate.expires_at,
+    user: {
+      id: user.id,
+      nickname: typeof user.nickname === 'string' ? user.nickname : null,
+      created_at: user.created_at,
+    },
+  };
 }
 
 function notify() {
+  snapshot = computeSnapshot();
   listeners.forEach((listener) => listener());
 }

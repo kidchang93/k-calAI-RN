@@ -1,20 +1,13 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
 import { ErrorBanner } from '@/components/error-banner';
+import { LoadingState } from '@/components/loading-state';
 import { MedicalDisclaimer } from '@/components/medical-disclaimer';
+import { Screen } from '@/components/screen';
 import { confirmDialog } from '@/services/dialog';
 import { formatDateParam } from '@/services/health-api';
 import {
@@ -39,13 +32,6 @@ export default function LabsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [needsConsent, setNeedsConsent] = useState(false);
-
-  // 입력 폼
-  const [selectedPanel, setSelectedPanel] = useState<LabPanel | null>(null);
-  const [valueText, setValueText] = useState('');
-  const [measuredOn, setMeasuredOn] = useState(() => formatDateParam(new Date()));
-  const [noteText, setNoteText] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -75,38 +61,24 @@ export default function LabsScreen() {
     }, [load])
   );
 
-  const save = async () => {
-    if (selectedPanel === null) {
-      return;
-    }
-
-    const value = Number(valueText);
-
-    if (!Number.isFinite(value) || value <= 0) {
+  // 저장되면 true — 폼이 입력을 비운다. 오류는 화면 배너에 띄운다.
+  const save = async (input: LabResultInput): Promise<boolean> => {
+    if (!Number.isFinite(input.value) || input.value <= 0) {
       setErrorMessage('수치를 숫자로 입력해주세요.');
-      return;
+      return false;
     }
 
-    setIsSaving(true);
     setErrorMessage(null);
 
     try {
-      await saveLabResult({
-        measured_on: measuredOn,
-        panel: selectedPanel.code,
-        value,
-        note: noteText.trim() || null,
-      });
-
-      setValueText('');
-      setNoteText('');
-      setSelectedPanel(null);
-      await load();
+      await saveLabResult(input);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '저장하지 못했습니다.');
-    } finally {
-      setIsSaving(false);
+      return false;
     }
+
+    void load();
+    return true;
   };
 
   const remove = async (result: LabResult) => {
@@ -129,110 +101,101 @@ export default function LabsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
-        <View style={styles.container}>
-          <BackButton />
+    <Screen keyboard="persistTaps" gap={14}>
+      <BackButton />
 
-          <View style={styles.header}>
-            <Text style={styles.title}>검사 수치</Text>
-            {/* '측정'이 아니라 '옮겨 적는다'로 쓴다 — 우리는 측정하지 않는다. */}
-            <Text style={styles.subtitle}>
-              병원 검사 결과지나 가정용 혈압계에서 본 값을 옮겨 적어 두면, 식단 기록과 함께
-              진료 때 보여드릴 수 있어요.
-            </Text>
-          </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>검사 수치</Text>
+        {/* '측정'이 아니라 '옮겨 적는다'로 쓴다 — 우리는 측정하지 않는다. */}
+        <Text style={styles.subtitle}>
+          병원 검사 결과지나 가정용 혈압계에서 본 값을 옮겨 적어 두면, 식단 기록과 함께
+          진료 때 보여드릴 수 있어요.
+        </Text>
+      </View>
 
-          {needsConsent ? (
-            <View style={styles.consentBox}>
-              <MaterialIcons color="#2a7d76" name="lock-outline" size={24} />
-              <Text style={styles.consentText}>
-                검사 수치는 민감정보라 수집 동의가 필요해요.
+      {needsConsent ? (
+        <View style={styles.consentBox}>
+          <MaterialIcons color="#2a7d76" name="lock-outline" size={24} />
+          <Text style={styles.consentText}>
+            검사 수치는 민감정보라 수집 동의가 필요해요.
+          </Text>
+          <Pressable
+            onPress={() => router.push('/me/consents')}
+            style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
+            <Text style={styles.primaryButtonText}>동의 설정으로 이동</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <>
+          {errorMessage !== null ? (
+            <ErrorBanner message={errorMessage} onRetry={() => void load()} />
+          ) : null}
+
+          <AddForm onSave={save} panels={panels} />
+
+          {isLoading ? (
+            <LoadingState label="불러오는 중입니다." />
+          ) : results.length === 0 ? (
+            <View style={styles.stateBox}>
+              <MaterialIcons color="#a9a6a1" name="science" size={32} />
+              <Text style={styles.stateText}>
+                아직 기록이 없어요. 가장 최근 검사 결과부터 남겨보세요.
               </Text>
-              <Pressable
-                onPress={() => router.push('/me/consents')}
-                style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
-                <Text style={styles.primaryButtonText}>동의 설정으로 이동</Text>
-              </Pressable>
             </View>
           ) : (
-            <>
-              {errorMessage !== null ? (
-                <ErrorBanner message={errorMessage} onRetry={() => void load()} />
-              ) : null}
-
-              <AddForm
-                measuredOn={measuredOn}
-                noteText={noteText}
-                onChangeDate={setMeasuredOn}
-                onChangeNote={setNoteText}
-                onChangeValue={setValueText}
-                onSave={() => void save()}
-                onSelectPanel={setSelectedPanel}
-                panels={panels}
-                isSaving={isSaving}
-                selectedPanel={selectedPanel}
-                valueText={valueText}
-              />
-
-              {isLoading ? (
-                <View style={styles.stateBox}>
-                  <ActivityIndicator color="#2a7d76" />
-                  <Text style={styles.stateText}>불러오는 중입니다.</Text>
-                </View>
-              ) : results.length === 0 ? (
-                <View style={styles.stateBox}>
-                  <MaterialIcons color="#a9a6a1" name="science" size={32} />
-                  <Text style={styles.stateText}>
-                    아직 기록이 없어요. 가장 최근 검사 결과부터 남겨보세요.
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.section}>
-                  {results.map((result) => (
-                    <ResultRow key={result.id} onDelete={() => void remove(result)} result={result} />
-                  ))}
-                </View>
-              )}
-
-              {notice ? <Text style={styles.notice}>{notice}</Text> : null}
-              <MedicalDisclaimer tone="strong" />
-            </>
+            <View style={styles.section}>
+              {results.map((result) => (
+                <ResultRow key={result.id} onDelete={() => void remove(result)} result={result} />
+              ))}
+            </View>
           )}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+
+          {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+          <MedicalDisclaimer tone="strong" />
+        </>
+      )}
+    </Screen>
   );
 }
 
+type LabResultInput = Parameters<typeof saveLabResult>[0];
+
 function AddForm({
   panels,
-  selectedPanel,
-  onSelectPanel,
-  valueText,
-  onChangeValue,
-  measuredOn,
-  onChangeDate,
-  noteText,
-  onChangeNote,
   onSave,
-  isSaving,
 }: {
   panels: LabPanel[];
-  selectedPanel: LabPanel | null;
-  onSelectPanel: (panel: LabPanel | null) => void;
-  valueText: string;
-  onChangeValue: (value: string) => void;
-  measuredOn: string;
-  onChangeDate: (value: string) => void;
-  noteText: string;
-  onChangeNote: (value: string) => void;
-  onSave: () => void;
-  isSaving: boolean;
+  onSave: (input: LabResultInput) => Promise<boolean>;
 }) {
+  const [selectedPanel, setSelectedPanel] = useState<LabPanel | null>(null);
+  const [valueText, setValueText] = useState('');
+  const [measuredOn, setMeasuredOn] = useState(() => formatDateParam(new Date()));
+  const [noteText, setNoteText] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const save = async () => {
+    if (selectedPanel === null) {
+      return;
+    }
+
+    setIsSaving(true);
+
+    if (
+      await onSave({
+        measured_on: measuredOn,
+        panel: selectedPanel.code,
+        value: Number(valueText),
+        note: noteText.trim() || null,
+      })
+    ) {
+      setValueText('');
+      setNoteText('');
+      setSelectedPanel(null);
+    }
+
+    setIsSaving(false);
+  };
+
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>수치 추가</Text>
@@ -244,7 +207,7 @@ function AddForm({
         {panels.map((panel) => (
           <Pressable
             key={panel.code}
-            onPress={() => onSelectPanel(selectedPanel?.code === panel.code ? null : panel)}
+            onPress={() => setSelectedPanel(selectedPanel?.code === panel.code ? null : panel)}
             style={({ pressed }) => [
               styles.panelChip,
               selectedPanel?.code === panel.code && styles.panelChipActive,
@@ -270,7 +233,7 @@ function AddForm({
           <View style={styles.valueRow}>
             <TextInput
               keyboardType="decimal-pad"
-              onChangeText={onChangeValue}
+              onChangeText={setValueText}
               placeholder="수치"
               placeholderTextColor="#a9a6a1"
               style={styles.valueInput}
@@ -280,7 +243,7 @@ function AddForm({
           </View>
 
           <TextInput
-            onChangeText={onChangeDate}
+            onChangeText={setMeasuredOn}
             placeholder="검사일 (YYYY-MM-DD)"
             placeholderTextColor="#a9a6a1"
             style={styles.input}
@@ -288,7 +251,7 @@ function AddForm({
           />
 
           <TextInput
-            onChangeText={onChangeNote}
+            onChangeText={setNoteText}
             placeholder="메모 (선택) — 예: OO내과 정기검사"
             placeholderTextColor="#a9a6a1"
             style={styles.input}
@@ -297,7 +260,7 @@ function AddForm({
 
           <Pressable
             disabled={isSaving}
-            onPress={onSave}
+            onPress={() => void save()}
             style={({ pressed }) => [
               styles.primaryButton,
               isSaving && styles.buttonDisabled,
@@ -370,12 +333,6 @@ const styles = StyleSheet.create({
     color: '#5c5b57',
     fontSize: 14,
     textAlign: 'center',
-  },
-  container: {
-    alignSelf: 'center',
-    gap: 14,
-    maxWidth: 720,
-    width: '100%',
   },
   form: {
     gap: 10,
@@ -477,13 +434,6 @@ const styles = StyleSheet.create({
     color: '#22211f',
     fontSize: 16,
     fontWeight: '900',
-  },
-  safeArea: {
-    backgroundColor: '#f7f6f4',
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
   },
   section: {
     gap: 8,

@@ -46,6 +46,80 @@ export async function apiFetch(input: string, init?: RequestInit): Promise<Respo
   return response;
 }
 
+export const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
+
+const FORMAT_ERROR = '서버 응답 형식이 올바르지 않습니다.';
+
+type StatusErrors = Partial<Record<number, new (message: string) => Error>>;
+
+// 실패 응답이면 던진다(본문은 읽지 않는다 — DELETE 등 성공 본문이 없는 호출용). 서버 detail은
+// 사용자용 한국어라 그대로 쓰고, 비었을 때만 `${fallback}: ${status}`다. statusErrors에는 호출부가
+// instanceof로 가르는 상태코드별 오류 클래스를 넘긴다 — 예: `{ 403: ConsentRequiredError }`.
+export async function ensureOk(
+  response: Response,
+  fallback: string,
+  statusErrors: StatusErrors = {}
+): Promise<void> {
+  if (!response.ok) {
+    const message = (await readErrorMessage(response)) || `${fallback}: ${response.status}`;
+    const ErrorClass = statusErrors[response.status] ?? Error;
+
+    throw new ErrorClass(message);
+  }
+}
+
+// ensureOk + 본문 JSON. 204면 null.
+export async function readOk(
+  response: Response,
+  fallback: string,
+  statusErrors: StatusErrors = {}
+): Promise<unknown> {
+  await ensureOk(response, fallback, statusErrors);
+
+  return response.status === 204 ? null : ((await response.json()) as unknown);
+}
+
+// 검증에 실패한 응답은 화면 크래시 대신 한국어 오류로 던진다.
+export function ensure<T>(parsed: T | null): T {
+  if (parsed === null) {
+    throw new Error(FORMAT_ERROR);
+  }
+
+  return parsed;
+}
+
+export function ensureList<T>(value: unknown, parse: (item: unknown) => T | null): T[] {
+  if (!Array.isArray(value)) {
+    throw new Error(FORMAT_ERROR);
+  }
+
+  return value.map((item) => ensure(parse(item)));
+}
+
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+// number 또는 숫자 문자열을 유한수로 좁힌다. 그 외에는 null.
+export function toNumber(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+// 서버가 아는 enum 값이면 그대로, 그 외·누락은 null.
+export function oneOf<T>(values: readonly T[], value: unknown): T | null {
+  return (values as readonly unknown[]).includes(value) ? (value as T) : null;
+}
+
 export async function readErrorMessage(response: Response) {
   const text = await response.text().catch(() => '');
 
@@ -94,15 +168,13 @@ async function toPlanLimitError(response: Response): Promise<PlanLimitError> {
     parsed = null;
   }
 
-  if (typeof parsed !== 'object' || parsed === null) {
+  if (!isRecord(parsed)) {
     return new PlanLimitError(text || fallback, { resource: '', plan: '', limit: 0 });
   }
 
-  const data = parsed as Record<string, unknown>;
-
-  return new PlanLimitError(typeof data.detail === 'string' ? data.detail : fallback, {
-    resource: typeof data.resource === 'string' ? data.resource : '',
-    plan: typeof data.plan === 'string' ? data.plan : '',
-    limit: typeof data.limit === 'number' ? data.limit : 0,
+  return new PlanLimitError(typeof parsed.detail === 'string' ? parsed.detail : fallback, {
+    resource: typeof parsed.resource === 'string' ? parsed.resource : '',
+    plan: typeof parsed.plan === 'string' ? parsed.plan : '',
+    limit: typeof parsed.limit === 'number' ? parsed.limit : 0,
   });
 }

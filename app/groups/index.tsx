@@ -1,18 +1,12 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
 import { ErrorBanner } from '@/components/error-banner';
+import { LoadingState } from '@/components/loading-state';
+import { Screen } from '@/components/screen';
 import { getGroups, GroupKind, GroupSummary } from '@/services/group-api';
 
 // 값 제약(DATA_MODEL.md 9장)에 붙은 화면 구조 상수. 끼니 라벨처럼 화면마다 코드 상수로 둔다.
@@ -50,60 +44,53 @@ export default function GroupsScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.container}>
-          <BackButton />
+    <Screen>
+      <BackButton />
 
-          <View style={styles.header}>
-            <Text style={styles.title}>내 그룹</Text>
-            <Text style={styles.subtitle}>가족·친구와 함께 기록을 이어가세요.</Text>
-          </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>내 그룹</Text>
+        <Text style={styles.subtitle}>가족·친구와 함께 기록을 이어가세요.</Text>
+      </View>
 
-          {isLoading ? (
-            <View style={styles.stateBox}>
-              <ActivityIndicator color="#2a7d76" />
-              <Text style={styles.stateText}>그룹 목록을 불러오는 중입니다.</Text>
-            </View>
-          ) : errorMessage ? (
-            <ErrorBanner message={errorMessage} onRetry={() => void loadGroups()} />
-          ) : groups === null || groups.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <MaterialIcons color="#2a7d76" name="groups" size={28} />
-              <Text style={styles.emptyTitle}>아직 그룹이 없어요</Text>
-              <Text style={styles.emptyText}>
-                그룹을 만들거나 초대코드로 참여하면 함께 기록할 수 있습니다.
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.groupList}>
-              {groups.map((group) => (
-                <GroupRow
-                  key={group.id}
-                  group={group}
-                  onPress={() =>
-                    router.push({ pathname: '/groups/[id]', params: { id: String(group.id) } })
-                  }
-                />
-              ))}
-            </View>
-          )}
-
-          <View style={styles.actions}>
-            <Pressable
-              onPress={() => router.push('/groups/create')}
-              style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
-              <Text style={styles.primaryButtonText}>그룹 만들기</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => router.push('/groups/join')}
-              style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
-              <Text style={styles.secondaryButtonText}>초대코드로 참여</Text>
-            </Pressable>
-          </View>
+      {isLoading ? (
+        <LoadingState label="그룹 목록을 불러오는 중입니다." />
+      ) : errorMessage ? (
+        <ErrorBanner message={errorMessage} onRetry={() => void loadGroups()} />
+      ) : groups === null || groups.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <MaterialIcons color="#2a7d76" name="groups" size={28} />
+          <Text style={styles.emptyTitle}>아직 그룹이 없어요</Text>
+          <Text style={styles.emptyText}>
+            그룹을 만들거나 초대코드로 참여하면 함께 기록할 수 있습니다.
+          </Text>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      ) : (
+        <View style={styles.groupList}>
+          {groups.map((group) => (
+            <GroupRow
+              key={group.id}
+              group={group}
+              onPress={() =>
+                router.push({ pathname: '/groups/[id]', params: { id: String(group.id) } })
+              }
+            />
+          ))}
+        </View>
+      )}
+
+      <View style={styles.actions}>
+        <Pressable
+          onPress={() => router.push('/groups/create')}
+          style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
+          <Text style={styles.primaryButtonText}>그룹 만들기</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => router.push('/groups/join')}
+          style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
+          <Text style={styles.secondaryButtonText}>초대코드로 참여</Text>
+        </Pressable>
+      </View>
+    </Screen>
   );
 }
 
@@ -125,12 +112,6 @@ function GroupRow({ group, onPress }: { group: GroupSummary; onPress: () => void
 const styles = StyleSheet.create({
   actions: {
     gap: 10,
-  },
-  container: {
-    alignSelf: 'center',
-    gap: 20,
-    maxWidth: 720,
-    width: '100%',
   },
   emptyCard: {
     alignItems: 'center',
@@ -190,13 +171,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
-  safeArea: {
-    backgroundColor: '#f7f6f4',
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-  },
   secondaryButton: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
@@ -209,17 +183,6 @@ const styles = StyleSheet.create({
     color: '#2a7d76',
     fontSize: 16,
     fontWeight: '800',
-  },
-  stateBox: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    gap: 12,
-    padding: 32,
-  },
-  stateText: {
-    color: '#5c5b57',
-    fontSize: 14,
   },
   subtitle: {
     color: '#5c5b57',

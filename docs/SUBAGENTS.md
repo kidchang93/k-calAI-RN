@@ -25,7 +25,6 @@
     (/api/s3/**·/api/gpt-predict는 제거됨). 추가 전에 curl -sf localhost:8000/openapi.json 으로 확인한다.
   - strict TypeScript. any 금지. 서버 응답은 런타임 검증 후 사용한다.
   - 검증 명령: npx tsc --noEmit && npm run lint  (둘 다 현재 통과 중)
-  - npm run reset-project 는 절대 실행하지 않는다.
 ```
 
 ## 역할 분담
@@ -78,7 +77,6 @@
 
 ## 에이전트에게 시키지 말 것
 
-- **`npm run reset-project` 실행.** `app/` 디렉토리를 파괴적으로 이동합니다.
 - **`expo start` / 시뮬레이터 기동.** 대화형이며 종료되지 않습니다. 필요하면 사용자에게 `! npm run ios` 실행을 요청합니다.
 - (완료) 템플릿 잔재(`modal.tsx`·`hello-wave.tsx`·`parallax-scroll-view.tsx`·`collapsible.tsx`·`external-link.tsx`·테마 인프라)는 2026-07-12에 삭제됨.
 - (해소) 레거시 `/api/gpt-predict`는 2026-07-12에 서버·앱 양쪽에서 완전히 제거됨. 칼로리·영양은 `/api/nutrition/estimate`.

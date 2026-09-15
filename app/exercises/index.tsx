@@ -1,19 +1,11 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
 import { ChipGroup } from '@/components/chip-group';
 import { ErrorBanner } from '@/components/error-banner';
+import { Screen } from '@/components/screen';
 import { Segmented } from '@/components/segmented';
 import {
   createExercise,
@@ -53,10 +45,6 @@ export default function ExercisesScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // 목표 편집. 목표는 기록과 분리돼 있어 여기서 바꿔도 지난 기록은 그대로다.
-  const [isEditingGoal, setIsEditingGoal] = useState(false);
-  const [goalMinutesText, setGoalMinutesText] = useState('');
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -125,12 +113,11 @@ export default function ExercisesScreen() {
     }
   };
 
-  const saveGoal = async () => {
-    const minutes = Number(goalMinutesText.trim());
-
+  // 저장되면 true — 카드가 편집을 닫는다. 목표는 기록과 분리돼 있어 바꿔도 지난 기록은 그대로다.
+  const saveGoal = async (minutes: number): Promise<boolean> => {
     if (!Number.isFinite(minutes) || minutes < 0 || minutes > 2000) {
       setErrorMessage('주간 목표는 0~2000분 사이로 입력해주세요.');
-      return;
+      return false;
     }
 
     setErrorMessage(null);
@@ -138,11 +125,13 @@ export default function ExercisesScreen() {
     try {
       // 근력 일수는 지금 화면에서 바꾸지 않는다 — 현재 값을 그대로 다시 보낸다.
       await putExerciseGoal(Math.round(minutes), summary?.target_strength_days ?? 2);
-      setIsEditingGoal(false);
-      await loadData();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+      return false;
     }
+
+    void loadData();
+    return true;
   };
 
   const remove = async (id: number) => {
@@ -157,164 +146,148 @@ export default function ExercisesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.container}>
-          <BackButton />
+    <Screen>
+      <BackButton />
 
-          <View style={styles.header}>
-            <Text style={styles.title}>운동 기록</Text>
-            <Text style={styles.subtitle}>오늘 한 운동을 남기면 이번 주 활동량에 반영돼요.</Text>
-          </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>운동 기록</Text>
+        <Text style={styles.subtitle}>오늘 한 운동을 남기면 이번 주 활동량에 반영돼요.</Text>
+      </View>
 
-          {errorMessage ? (
-            <ErrorBanner message={errorMessage} onRetry={() => void loadData()} />
-          ) : null}
+      {errorMessage ? (
+        <ErrorBanner message={errorMessage} onRetry={() => void loadData()} />
+      ) : null}
 
-          {summary !== null ? (
-            <WeeklySummaryCard
-              goalMinutesText={goalMinutesText}
-              isEditingGoal={isEditingGoal}
-              onCancelGoal={() => setIsEditingGoal(false)}
-              onChangeGoalMinutes={setGoalMinutesText}
-              onEditGoal={() => {
-                setGoalMinutesText(String(summary.target_minutes));
-                setIsEditingGoal(true);
-              }}
-              onSaveGoal={() => void saveGoal()}
-              summary={summary}
+      {summary !== null ? (
+        <WeeklySummaryCard onSaveGoal={saveGoal} summary={summary} />
+      ) : null}
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>운동 추가</Text>
+
+        {isLoading && types.length === 0 ? (
+          <ActivityIndicator color="#2a7d76" />
+        ) : (
+          <>
+            <ChipGroup
+              onToggle={selectType}
+              options={types.map((type) => ({ value: type.code, label: type.label }))}
+              selectedValues={selectedType !== null ? [selectedType] : []}
             />
-          ) : null}
 
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>운동 추가</Text>
-
-            {isLoading && types.length === 0 ? (
-              <ActivityIndicator color="#2a7d76" />
-            ) : (
-              <>
-                <ChipGroup
-                  onToggle={selectType}
-                  options={types.map((type) => ({ value: type.code, label: type.label }))}
-                  selectedValues={selectedType !== null ? [selectedType] : []}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>시간(분)</Text>
+              <View style={styles.durationRow}>
+                <TextInput
+                  keyboardType="number-pad"
+                  onChangeText={setDurationText}
+                  style={styles.durationInput}
+                  value={durationText}
                 />
-
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>시간(분)</Text>
-                  <View style={styles.durationRow}>
-                    <TextInput
-                      keyboardType="number-pad"
-                      onChangeText={setDurationText}
-                      style={styles.durationInput}
-                      value={durationText}
-                    />
-                    <View style={styles.presetRow}>
-                      {DURATION_PRESETS.map((preset) => (
-                        <Pressable
-                          key={preset}
-                          onPress={() => setDurationText(String(preset))}
-                          style={({ pressed }) => [styles.preset, pressed && styles.pressed]}>
-                          <Text style={styles.presetText}>{`${preset}분`}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  </View>
+                <View style={styles.presetRow}>
+                  {DURATION_PRESETS.map((preset) => (
+                    <Pressable
+                      key={preset}
+                      onPress={() => setDurationText(String(preset))}
+                      style={({ pressed }) => [styles.preset, pressed && styles.pressed]}>
+                      <Text style={styles.presetText}>{`${preset}분`}</Text>
+                    </Pressable>
+                  ))}
                 </View>
-
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>강도</Text>
-                  <Segmented onChange={setIntensity} options={INTENSITY_OPTIONS} value={intensity} />
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>메모 (선택)</Text>
-                  <TextInput
-                    maxLength={200}
-                    onChangeText={setMemo}
-                    placeholder="어떤 운동이었나요?"
-                    placeholderTextColor="#a9a6a1"
-                    style={styles.memoInput}
-                    value={memo}
-                  />
-                </View>
-
-                {/* 칼로리는 서버가 MET×체중×시간으로 산출한다 — 앱이 계산하지 않는다. */}
-                <Text style={styles.hint}>
-                  소모 칼로리는 등록한 몸무게를 기준으로 자동 계산돼요.
-                </Text>
-
-                <Pressable
-                  disabled={!canSave || isSaving}
-                  onPress={() => void save()}
-                  style={({ pressed }) => [
-                    styles.saveButton,
-                    (!canSave || isSaving) && styles.saveButtonDisabled,
-                    pressed && canSave && styles.pressed,
-                  ]}>
-                  {isSaving ? (
-                    <ActivityIndicator color="#22211f" />
-                  ) : (
-                    <Text style={styles.saveButtonText}>기록 추가</Text>
-                  )}
-                </Pressable>
-              </>
-            )}
-          </View>
-
-          <View style={styles.listSection}>
-            <Text style={styles.cardTitle}>오늘 기록</Text>
-
-            {exercises.length === 0 ? (
-              <View style={styles.emptyCard}>
-                <MaterialIcons color="#a9a6a1" name="fitness-center" size={28} />
-                <Text style={styles.emptyText}>아직 오늘 기록한 운동이 없어요.</Text>
               </View>
-            ) : (
-              exercises.map((exercise) => (
-                <View key={exercise.id} style={styles.exerciseRow}>
-                  <View style={styles.exerciseBody}>
-                    <Text style={styles.exerciseName}>{exercise.exercise_type_label}</Text>
-                    <Text style={styles.exerciseMeta}>
-                      {`${exercise.duration_minutes}분 · ${intensityLabel(exercise.intensity)}${
-                        exercise.kcal !== null ? ` · ${exercise.kcal.toLocaleString()} kcal` : ''
-                      }`}
-                    </Text>
-                    {exercise.memo !== null ? (
-                      <Text style={styles.exerciseMemo}>{exercise.memo}</Text>
-                    ) : null}
-                  </View>
-                  <Pressable
-                    onPress={() => void remove(exercise.id)}
-                    style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}>
-                    <MaterialIcons color="#b8524e" name="delete-outline" size={20} />
-                  </Pressable>
-                </View>
-              ))
-            )}
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>강도</Text>
+              <Segmented onChange={setIntensity} options={INTENSITY_OPTIONS} value={intensity} />
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>메모 (선택)</Text>
+              <TextInput
+                maxLength={200}
+                onChangeText={setMemo}
+                placeholder="어떤 운동이었나요?"
+                placeholderTextColor="#a9a6a1"
+                style={styles.memoInput}
+                value={memo}
+              />
+            </View>
+
+            {/* 칼로리는 서버가 MET×체중×시간으로 산출한다 — 앱이 계산하지 않는다. */}
+            <Text style={styles.hint}>
+              소모 칼로리는 등록한 몸무게를 기준으로 자동 계산돼요.
+            </Text>
+
+            <Pressable
+              disabled={!canSave || isSaving}
+              onPress={() => void save()}
+              style={({ pressed }) => [
+                styles.saveButton,
+                (!canSave || isSaving) && styles.saveButtonDisabled,
+                pressed && canSave && styles.pressed,
+              ]}>
+              {isSaving ? (
+                <ActivityIndicator color="#22211f" />
+              ) : (
+                <Text style={styles.saveButtonText}>기록 추가</Text>
+              )}
+            </Pressable>
+          </>
+        )}
+      </View>
+
+      <View style={styles.listSection}>
+        <Text style={styles.cardTitle}>오늘 기록</Text>
+
+        {exercises.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <MaterialIcons color="#a9a6a1" name="fitness-center" size={28} />
+            <Text style={styles.emptyText}>아직 오늘 기록한 운동이 없어요.</Text>
           </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        ) : (
+          exercises.map((exercise) => (
+            <View key={exercise.id} style={styles.exerciseRow}>
+              <View style={styles.exerciseBody}>
+                <Text style={styles.exerciseName}>{exercise.exercise_type_label}</Text>
+                <Text style={styles.exerciseMeta}>
+                  {`${exercise.duration_minutes}분 · ${intensityLabel(exercise.intensity)}${
+                    exercise.kcal !== null ? ` · ${exercise.kcal.toLocaleString()} kcal` : ''
+                  }`}
+                </Text>
+                {exercise.memo !== null ? (
+                  <Text style={styles.exerciseMemo}>{exercise.memo}</Text>
+                ) : null}
+              </View>
+              <Pressable
+                onPress={() => void remove(exercise.id)}
+                style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}>
+                <MaterialIcons color="#b8524e" name="delete-outline" size={20} />
+              </Pressable>
+            </View>
+          ))
+        )}
+      </View>
+    </Screen>
   );
 }
 
 function WeeklySummaryCard({
   summary,
-  isEditingGoal,
-  goalMinutesText,
-  onEditGoal,
-  onChangeGoalMinutes,
   onSaveGoal,
-  onCancelGoal,
 }: {
   summary: ExerciseSummary;
-  isEditingGoal: boolean;
-  goalMinutesText: string;
-  onEditGoal: () => void;
-  onChangeGoalMinutes: (value: string) => void;
-  onSaveGoal: () => void;
-  onCancelGoal: () => void;
+  onSaveGoal: (minutes: number) => Promise<boolean>;
 }) {
+  const [isEditingGoal, setIsEditingGoal] = useState(false);
+  const [goalMinutesText, setGoalMinutesText] = useState('');
+
+  const saveGoal = async () => {
+    if (await onSaveGoal(Number(goalMinutesText.trim()))) {
+      setIsEditingGoal(false);
+    }
+  };
+
   const ratio = Math.min(
     1,
     summary.target_minutes === 0
@@ -364,25 +337,28 @@ function WeeklySummaryCard({
         <View style={styles.goalEditRow}>
           <TextInput
             keyboardType="number-pad"
-            onChangeText={onChangeGoalMinutes}
+            onChangeText={setGoalMinutesText}
             style={styles.goalInput}
             value={goalMinutesText}
           />
           <Text style={styles.goalUnit}>분 / 주</Text>
           <Pressable
-            onPress={onSaveGoal}
+            onPress={() => void saveGoal()}
             style={({ pressed }) => [styles.goalSave, pressed && styles.pressed]}>
             <Text style={styles.goalSaveText}>저장</Text>
           </Pressable>
           <Pressable
-            onPress={onCancelGoal}
+            onPress={() => setIsEditingGoal(false)}
             style={({ pressed }) => [styles.goalCancel, pressed && styles.pressed]}>
             <Text style={styles.goalCancelText}>취소</Text>
           </Pressable>
         </View>
       ) : (
         <Pressable
-          onPress={onEditGoal}
+          onPress={() => {
+            setGoalMinutesText(String(summary.target_minutes));
+            setIsEditingGoal(true);
+          }}
           style={({ pressed }) => [styles.goalRow, pressed && styles.pressed]}>
           <Text style={styles.goalRowText}>
             {summary.goal_is_default
@@ -503,12 +479,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
-  container: {
-    alignSelf: 'center',
-    gap: 20,
-    maxWidth: 720,
-    width: '100%',
-  },
   durationInput: {
     backgroundColor: '#e4e2de',
     borderRadius: 8,
@@ -625,10 +595,6 @@ const styles = StyleSheet.create({
   removeButton: {
     padding: 4,
   },
-  safeArea: {
-    backgroundColor: '#f7f6f4',
-    flex: 1,
-  },
   saveButton: {
     alignItems: 'center',
     backgroundColor: '#60beb8',
@@ -642,9 +608,6 @@ const styles = StyleSheet.create({
     color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
-  },
-  scrollContent: {
-    padding: 20,
   },
   subtitle: {
     color: '#5c5b57',

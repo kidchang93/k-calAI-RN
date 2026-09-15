@@ -1,5 +1,5 @@
 import { apiUrl } from '@/services/api-base';
-import { apiFetch, readErrorMessage } from '@/services/http';
+import { apiFetch, ensure, ensureOk, isRecord, JSON_HEADERS, oneOf, readOk } from '@/services/http';
 
 // kcalAI-model/docs/DATA_MODEL.md 7장 계약 (v2 1차 구현분).
 // 서버 필드는 snake_case를 그대로 유지한다 (docs/CODE_STYLE.md).
@@ -11,10 +11,15 @@ import { apiFetch, readErrorMessage } from '@/services/http';
 
 // group_activity_share: 그룹 챌린지에서 내 활동량·순위를 **같은 그룹 멤버에게** 보이는 것에 대한 동의.
 // sensitive_health(우리가 수집·이용)와 별개다 — 이건 제3자 노출이라 따로 받는다.
-export type ConsentKind = 'sensitive_health' | 'terms' | 'privacy' | 'group_activity_share';
-export type BloodType = 'A' | 'B' | 'O' | 'AB' | 'unknown';
-export type RhFactor = '+' | '-';
-export type AllergySeverity = 'mild' | 'severe';
+const CONSENT_KINDS = ['sensitive_health', 'terms', 'privacy', 'group_activity_share'] as const;
+const BLOOD_TYPES = ['A', 'B', 'O', 'AB', 'unknown'] as const;
+const RH_FACTORS = ['+', '-'] as const;
+const ALLERGY_SEVERITIES = ['mild', 'severe'] as const;
+
+export type ConsentKind = (typeof CONSENT_KINDS)[number];
+export type BloodType = (typeof BLOOD_TYPES)[number];
+export type RhFactor = (typeof RH_FACTORS)[number];
+export type AllergySeverity = (typeof ALLERGY_SEVERITIES)[number];
 
 export type ConsentRecord = {
   kind: ConsentKind;
@@ -29,7 +34,9 @@ export type ConsentRecord = {
 
 // 신장병 병기(투석 여부). 나트륨 하루 상한이 여기서 갈린다 — 비투석 2,000 / 투석 3,000
 // (서버 docs/CKD_NUTRITION.md 3-6). 모름은 별도 코드가 아니라 null 이다.
-export type CkdStage = 'nondialysis' | 'hemodialysis' | 'peritoneal';
+const CKD_STAGES = ['nondialysis', 'hemodialysis', 'peritoneal'] as const;
+
+export type CkdStage = (typeof CKD_STAGES)[number];
 
 export type HealthProfile = {
   blood_type: BloodType | null;
@@ -58,19 +65,17 @@ export type AllergyInput = {
 // 403(동의 없음/철회)을 세션 만료(401)와 구분하는 명시적 오류 타입.
 // 화면은 catch에서 instanceof로 판별해 동의 화면으로 보낸다.
 export class ConsentRequiredError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'ConsentRequiredError';
-  }
+  name = 'ConsentRequiredError';
 }
 
-export const ONBOARDING_API_URL = apiUrl('/api', process.env.EXPO_PUBLIC_ONBOARDING_API_URL);
+const ONBOARDING_API_URL = apiUrl('/api');
 
-const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
+// 403은 ConsentRequiredError, 그 외 실패는 일반 Error.
+const CONSENT_ERRORS = { 403: ConsentRequiredError };
 
 export async function getConsents(): Promise<ConsentRecord[]> {
   const response = await apiFetch(`${ONBOARDING_API_URL}/me/consents`);
-  const data = await parseOk(response, '동의 이력 조회 실패');
+  const data = await readOk(response, '동의 이력 조회 실패', CONSENT_ERRORS);
   const list = extractList(data, 'consents');
 
   if (list === null) {
@@ -97,7 +102,7 @@ export async function postConsent(kind: ConsentKind, version: string): Promise<v
     body: JSON.stringify({ kind, version }),
   });
 
-  await ensureOk(response, '동의 기록 실패');
+  await ensureOk(response, '동의 기록 실패', CONSENT_ERRORS);
 }
 
 export async function revokeConsent(kind: ConsentKind): Promise<void> {
@@ -107,7 +112,7 @@ export async function revokeConsent(kind: ConsentKind): Promise<void> {
     body: JSON.stringify({ kind }),
   });
 
-  await ensureOk(response, '동의 철회 실패');
+  await ensureOk(response, '동의 철회 실패', CONSENT_ERRORS);
 }
 
 // 아직 입력 전(404)이면 null을 반환한다. getProfile의 404 처리와 같은 규약.
@@ -118,7 +123,7 @@ export async function getHealthProfile(): Promise<HealthProfile | null> {
     return null;
   }
 
-  return ensure(parseHealthProfile(await parseOk(response, '건강 정보 조회 실패')));
+  return ensure(parseHealthProfile(await readOk(response, '건강 정보 조회 실패', CONSENT_ERRORS)));
 }
 
 export async function putHealthProfile(input: HealthProfileRequest): Promise<void> {
@@ -128,14 +133,14 @@ export async function putHealthProfile(input: HealthProfileRequest): Promise<voi
     body: JSON.stringify(input),
   });
 
-  await ensureOk(response, '건강 정보 저장 실패');
+  await ensureOk(response, '건강 정보 저장 실패', CONSENT_ERRORS);
 }
 
 // 값은 GET /api/meta/options의 표준 code다 (DATA_MODEL.md 10장). 참조 테이블이
 // 릴리즈 없이 늘 수 있으므로 앱은 Literal로 좁히지 않는다.
 export async function getConditions(): Promise<string[]> {
   const response = await apiFetch(`${ONBOARDING_API_URL}/me/conditions`);
-  const data = await parseOk(response, '질병 정보 조회 실패');
+  const data = await readOk(response, '질병 정보 조회 실패', CONSENT_ERRORS);
   const list = extractList(data, 'conditions');
 
   if (list === null) {
@@ -156,12 +161,12 @@ export async function putConditions(conditions: string[]): Promise<void> {
     body: JSON.stringify({ conditions }),
   });
 
-  await ensureOk(response, '질병 정보 저장 실패');
+  await ensureOk(response, '질병 정보 저장 실패', CONSENT_ERRORS);
 }
 
 export async function getAllergies(): Promise<AllergyEntry[]> {
   const response = await apiFetch(`${ONBOARDING_API_URL}/me/allergies`);
-  const data = await parseOk(response, '알러지 정보 조회 실패');
+  const data = await readOk(response, '알러지 정보 조회 실패', CONSENT_ERRORS);
   const list = extractList(data, 'allergies');
 
   if (list === null) {
@@ -181,39 +186,10 @@ export async function putAllergies(allergies: AllergyInput[]): Promise<void> {
     body: JSON.stringify({ allergies }),
   });
 
-  await ensureOk(response, '알러지 정보 저장 실패');
+  await ensureOk(response, '알러지 정보 저장 실패', CONSENT_ERRORS);
 }
 
 // ── 내부 헬퍼 (export 안 함) ────────────────────────────────────────────────
-
-// 403은 ConsentRequiredError, 그 외 실패는 일반 Error. 성공이면 Response를 그대로 돌려준다.
-async function ensureOk(response: Response, fallback: string): Promise<Response> {
-  if (response.status === 403) {
-    const message = await readErrorMessage(response);
-    throw new ConsentRequiredError(message || '민감정보 수집 동의가 필요합니다.');
-  }
-
-  if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `${fallback}: ${response.status}`);
-  }
-
-  return response;
-}
-
-async function parseOk(response: Response, fallback: string): Promise<unknown> {
-  await ensureOk(response, fallback);
-
-  return (await response.json()) as unknown;
-}
-
-function ensure<T>(parsed: T | null): T {
-  if (parsed === null) {
-    throw new Error('서버 응답 형식이 올바르지 않습니다.');
-  }
-
-  return parsed;
-}
 
 // 목록 응답이 배열 그대로거나 { <key>: [...] } 래핑일 수 있어 둘 다 허용한다.
 function extractList(value: unknown, key: string): unknown[] | null {
@@ -232,39 +208,12 @@ function extractList(value: unknown, key: string): unknown[] | null {
   return null;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function toConsentKind(value: unknown): ConsentKind | null {
-  return value === 'sensitive_health' ||
-    value === 'terms' ||
-    value === 'privacy' ||
-    value === 'group_activity_share'
-    ? value
-    : null;
-}
-
-function toBloodType(value: unknown): BloodType | null {
-  return value === 'A' || value === 'B' || value === 'O' || value === 'AB' || value === 'unknown'
-    ? value
-    : null;
-}
-
-function toRhFactor(value: unknown): RhFactor | null {
-  return value === '+' || value === '-' ? value : null;
-}
-
-function toAllergySeverity(value: unknown): AllergySeverity | null {
-  return value === 'mild' || value === 'severe' ? value : null;
-}
-
 function parseConsent(value: unknown): ConsentRecord | null {
   if (!isRecord(value)) {
     return null;
   }
 
-  const kind = toConsentKind(value.kind);
+  const kind = oneOf(CONSENT_KINDS, value.kind);
 
   if (
     kind === null ||
@@ -292,8 +241,8 @@ function parseHealthProfile(value: unknown): HealthProfile | null {
     return null;
   }
 
-  const blood_type = toBloodType(value.blood_type);
-  const rh = toRhFactor(value.rh);
+  const blood_type = oneOf(BLOOD_TYPES, value.blood_type);
+  const rh = oneOf(RH_FACTORS, value.rh);
 
   // 둘 다 nullable(모름 허용). enum 밖의 값이 오면 검증 실패로 처리한다.
   if (value.blood_type !== null && value.blood_type !== undefined && blood_type === null) {
@@ -304,14 +253,8 @@ function parseHealthProfile(value: unknown): HealthProfile | null {
     return null;
   }
 
-  return { blood_type, rh, ckd_stage: toCkdStage(value.ckd_stage) };
-}
-
-// 옛 서버는 이 필드를 주지 않는다 — 모르는 값·누락은 전부 null(모름)로 흘린다.
-function toCkdStage(value: unknown): CkdStage | null {
-  return value === 'nondialysis' || value === 'hemodialysis' || value === 'peritoneal'
-    ? value
-    : null;
+  // ckd_stage는 옛 서버가 주지 않는다 — 모르는 값·누락은 전부 null(모름)로 흘린다.
+  return { blood_type, rh, ckd_stage: oneOf(CKD_STAGES, value.ckd_stage) };
 }
 
 function parseAllergyEntry(value: unknown): AllergyEntry | null {
@@ -325,6 +268,6 @@ function parseAllergyEntry(value: unknown): AllergyEntry | null {
 
   return {
     allergen: value.allergen,
-    severity: toAllergySeverity(value.severity),
+    severity: oneOf(ALLERGY_SEVERITIES, value.severity),
   };
 }

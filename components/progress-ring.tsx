@@ -5,18 +5,14 @@ import Svg, { Circle } from 'react-native-svg';
 // 진행률 링. react-native-svg는 웹·iOS·Android를 모두 지원한다.
 // track(회색) 위에 progress(프라이머리) Circle을 겹치고 strokeDashoffset으로 채운다.
 export function ProgressRing({
-  size = 200,
-  strokeWidth = 16,
+  size,
+  strokeWidth,
   progress,
-  trackColor = '#e4e2de',
-  progressColor = '#2a7d76',
   children,
 }: {
-  size?: number;
-  strokeWidth?: number;
+  size: number;
+  strokeWidth: number;
   progress: number;
-  trackColor?: string;
-  progressColor?: string;
   children?: ReactNode;
 }) {
   const clamped = Math.max(0, Math.min(1, progress));
@@ -32,7 +28,7 @@ export function ProgressRing({
           cx={center}
           cy={center}
           r={radius}
-          stroke={trackColor}
+          stroke="#e4e2de"
           strokeWidth={strokeWidth}
           fill="none"
         />
@@ -40,7 +36,7 @@ export function ProgressRing({
           cx={center}
           cy={center}
           r={radius}
-          stroke={progressColor}
+          stroke="#2a7d76"
           strokeWidth={strokeWidth}
           strokeDasharray={circumference}
           strokeDashoffset={dashOffset}

@@ -1,5 +1,5 @@
 import { apiUrl } from '@/services/api-base';
-import { apiFetch, readErrorMessage } from '@/services/http';
+import { apiFetch, ensure, isRecord, readOk, toNumber } from '@/services/http';
 
 // 결제 내역·영수증 계약 (서버 api/payment_api.py — 병렬 구현 중).
 //   GET /api/payments        Bearer — 내 결제 내역, 최신순 { payments: PaymentItem[] }
@@ -31,18 +31,15 @@ export type PaymentItem = {
 // 결제 단건 404를 일반 오류와 구분하는 명시적 오류 타입. 화면은 catch에서 instanceof로 판별해
 // 에러 배너 대신 '영수증을 찾을 수 없어요' 안내를 그린다. 없는 영수증은 재시도해도 같은 결과다.
 export class PaymentNotFoundError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'PaymentNotFoundError';
-  }
+  name = 'PaymentNotFoundError';
 }
 
-export const PAYMENT_API_URL = apiUrl('/api/payments', process.env.EXPO_PUBLIC_PAYMENT_API_URL);
+const PAYMENT_API_URL = apiUrl('/api/payments');
 
 // 최신순 결제 내역. 결제가 아직 없으면 빈 배열이 온다 (화면이 빈 상태를 그린다).
 export async function getPayments(): Promise<PaymentItem[]> {
   const response = await apiFetch(PAYMENT_API_URL);
-  const data = await parseOk(response, '결제 내역 조회 실패');
+  const data = await readOk(response, '결제 내역 조회 실패');
 
   if (!isRecord(data) || !Array.isArray(data.payments)) {
     throw new Error('서버 응답에 payments 배열이 없습니다.');
@@ -54,51 +51,12 @@ export async function getPayments(): Promise<PaymentItem[]> {
 export async function getPayment(paymentId: number): Promise<PaymentItem> {
   const response = await apiFetch(`${PAYMENT_API_URL}/${paymentId}`);
 
-  if (response.status === 404) {
-    const message = await readErrorMessage(response);
-    throw new PaymentNotFoundError(message || '영수증을 찾을 수 없어요.');
-  }
+  const data = await readOk(response, '영수증 조회 실패', { 404: PaymentNotFoundError });
 
-  return ensure(parsePayment(await parseOk(response, '영수증 조회 실패')));
+  return ensure(parsePayment(data));
 }
 
 // ── 내부 헬퍼 (export 안 함) ────────────────────────────────────────────────
-
-async function parseOk(response: Response, fallback: string): Promise<unknown> {
-  if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `${fallback}: ${response.status}`);
-  }
-
-  return (await response.json()) as unknown;
-}
-
-function ensure<T>(parsed: T | null): T {
-  if (parsed === null) {
-    throw new Error('서버 응답 형식이 올바르지 않습니다.');
-  }
-
-  return parsed;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-// number 또는 숫자 문자열을 유한수로 좁힌다. 그 외에는 null.
-function toNumber(value: unknown): number | null {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : null;
-  }
-
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value);
-
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  return null;
-}
 
 // nullable 문자열 필드(method·approved_at·fail_reason): null/undefined는 null로, 문자열은 그대로.
 function toNullableString(value: unknown): string | null | undefined {

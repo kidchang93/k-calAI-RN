@@ -1,5 +1,5 @@
 import { apiUrl } from '@/services/api-base';
-import { apiFetch, readErrorMessage } from '@/services/http';
+import { apiFetch, ensure, isRecord, JSON_HEADERS, readOk } from '@/services/http';
 
 // 요금제·구독 계약 (서버 api/subscription_api.py).
 //   GET  /api/plans            무인증 — 가입 화면이 로그인 전에 가격표를 그린다.
@@ -46,7 +46,7 @@ export type MySubscription = {
   cancel_at_period_end: boolean;
 };
 
-export const SUBSCRIPTION_API_URL = apiUrl('/api', process.env.EXPO_PUBLIC_SUBSCRIPTION_API_URL);
+const SUBSCRIPTION_API_URL = apiUrl('/api');
 
 // 네트워크 실패 시 가입 화면이 요금제 없이 막히면 안 된다 — 서버 시드(리비전 0016, Lite 3→5)와
 // 같은 값의 번들 폴백. 정본은 언제나 서버의 참조 테이블(plans)이다 (선택지 데이터 규칙, DESIGN.md).
@@ -84,24 +84,19 @@ export const FALLBACK_PLANS: Plan[] = [
 export async function fetchPlans(): Promise<Plan[]> {
   const response = await fetch(`${SUBSCRIPTION_API_URL}/plans`);
 
-  if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `요금제 조회 실패: ${response.status}`);
-  }
-
-  const data = (await response.json()) as unknown;
+  const data = await readOk(response, '요금제 조회 실패');
 
   if (!isRecord(data) || !Array.isArray(data.plans)) {
     throw new Error('서버 응답에 plans 배열이 없습니다.');
   }
 
-  return data.plans.map((item) => ensure(parsePlan(item)));
+  return ensure(data.plans.every(isPlan) ? data.plans : null);
 }
 
 export async function fetchMySubscription(): Promise<MySubscription> {
   const response = await apiFetch(`${SUBSCRIPTION_API_URL}/me/subscription`);
 
-  return ensure(parseMySubscription(await parseOk(response, '요금제 조회 실패')));
+  return ensure(parseMySubscription(await readOk(response, '요금제 조회 실패')));
 }
 
 // **무료(lite) 전환 전용이다.** 유료 플랜을 보내면 서버가 400을 준다 — 이 경로에는 결제 검증이
@@ -112,84 +107,36 @@ export async function fetchMySubscription(): Promise<MySubscription> {
 export async function changePlan(planCode: string): Promise<MySubscription> {
   const response = await apiFetch(`${SUBSCRIPTION_API_URL}/me/subscription`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: JSON_HEADERS,
     body: JSON.stringify({ plan_code: planCode }),
   });
 
-  return ensure(parseMySubscription(await parseOk(response, '요금제 변경 실패')));
+  return ensure(parseMySubscription(await readOk(response, '요금제 변경 실패')));
 }
 
 // ── 내부 헬퍼 (export 안 함) ────────────────────────────────────────────────
 
-async function parseOk(response: Response, fallback: string): Promise<unknown> {
-  if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message || `${fallback}: ${response.status}`);
-  }
-
-  return (await response.json()) as unknown;
+function isPlan(value: unknown): value is Plan {
+  return (
+    isRecord(value) &&
+    typeof value.code === 'string' &&
+    typeof value.label === 'string' &&
+    typeof value.price_krw === 'number' &&
+    typeof value.daily_vision_quota === 'number' &&
+    typeof value.max_group_members === 'number' &&
+    typeof value.max_pets === 'number' &&
+    typeof value.max_owned_groups === 'number'
+  );
 }
 
-function ensure<T>(parsed: T | null): T {
-  if (parsed === null) {
-    throw new Error('서버 응답 형식이 올바르지 않습니다.');
-  }
-
-  return parsed;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function parsePlan(value: unknown): Plan | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  if (
-    typeof value.code !== 'string' ||
-    typeof value.label !== 'string' ||
-    typeof value.price_krw !== 'number' ||
-    typeof value.daily_vision_quota !== 'number' ||
-    typeof value.max_group_members !== 'number' ||
-    typeof value.max_pets !== 'number' ||
-    typeof value.max_owned_groups !== 'number'
-  ) {
-    return null;
-  }
-
-  return {
-    code: value.code,
-    label: value.label,
-    price_krw: value.price_krw,
-    daily_vision_quota: value.daily_vision_quota,
-    max_group_members: value.max_group_members,
-    max_pets: value.max_pets,
-    max_owned_groups: value.max_owned_groups,
-  };
-}
-
-function parseVisionUsage(value: unknown): VisionUsage | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  if (
-    typeof value.used !== 'number' ||
-    typeof value.limit !== 'number' ||
-    typeof value.remaining !== 'number' ||
-    typeof value.resets_at !== 'string'
-  ) {
-    return null;
-  }
-
-  return {
-    used: value.used,
-    limit: value.limit,
-    remaining: value.remaining,
-    resets_at: value.resets_at,
-  };
+function isVisionUsage(value: unknown): value is VisionUsage {
+  return (
+    isRecord(value) &&
+    typeof value.used === 'number' &&
+    typeof value.limit === 'number' &&
+    typeof value.remaining === 'number' &&
+    typeof value.resets_at === 'string'
+  );
 }
 
 // billing-api.ts의 confirm·cancel도 같은 MySubscriptionResponse를 받는다 — 파싱을 복제하지 않도록
@@ -199,10 +146,11 @@ export function parseMySubscription(value: unknown): MySubscription | null {
     return null;
   }
 
-  const plan = parsePlan(value.plan);
-  const vision_usage = parseVisionUsage(value.vision_usage);
-
-  if (plan === null || vision_usage === null || typeof value.started_at !== 'string') {
+  if (
+    !isPlan(value.plan) ||
+    !isVisionUsage(value.vision_usage) ||
+    typeof value.started_at !== 'string'
+  ) {
     return null;
   }
 
@@ -210,8 +158,8 @@ export function parseMySubscription(value: unknown): MySubscription | null {
   // 없거나 형식이 어긋나면 무료 회원과 같은 기본값으로 흘린다 — 이 필드들 때문에 요금제 화면
   // 전체가 '응답 형식 오류'로 막히면 안 된다. 기존 3필드는 그대로 필수 검증을 유지한다.
   return {
-    plan,
-    vision_usage,
+    plan: value.plan,
+    vision_usage: value.vision_usage,
     started_at: value.started_at,
     status: typeof value.status === 'string' ? value.status : 'active',
     current_period_end: toIsoOrNull(value.current_period_end),
