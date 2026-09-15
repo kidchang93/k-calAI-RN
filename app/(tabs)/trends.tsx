@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BodyMetrics } from '@/components/body-metrics';
@@ -269,165 +269,164 @@ export default function TrendsScreen() {
 
   return (
     <Screen gap={14} contentStyle={styles.content}>
-      {/* 제목과 뷰 토글을 한 줄에 둔다 — 칩 두 줄이 세로 공간을 먹어 체중 섹션이
-          첫 화면 밖으로 밀려나 있었다. 기간(주/월) 토글은 그래프 카드 안으로 옮겼다. */}
-      <View style={styles.header}>
-        <Text style={styles.title}>진료</Text>
-        <Segmented onChange={setViewMode} options={VIEW_OPTIONS} value={viewMode} />
-      </View>
-
-      {/* **이 탭의 결론을 맨 위로 올린다** (2026-08-19). 진료용 리포트는 이 서비스가
-          내놓는 최종 산출물인데, 그동안 스크롤 맨 아래 회색 행이라 가장 찾기 어려웠다.
-          뷰 모드(그래프·캘린더)와 무관하게 보여야 해서 분기 밖에 둔다. */}
-      {!isLoading && errorMessage === null ? (
-        <VisitCard
-          scheduledOn={visitDate}
-          outcome={visitOutcome}
-          onChange={(date, note) => {
-            setVisitDate(date);
-            setVisitOutcome(note);
-          }}
-        />
-      ) : null}
-
-      {!isLoading && errorMessage === null ? (
-        <ReportCard
-          startDate={trends?.start_date ?? null}
-          endDate={trends?.end_date ?? null}
-          recordedDays={summary?.recordedDays ?? 0}
-          totalDays={summary?.totalDays ?? 0}
-          labCount={labResults?.length ?? 0}
-          onPress={() => {
-            // **보고 있는 기간을 그대로 리포트에 넘긴다.** 리포트 화면은 파라미터가 없으면
-            // 자체 기본 기간을 쓰는데, 그러면 카드에 적힌 '14/30일'과 리포트 안의 기록
-            // 일수가 서로 달라진다. 화면·서버 변경 없이 기존 파라미터를 쓰기만 하면 된다.
-            // 이 카드는 로딩 성공 뒤에만 보이므로(위 게이트) trends 는 항상 값이 있다.
-            router.push({
-              pathname: '/report',
-              params: { start_date: trends?.start_date, end_date: trends?.end_date },
-            });
-          }}
-        />
-      ) : null}
+      <Text style={styles.title}>진료</Text>
 
       {isLoading ? (
         <LoadingState label="기록을 불러오는 중입니다." />
       ) : errorMessage ? (
         <ErrorBanner message={errorMessage} onRetry={() => void loadData()} />
-      ) : trends === null || summary === null ? null : viewMode === 'calendar' ? (
-        <>
-          <KcalCalendar
-            canGoNext={canGoNextMonth}
-            days={trends.days}
-            month={month}
-            onChangeMonth={changeMonth}
-            onSelectDate={selectDate}
-            selectedDate={selectedDate}
-            targetKcal={trends.target_kcal}
-            todayDate={todayDate}
-          />
-
-          <DayDetail
-            date={selectedDate}
-            isLoading={isLoadingMeals}
-            meals={selectedMeals}
-            onPressAdd={() => {
-              if (selectedDate) {
-                router.push({ pathname: '/meals/compose', params: { date: selectedDate } });
-              }
-            }}
-            onPressManage={() => {
-              if (selectedDate) {
-                router.push({ pathname: '/meals', params: { date: selectedDate } });
-              }
-            }}
-          />
-
-          {/* 체중은 두 모드 모두에 둔다 — 한쪽에만 있으면 "있는지 없는지" 모르게 된다.
-              캘린더 모드에서는 보고 있는 달의 기록을 보여준다. */}
-        </>
       ) : (
         <>
-          {summary.recordedDays === 0 ? (
-            <View style={styles.emptyCard}>
-              {/* 기간 토글은 평소 그래프 카드 안에 있다. 빈 기간에도 주↔월 전환은
-                  할 수 있어야 하므로 여기서도 노출한다. */}
-              <Segmented compact onChange={setPeriod} options={PERIOD_OPTIONS} value={period} />
-              <MaterialIcons color="#a9a6a1" name="show-chart" size={32} />
-              <Text style={styles.emptyTitle}>이 기간에 식단 기록이 없어요</Text>
-              <Text style={styles.emptyText}>
-                기록 탭에서 사진으로 식사를 남기면 여기에서 확인할 수 있습니다.
-              </Text>
-            </View>
-          ) : (
+          {/* **세 묶음으로 나눈다** (2026-09-15). 성격이 다른 카드 여덟 개가 제목 모양도 제각각인 채
+              한 줄로 이어져 있었다. 이 탭은 "진료를 준비하고 결과를 받아 적는 곳"이라(서버
+              `docs/CARE_LOOP.md` §7) ① 진료 준비 ② 그 근거(무엇을 먹었고 수치가 어떻게 됐나)
+              ③ 몸과 활동으로 가른다. 카드는 옮기지도 빼지도 않았다 — 묶음 제목만 붙였다. */}
+          <SectionLabel first title="진료 준비" />
+
+          {/* **이 탭의 결론을 맨 위에 둔다** (2026-08-19). 진료용 리포트는 이 서비스가
+              내놓는 최종 산출물인데, 그동안 스크롤 맨 아래 회색 행이라 가장 찾기 어려웠다. */}
+          <VisitCard
+            scheduledOn={visitDate}
+            outcome={visitOutcome}
+            onChange={(date, note) => {
+              setVisitDate(date);
+              setVisitOutcome(note);
+            }}
+          />
+
+          <ReportCard
+            startDate={trends?.start_date ?? null}
+            endDate={trends?.end_date ?? null}
+            recordedDays={summary?.recordedDays ?? 0}
+            totalDays={summary?.totalDays ?? 0}
+            labCount={labResults?.length ?? 0}
+            onPress={() => {
+              // **보고 있는 기간을 그대로 리포트에 넘긴다.** 리포트 화면은 파라미터가 없으면
+              // 자체 기본 기간을 쓰는데, 그러면 카드에 적힌 '14/30일'과 리포트 안의 기록
+              // 일수가 서로 달라진다. 화면·서버 변경 없이 기존 파라미터를 쓰기만 하면 된다.
+              // 이 카드는 로딩 성공 뒤에만 보이므로(위 게이트) trends 는 항상 값이 있다.
+              router.push({
+                pathname: '/report',
+                params: { start_date: trends?.start_date, end_date: trends?.end_date },
+              });
+            }}
+          />
+
+          {/* 그래프·캘린더 토글은 이 묶음에만 영향을 주므로 묶음 제목 줄에 둔다(예전엔 페이지
+              제목 옆이라 탭 전체가 바뀌는 것처럼 보였다). 기간(7일/30일) 토글은 그래프 카드 안이다. */}
+          <SectionLabel
+            title="식단과 검사 수치"
+            right={<Segmented onChange={setViewMode} options={VIEW_OPTIONS} value={viewMode} />}
+          />
+
+          {trends === null || summary === null ? null : viewMode === 'calendar' ? (
             <>
-              <KcalBarChart
+              <KcalCalendar
+                canGoNext={canGoNextMonth}
                 days={trends.days}
-                onChangePeriod={setPeriod}
-                period={period}
+                month={month}
+                onChangeMonth={changeMonth}
+                onSelectDate={selectDate}
+                selectedDate={selectedDate}
                 targetKcal={trends.target_kcal}
+                todayDate={todayDate}
               />
 
-              <View style={styles.summaryCard}>
-                <View style={styles.summaryRow}>
-                  <SummaryStat
-                    label="총 섭취"
-                    value={`${summary.totalKcal.toLocaleString()} kcal`}
-                  />
-                  <SummaryStat
-                    label="일평균 (기록일)"
-                    value={`${summary.avgKcal.toLocaleString()} kcal`}
-                  />
+              <DayDetail
+                date={selectedDate}
+                isLoading={isLoadingMeals}
+                meals={selectedMeals}
+                onPressAdd={() => {
+                  if (selectedDate) {
+                    router.push({ pathname: '/meals/compose', params: { date: selectedDate } });
+                  }
+                }}
+                onPressManage={() => {
+                  if (selectedDate) {
+                    router.push({ pathname: '/meals', params: { date: selectedDate } });
+                  }
+                }}
+              />
+            </>
+          ) : (
+            <>
+              {summary.recordedDays === 0 ? (
+                <View style={styles.emptyCard}>
+                  {/* 기간 토글은 평소 그래프 카드 안에 있다. 빈 기간에도 주↔월 전환은
+                      할 수 있어야 하므로 여기서도 노출한다. */}
+                  <Segmented compact onChange={setPeriod} options={PERIOD_OPTIONS} value={period} />
+                  <MaterialIcons color="#a9a6a1" name="show-chart" size={32} />
+                  <Text style={styles.emptyTitle}>이 기간에 식단 기록이 없어요</Text>
+                  <Text style={styles.emptyText}>
+                    기록 탭에서 사진으로 식사를 남기면 여기에서 확인할 수 있습니다.
+                  </Text>
                 </View>
-                <View style={styles.summaryRow}>
-                  <SummaryStat
-                    label="기록한 날"
-                    value={`${summary.recordedDays} / ${summary.totalDays}일`}
+              ) : (
+                <>
+                  <KcalBarChart
+                    days={trends.days}
+                    onChangePeriod={setPeriod}
+                    period={period}
+                    targetKcal={trends.target_kcal}
                   />
-                  {summary.withinTargetDays !== null ? (
-                    <SummaryStat
-                      label="목표 이내"
-                      value={`${summary.withinTargetDays} / ${summary.recordedDays}일`}
-                    />
-                  ) : (
-                    <SummaryStat label="목표" value="미설정" />
-                  )}
-                </View>
-              </View>
+
+                  <View style={styles.summaryCard}>
+                    <View style={styles.summaryRow}>
+                      <SummaryStat
+                        label="총 섭취"
+                        value={`${summary.totalKcal.toLocaleString()} kcal`}
+                      />
+                      <SummaryStat
+                        label="일평균 (기록일)"
+                        value={`${summary.avgKcal.toLocaleString()} kcal`}
+                      />
+                    </View>
+                    <View style={styles.summaryRow}>
+                      <SummaryStat
+                        label="기록한 날"
+                        value={`${summary.recordedDays} / ${summary.totalDays}일`}
+                      />
+                      {summary.withinTargetDays !== null ? (
+                        <SummaryStat
+                          label="목표 이내"
+                          value={`${summary.withinTargetDays} / ${summary.recordedDays}일`}
+                        />
+                      ) : (
+                        <SummaryStat label="목표" value="미설정" />
+                      )}
+                    </View>
+                  </View>
+                </>
+              )}
+
+              {/* 질환 축 추이. kcal 그래프 바로 아래에 둔다 — 이 앱의 대상 사용자에게는
+                  칼로리보다 이쪽이 중요하고, 만성질환 관리는 하루가 아니라 추세로 본다.
+                  해당 질환이 없으면 서버가 null 을 주고 컴포넌트가 스스로 사라진다. */}
+              <NutrientTrends trends={trends.nutrients} />
             </>
           )}
 
-          {/* 질환 축 추이. kcal 그래프 바로 아래에 둔다 — 이 앱의 대상 사용자에게는
-              칼로리보다 이쪽이 중요하고, 만성질환 관리는 하루가 아니라 추세로 본다.
-              해당 질환이 없으면 서버가 null 을 주고 컴포넌트가 스스로 사라진다. */}
-          <NutrientTrends trends={trends.nutrients} />
-
-          {/* **케어 루프의 결과 축**(서버 `docs/CARE_LOOP.md` §4). 식단 추이 바로 아래인
+          {/* **케어 루프의 결과 축**(서버 `docs/CARE_LOOP.md` §4). 식단 바로 아래, 같은 묶음인
               것이 핵심이다 — "나트륨을 이만큼 먹었다"와 "그래서 수치가 어떻게 됐다"는
-              나란히 놓여야 근거가 된다. 지금까지 앞쪽만 있어 근거가 절반이었다.
+              나란히 놓여야 근거가 된다. 뷰 모드와 무관하게 보인다.
               2026-08-19: 진입 행이던 것을 **값이 보이는 섹션**으로 올렸다 — 버튼만 있으면
               들어가 보기 전까지 무엇이 쌓였는지 알 수 없다. */}
-        </>
-      )}
-
-      {/* **뷰 모드와 무관한 것들은 분기 밖에 둔다** (2026-08-19). 예전에는 체중·고지
-          문구가 캘린더·그래프 블록에 각각 복사돼 있어 한쪽만 고치면 어긋났다.
-          검사 수치·체성분·조언도 '오늘 무엇을 먹었나'와 독립적이라 여기에 모인다. */}
-      {!isLoading && errorMessage === null ? (
-        <>
           <LabSection
             results={labResults}
             isConsentBlocked={isLabConsentBlocked}
             onPress={() => router.push('/labs')}
           />
 
+          {/* 체중은 그래프·캘린더 두 모드 모두에 보인다 — 한쪽에만 있으면 "있는지 없는지"
+              모르게 된다(캘린더 모드에서는 보고 있는 달의 기록).
+              체성분·권장 활동량과 주간 조언은 2026-08-19 에 **내 정보 탭에서 옮겨 왔다.**
+              내 정보는 계정·설정을 보는 곳인데 판단 자료가 섞여 있었다.
+              둘의 **순서는 유지한다**: 조언은 그 조언의 기준(권장 활동량) 바로 아래에
+              있어야 근거를 갖는다(2026-07-25 판단). */}
+          <SectionLabel title="몸과 활동" />
+
           <WeightSection logs={periodWeights} onPressManage={() => router.push('/me/weights')} />
 
-          {/* 체성분·권장 활동량과 주간 조언은 2026-08-19 에 **내 정보 탭에서 옮겨 왔다.**
-              내 정보는 계정·설정을 보는 곳인데 판단 자료가 섞여 있었다 — 사용자는 "내 몸이
-              어떻게 변했나"를 보려고 설정 탭에 들어가지 않는다.
-              둘의 **순서는 유지한다**: 조언은 그 조언의 기준(권장 활동량) 바로 아래에
-              있어야 근거를 갖는다(2026-07-25 판단). 옮긴 것은 탭이지 관계가 아니다. */}
           <BodyMetrics profile={profile} />
 
           <WeeklyCoaching coaching={coaching} shownNotice={profile?.activity_guide?.notice ?? null} />
@@ -438,8 +437,27 @@ export default function TrendsScreen() {
             {`${INTAKE_ESTIMATE_NOTICE} 체성분·권장 활동량·주간 조언은 입력한 키·몸무게와 기록으로 계산한 참고 정보입니다.`}
           </Text>
         </>
-      ) : null}
+      )}
     </Screen>
+  );
+}
+
+// 진료 탭의 묶음 제목. 안쪽 소제목("질환 영양 추이" 등, 잉크 17pt)보다 한 단계 위라 더 크고,
+// 강조색과 위쪽 구분선으로 가른다. 첫 묶음은 페이지 제목 바로 아래라 구분선을 긋지 않는다.
+function SectionLabel({
+  title,
+  right,
+  first = false,
+}: {
+  title: string;
+  right?: ReactNode;
+  first?: boolean;
+}) {
+  return (
+    <View style={[styles.sectionLabelRow, first ? null : styles.sectionLabelDivider]}>
+      <Text style={styles.sectionLabel}>{title}</Text>
+      {right}
+    </View>
   );
 }
 
@@ -1137,11 +1155,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
   },
-  header: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
   legendDot: {
     backgroundColor: '#60beb8',
     borderRadius: 999,
@@ -1374,6 +1387,23 @@ const styles = StyleSheet.create({
   rangeLabelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  sectionLabel: {
+    color: '#2a7d76',
+    fontSize: 19,
+    fontWeight: '900',
+  },
+  sectionLabelDivider: {
+    borderTopColor: '#e4e2de',
+    borderTopWidth: 1,
+    marginTop: 10,
+    paddingTop: 18,
+  },
+  sectionLabelRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 32,
   },
   summaryCard: {
     backgroundColor: '#ffffff',

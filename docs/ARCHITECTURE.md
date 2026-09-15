@@ -11,7 +11,7 @@ k-calAI-RN/
 │   │   ├── _layout.tsx         # 하단 탭 (홈 / 기록 / 추이 / 내 정보) + 온보딩 게이트
 │   │   ├── home.tsx            # 홈 탭 - 오늘 요약 (그룹 진입점)
 │   │   ├── index.tsx           # 기록 탭 - '오늘 기록 만들기' 런처 (사진/검색·직접입력 → compose로 진입)
-│   │   ├── trends.tsx          # 추이 탭 - 주/월 섭취 kcal 바 차트 + 요약 + 체중 변화
+│   │   ├── trends.tsx          # 진료 탭 - 세 묶음: 진료 준비(진료일·리포트) / 식단과 검사 수치 / 몸과 활동
 │   │   ├── account.tsx         # 내 정보 탭 (프로필·목표 요약, 체중·질병·알러지 진입점, 로그아웃·회원 탈퇴)
 │   ├── onboarding/             # 온보딩 스택 (consent → body → …)
 │   ├── groups/                 # 그룹 스택 (홈에서 진입)
@@ -109,7 +109,7 @@ expo-router의 파일 기반 라우팅입니다. `app/` 하위 파일이 곧 경
 | `app/auth.tsx` | `/auth` | `unstable_settings.initialRouteName = 'auth'` |
 | `app/(tabs)/home.tsx` | `/home` | 로그인 직후 진입 탭. 그룹 진입점 |
 | `app/(tabs)/index.tsx` | `/` | 그룹 `(tabs)`는 URL에 나타나지 않음 |
-| `app/(tabs)/trends.tsx` | `/trends` | 주/월 토글 + 일별 섭취 바 차트(`GET /api/me/trends`) + 체중 변화(`GET /api/weights` 기간 필터) |
+| `app/(tabs)/trends.tsx` | `/trends` | 진료 탭. 세 묶음(2026-09-15): **진료 준비**(다음 진료일 `GET·PUT /api/me/next-visit`·진료에 가져갈 기록 → `/report`) / **식단과 검사 수치**(그래프·캘린더 토글, 일별 섭취 `GET /api/me/trends`·질환 영양 추이·검사 수치 `GET /api/me/labs`) / **몸과 활동**(체중 `GET /api/weights` 기간 필터·체성분·주간 조언) |
 | `app/(tabs)/account.tsx` | `/account` | 프로필·요금제·결제 내역·질병·알러지 진입점 |
 | `app/onboarding/*.tsx` | `/onboarding/…` | 인증 가드 레이아웃 |
 | `app/groups/index.tsx` | `/groups` | 내 그룹 목록 |

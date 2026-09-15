@@ -56,6 +56,10 @@ export const CHANGELOG: ChangelogEntry[] = [
         type: 'improved',
         text: '요금제 해지와 동의 철회를 확인하는 창이 기기(브라우저) 기본 확인 창으로 떠요.',
       },
+      {
+        type: 'improved',
+        text: '진료 탭을 "진료 준비", "식단과 검사 수치", "몸과 활동" 세 묶음으로 나눠 필요한 정보를 찾기 쉽게 했어요.',
+      },
     ],
   },
   {
