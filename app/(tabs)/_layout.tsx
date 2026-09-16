@@ -89,15 +89,16 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="camera.fill" color={color} />,
         }}
       />
-      {/* '리포트' → '진료' (2026-08-19). 담긴 것이 먼저 바뀌고 이름이 따라왔다 —
-          다음 진료일·검사 수치·식단 추이·진료용 리포트가 모두 진료를 향한 행동이라,
-          '리포트'라는 이름은 그중 하나만 가리켰다 (서버 `docs/CARE_LOOP.md` §7).
+      {/* '리포트' → '진료'(2026-08-19) → **'돌아보기'**(2026-09-16, KCAL-44). 담긴 것이 먼저
+          바뀌고 이름이 따라온다 — 이 탭은 지난 4주의 식탁·몸·활동을 되짚는 곳이고, 진료에
+          가져갈 리포트는 그 마지막 한 칸이다. 십자 아이콘은 병원 자체를 가리켜 진료 중개처럼
+          읽혔다(하지 않기로 한 것 — 의료법 제27조 제3항).
           라우트 이름(`trends`)은 그대로다: URL 이 바뀌면 저장해 둔 링크가 깨진다. */}
       <Tabs.Screen
         name="trends"
         options={{
-          title: '진료',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="stethoscope" color={color} />,
+          title: '돌아보기',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar" color={color} />,
         }}
       />
       <Tabs.Screen

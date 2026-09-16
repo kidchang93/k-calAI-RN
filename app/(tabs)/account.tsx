@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ErrorBanner } from '@/components/error-banner';
+import { ACTIVITY_OPTIONS } from '@/components/profile-form';
 import { LoadingState } from '@/components/loading-state';
 import { Screen } from '@/components/screen';
 import { logout } from '@/services/auth-api';
@@ -19,13 +20,10 @@ import {
   ProfileResponse,
 } from '@/services/health-api';
 
-const ACTIVITY_LABELS: Record<ActivityLevel, string> = {
-  sedentary: '거의 안 움직여요',
-  light: '가볍게 움직여요',
-  moderate: '주 3~5회 운동해요',
-  active: '거의 매일 운동해요',
-  very_active: '몸 쓰는 일을 해요',
-};
+// 라벨의 정본은 입력 폼이다 — 고르는 화면과 보이는 화면이 다른 말을 쓰면 안 된다.
+const ACTIVITY_LABELS = Object.fromEntries(
+  ACTIVITY_OPTIONS.map((option) => [option.value, option.label]),
+) as Record<ActivityLevel, string>;
 
 const GOAL_LABELS: Record<GoalType, string> = {
   loss: '체중 감량',
@@ -33,13 +31,15 @@ const GOAL_LABELS: Record<GoalType, string> = {
   gain: '증량',
 };
 
+// 2026-09-16(KCAL-41·43·45) 정리. **지우지 않고 숨긴다** — 화면·라우트·서버 API는 그대로 두고
+// 이 목록에서만 뺀다(원칙: KCAL-14).
+// - 요금제·결제 내역(`/plan`·`/payments`): 1차 출시는 무료라 팔 것이 없다. 유료 전환 때 되살린다.
+// - 질병 정보(`/me/conditions`): 온보딩의 '어떤 게 궁금하세요?'가 같은 값을 받게 되면 그쪽이
+//   정본이 된다(KCAL-31). 그 화면이 나오기 전까지는 질병을 고칠 곳이 사라지므로 ⚠️ 함께 배포한다.
 const MENU_ROWS: { href: Href; icon: keyof typeof MaterialIcons.glyphMap; label: string }[] = [
-  { href: '/plan', icon: 'workspace-premium', label: '요금제 · 사진 인식 사용량' },
-  { href: '/payments', icon: 'receipt-long', label: '결제 내역' },
-  { href: '/me/conditions', icon: 'medical-services', label: '질병 정보' },
-  { href: '/me/allergies', icon: 'no-food', label: '알러지 정보' },
+  { href: '/me/allergies', icon: 'no-food', label: '알러지' },
   // 온보딩이 "내 정보에서 언제든 철회할 수 있어요"라고 약속한 진입점이다
-  // (app/onboarding/consent.tsx·blood.tsx). 이 행이 없으면 그 고지가 거짓이 된다.
+  // (app/onboarding/consent.tsx). 이 행이 없으면 그 고지가 거짓이 된다.
   { href: '/me/consents', icon: 'fact-check', label: '동의 관리' },
   { href: '/updates', icon: 'campaign', label: '업데이트 이력' },
 ];
@@ -150,7 +150,7 @@ export default function AccountScreen() {
     <Screen>
       <View style={styles.header}>
         <Text style={styles.title}>내 정보</Text>
-        <Text style={styles.subtitle}>프로필과 목표를 여기서 관리하세요.</Text>
+        <Text style={styles.subtitle}>내 식습관을 관리해요</Text>
       </View>
 
       {errorMessage ? (
@@ -183,7 +183,7 @@ export default function AccountScreen() {
               <MaterialIcons color="#2a7d76" name="flag" size={22} />
             </View>
             <View style={styles.summaryBody}>
-              <Text style={styles.summaryLabel}>목표</Text>
+              <Text style={styles.summaryLabel}>내 식탁의 기준</Text>
               <Text style={styles.summaryValue}>
                 {goal === null
                   ? '목표를 설정해주세요'

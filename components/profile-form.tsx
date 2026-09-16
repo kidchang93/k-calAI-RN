@@ -11,12 +11,15 @@ const SEX_OPTIONS = [
   { value: 'female', label: '여성' },
 ];
 
-const ACTIVITY_OPTIONS = [
-  { value: 'sedentary', label: '거의 안 움직여요' },
-  { value: 'light', label: '가볍게 움직여요' },
-  { value: 'moderate', label: '주 3~5회 운동해요' },
-  { value: 'active', label: '거의 매일 운동해요' },
-  { value: 'very_active', label: '몸 쓰는 일을 해요' },
+// 라벨만 2026-09-16(KCAL-32)에 바꿨다 — 값(activity_level)과 서버의 활동 계수는 그대로다.
+// 내 정보 화면이 같은 라벨을 다시 쓰므로 여기서 내보낸다(예전에는 두 파일에 따로 적혀 있어
+// 한쪽만 고쳐질 수 있었다).
+export const ACTIVITY_OPTIONS = [
+  { value: 'sedentary', label: '가벼운 산책만 해요' },
+  { value: 'light', label: '주 1~2회 운동해요' },
+  { value: 'moderate', label: '주 2~3회 운동해요' },
+  { value: 'active', label: '주 4회 이상 운동해요' },
+  { value: 'very_active', label: '거의 매일 운동해요' },
 ];
 
 // 온보딩 신체 정보·프로필 수정이 같이 쓰는 폼. 불러오기·저장·이동은 화면이 한다.

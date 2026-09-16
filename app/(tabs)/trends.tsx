@@ -3,31 +3,24 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { type ReactNode, useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { BodyMetrics } from '@/components/body-metrics';
 import { ErrorBanner } from '@/components/error-banner';
 import { KcalCalendar } from '@/components/kcal-calendar';
 import { LoadingState } from '@/components/loading-state';
 import { NutrientTrends } from '@/components/nutrient-trends';
 import { Screen } from '@/components/screen';
 import { Segmented } from '@/components/segmented';
-import { WeeklyCoaching } from '@/components/weekly-coaching';
 import { INTAKE_ESTIMATE_NOTICE } from '@/constants/ai-notice';
 import { MEAL_TYPE_LABELS } from '@/constants/meal';
-import { Coaching, getWeeklyCoaching } from '@/services/coaching-api';
 import { confirmDialog } from '@/services/dialog';
 import { formatFoodLabel } from '@/services/food-label';
 import { formatFullDate, formatShortDate } from '@/services/format';
-import { LabResult, listLabResults } from '@/services/lab-api';
 import { clearNextVisit, daysUntil, getNextVisit, setNextVisit } from '@/services/visit-api';
-import { ConsentRequiredError } from '@/services/onboarding-api';
 import {
   formatDateParam,
   getMeals,
-  getProfile,
   getTrends,
   getWeights,
   MealLog,
-  ProfileResponse,
   recentDateRange,
   TrendDay,
   TrendsResponse,
@@ -42,14 +35,17 @@ const VIEW_OPTIONS: { value: ViewMode; label: string }[] = [
   { value: 'calendar', label: '캘린더' },
 ];
 
+// 기본은 **4주**다(2026-09-16, KCAL-35). 만성질환의 단위는 하루가 아니라 진료와 진료 사이라
+// (서버 `docs/CARE_LOOP.md`) 7일은 너무 짧다. 28일로 세는 이유는 '4주'라는 이름과 숫자가
+// 어긋나지 않게 하기 위함이다(예전 'month'는 30일이었다). 키(`month`)는 그대로 둔다.
 const PERIOD_OPTIONS: { value: TrendPeriod; label: string }[] = [
+  { value: 'month', label: '4주' },
   { value: 'week', label: '7일' },
-  { value: 'month', label: '30일' },
 ];
 
 const PERIOD_DAYS: Record<TrendPeriod, number> = {
   week: 7,
-  month: 30,
+  month: 28,
 };
 
 const CHART_HEIGHT = 160;
@@ -72,7 +68,7 @@ function startOfMonth(date: Date): Date {
 export default function TrendsScreen() {
   const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>('chart');
-  const [period, setPeriod] = useState<TrendPeriod>('week');
+  const [period, setPeriod] = useState<TrendPeriod>('month');
   // 캘린더가 보고 있는 달 (해당 달 1일). 그래프 모드에서는 쓰지 않는다.
   const [month, setMonth] = useState<Date>(() => startOfMonth(new Date()));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -80,16 +76,10 @@ export default function TrendsScreen() {
   const [isLoadingMeals, setIsLoadingMeals] = useState(false);
   const [trends, setTrends] = useState<TrendsResponse | null>(null);
   const [weights, setWeights] = useState<WeightLog[] | null>(null);
-  // 검사 수치는 기간 토글과 무관하다(검사 주기가 조회 기간보다 길다) — 그래서 loadData 와
-  // 분리해 포커스마다 한 번만 읽는다. 실패해도 식단 추이를 막지 않는다.
-  const [labResults, setLabResults] = useState<LabResult[] | null>(null);
-  const [isLabConsentBlocked, setIsLabConsentBlocked] = useState(false);
-  // 다음 진료일. **케어 루프의 시작과 끝**이라(서버 `CARE_LOOP.md` §1) 이 탭 맨 위에 둔다.
+  // 다음 진료일. 2026-09-16(KCAL-34)부터 **맨 아래** '진료 갈 때 가져가기'에 있다 —
+  // 지난 4주를 먼저 보고, 그 끝에서 진료에 무엇을 가져갈지 정하는 순서다.
   const [visitDate, setVisitDate] = useState<string | null>(null);
   const [visitOutcome, setVisitOutcome] = useState<string | null>(null);
-  // 체성분·주간 조언(2026-08-19 내 정보 탭에서 이동). 기간과 무관해 loadData 와 분리한다.
-  const [profile, setProfile] = useState<ProfileResponse | null>(null);
-  const [coaching, setCoaching] = useState<Coaching | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -147,30 +137,6 @@ export default function TrendsScreen() {
     }
   }, []);
 
-  const loadBodyAndCoaching = useCallback(async () => {
-    // 둘 다 실패해도 추이 화면을 막지 않는다 — 코칭은 미동의(403)면 서버가 주지 않는다.
-    const [profileResult, coachingResult] = await Promise.all([
-      getProfile().catch(() => null),
-      getWeeklyCoaching().catch(() => null),
-    ]);
-
-    setProfile(profileResult);
-    setCoaching(coachingResult);
-  }, []);
-
-  const loadLabs = useCallback(async () => {
-    try {
-      const { results } = await listLabResults();
-
-      setLabResults(results);
-      setIsLabConsentBlocked(false);
-    } catch (error) {
-      // 미동의(403)는 오류가 아니라 상태다 — 섹션이 동의 안내로 바뀐다.
-      setIsLabConsentBlocked(error instanceof ConsentRequiredError);
-      setLabResults([]);
-    }
-  }, []);
-
   const loadMealsFor = useCallback(async (date: string) => {
     const seq = ++mealsSeqRef.current;
 
@@ -203,14 +169,12 @@ export default function TrendsScreen() {
   useFocusEffect(
     useCallback(() => {
       void loadData();
-      void loadLabs();
       void loadVisit();
-      void loadBodyAndCoaching();
 
       if (selectedDate !== null) {
         void loadMealsFor(selectedDate);
       }
-    }, [loadBodyAndCoaching, loadData, loadLabs, loadMealsFor, loadVisit, selectedDate])
+    }, [loadData, loadMealsFor, loadVisit, selectedDate])
   );
 
   const selectDate = (date: string) => {
@@ -269,7 +233,7 @@ export default function TrendsScreen() {
 
   return (
     <Screen gap={14} contentStyle={styles.content}>
-      <Text style={styles.title}>진료</Text>
+      <Text style={styles.title}>돌아보기</Text>
 
       {isLoading ? (
         <LoadingState label="기록을 불러오는 중입니다." />
@@ -277,45 +241,11 @@ export default function TrendsScreen() {
         <ErrorBanner message={errorMessage} onRetry={() => void loadData()} />
       ) : (
         <>
-          {/* **세 묶음으로 나눈다** (2026-09-15). 성격이 다른 카드 여덟 개가 제목 모양도 제각각인 채
-              한 줄로 이어져 있었다. 이 탭은 "진료를 준비하고 결과를 받아 적는 곳"이라(서버
-              `docs/CARE_LOOP.md` §7) ① 진료 준비 ② 그 근거(무엇을 먹었고 수치가 어떻게 됐나)
-              ③ 몸과 활동으로 가른다. 카드는 옮기지도 빼지도 않았다 — 묶음 제목만 붙였다. */}
-          <SectionLabel first title="진료 준비" />
-
-          {/* **이 탭의 결론을 맨 위에 둔다** (2026-08-19). 진료용 리포트는 이 서비스가
-              내놓는 최종 산출물인데, 그동안 스크롤 맨 아래 회색 행이라 가장 찾기 어려웠다. */}
-          <VisitCard
-            scheduledOn={visitDate}
-            outcome={visitOutcome}
-            onChange={(date, note) => {
-              setVisitDate(date);
-              setVisitOutcome(note);
-            }}
-          />
-
-          <ReportCard
-            startDate={trends?.start_date ?? null}
-            endDate={trends?.end_date ?? null}
-            recordedDays={summary?.recordedDays ?? 0}
-            totalDays={summary?.totalDays ?? 0}
-            labCount={labResults?.length ?? 0}
-            onPress={() => {
-              // **보고 있는 기간을 그대로 리포트에 넘긴다.** 리포트 화면은 파라미터가 없으면
-              // 자체 기본 기간을 쓰는데, 그러면 카드에 적힌 '14/30일'과 리포트 안의 기록
-              // 일수가 서로 달라진다. 화면·서버 변경 없이 기존 파라미터를 쓰기만 하면 된다.
-              // 이 카드는 로딩 성공 뒤에만 보이므로(위 게이트) trends 는 항상 값이 있다.
-              router.push({
-                pathname: '/report',
-                params: { start_date: trends?.start_date, end_date: trends?.end_date },
-              });
-            }}
-          />
-
-          {/* 그래프·캘린더 토글은 이 묶음에만 영향을 주므로 묶음 제목 줄에 둔다(예전엔 페이지
-              제목 옆이라 탭 전체가 바뀌는 것처럼 보였다). 기간(7일/30일) 토글은 그래프 카드 안이다. */}
+          {/* **4주 식탁**(2026-09-16, KCAL-35). 예전 이름은 '식단과 검사 수치'였는데
+              검사 수치 카드를 이 탭에서 뺐다(KCAL-36 — 라우트 `/labs`·서버 API 는 그대로다). */}
           <SectionLabel
-            title="식단과 검사 수치"
+            first
+            title="4주 식탁"
             right={<Segmented onChange={setViewMode} options={VIEW_OPTIONS} value={viewMode} />}
           />
 
@@ -406,36 +336,64 @@ export default function TrendsScreen() {
             </>
           )}
 
-          {/* **케어 루프의 결과 축**(서버 `docs/CARE_LOOP.md` §4). 식단 바로 아래, 같은 묶음인
-              것이 핵심이다 — "나트륨을 이만큼 먹었다"와 "그래서 수치가 어떻게 됐다"는
-              나란히 놓여야 근거가 된다. 뷰 모드와 무관하게 보인다.
-              2026-08-19: 진입 행이던 것을 **값이 보이는 섹션**으로 올렸다 — 버튼만 있으면
-              들어가 보기 전까지 무엇이 쌓였는지 알 수 없다. */}
-          <LabSection
-            results={labResults}
-            isConsentBlocked={isLabConsentBlocked}
-            onPress={() => router.push('/labs')}
-          />
-
           {/* 체중은 그래프·캘린더 두 모드 모두에 보인다 — 한쪽에만 있으면 "있는지 없는지"
               모르게 된다(캘린더 모드에서는 보고 있는 달의 기록).
-              체성분·권장 활동량과 주간 조언은 2026-08-19 에 **내 정보 탭에서 옮겨 왔다.**
-              내 정보는 계정·설정을 보는 곳인데 판단 자료가 섞여 있었다.
-              둘의 **순서는 유지한다**: 조언은 그 조언의 기준(권장 활동량) 바로 아래에
-              있어야 근거를 갖는다(2026-07-25 판단). */}
+              **기록만 둔다**(2026-09-16, KCAL-36·37): BMI 카드·주당 권장 운동량·이번 주 조언을
+              화면에서 뺐다. 셋 다 우리가 대신 내리는 판정이라 이 탭의 성격과 어긋난다
+              (서버 `docs/PRODUCT_STRATEGY.md` §0-1 — 판단 대행을 하지 않는다).
+              컴포넌트(`components/body-metrics`·`weekly-coaching`)와 서버 API 는 그대로 둔다. */}
           <SectionLabel title="몸과 활동" />
 
           <WeightSection logs={periodWeights} onPressManage={() => router.push('/me/weights')} />
 
-          <BodyMetrics profile={profile} />
+          {/* 이 탭의 결론. **맨 아래**다(2026-09-16, KCAL-34·38) — 4주 식탁과 몸·활동을
+              본 다음에야 "그래서 무엇을 가져갈까"가 온다. 2026-08-19~09-15 에는 맨 위였다. */}
+          <SectionLabel title="진료 갈 때 가져가기" />
 
-          <WeeklyCoaching coaching={coaching} shownNotice={profile?.activity_guide?.notice ?? null} />
+          <VisitCard
+            scheduledOn={visitDate}
+            outcome={visitOutcome}
+            onChange={(date, note) => {
+              setVisitDate(date);
+              setVisitOutcome(note);
+            }}
+          />
+
+          {/* **검사 수치 진입점**(2026-09-16, KCAL-36). 값이 보이던 카드는 뺐지만 길까지 막으면
+              케어 루프의 결과 축이 화면에서 사라진다(서버 `docs/CARE_LOOP.md` §4) — 여기 한 줄로
+              남긴다. 진료에서 받아 오는 값이고 리포트에 실리므로 이 묶음이 제자리다.
+              수치도 판정도 이 줄에는 없다: 들어가서 보는 것이라 '진료 준비'의 할 일로만 읽힌다. */}
+          <Pressable
+            onPress={() => router.push('/labs')}
+            style={({ pressed }) => [styles.labLinkRow, pressed && styles.pressed]}>
+            <MaterialIcons color="#2a7d76" name="science" size={20} />
+            <View style={styles.labLinkBody}>
+              <Text style={styles.labLinkTitle}>검사 수치</Text>
+              <Text style={styles.labLinkHint}>병원에서 받은 결과를 적어 두면 리포트에 함께 실려요.</Text>
+            </View>
+            <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
+          </Pressable>
+
+          <ReportCard
+            startDate={trends?.start_date ?? null}
+            endDate={trends?.end_date ?? null}
+            recordedDays={summary?.recordedDays ?? 0}
+            totalDays={summary?.totalDays ?? 0}
+            onPress={() => {
+              // **보고 있는 기간을 그대로 리포트에 넘긴다.** 리포트 화면은 파라미터가 없으면
+              // 자체 기본 기간을 쓰는데, 그러면 카드에 적힌 '14/30일'과 리포트 안의 기록
+              // 일수가 서로 달라진다. 화면·서버 변경 없이 기존 파라미터를 쓰기만 하면 된다.
+              // 이 카드는 로딩 성공 뒤에만 보이므로(위 게이트) trends 는 항상 값이 있다.
+              router.push({
+                pathname: '/report',
+                params: { start_date: trends?.start_date, end_date: trends?.end_date },
+              });
+            }}
+          />
 
           {/* 이 탭의 수치는 AI 가 만든 것이 아니다 — 섭취량은 식약처 DB, 체성분·조언은 입력값으로
               계산한다. 예전 "AI 추정값" 문구는 사실과 달랐다(KCAL-17). */}
-          <Text style={styles.disclaimer}>
-            {`${INTAKE_ESTIMATE_NOTICE} 체성분·권장 활동량·주간 조언은 입력한 키·몸무게와 기록으로 계산한 참고 정보입니다.`}
-          </Text>
+          <Text style={styles.disclaimer}>{INTAKE_ESTIMATE_NOTICE}</Text>
         </>
       )}
     </Screen>
@@ -622,14 +580,12 @@ function ReportCard({
   endDate,
   recordedDays,
   totalDays,
-  labCount,
   onPress,
 }: {
   startDate: string | null;
   endDate: string | null;
   recordedDays: number;
   totalDays: number;
-  labCount: number;
   onPress: () => void;
 }) {
   return (
@@ -657,84 +613,13 @@ function ReportCard({
           </Text>
           <Text style={styles.reportCardStatLabel}>식단 기록</Text>
         </View>
-        <View style={styles.reportCardDivider} />
-        <View style={styles.reportCardStat}>
-          <Text style={styles.reportCardStatValue}>
-            {labCount}
-            <Text style={styles.reportCardStatUnit}>건</Text>
-          </Text>
-          <Text style={styles.reportCardStatLabel}>검사 수치</Text>
-        </View>
       </View>
 
       <Text style={styles.reportCardHint}>
         {recordedDays === 0
           ? '기록이 쌓이면 진료에 가져갈 수 있게 정리해 드려요.'
-          : '식단과 검사 수치를 한 장으로 정리해 인쇄하거나 저장할 수 있어요.'}
+          : '식단 기록을 한 장으로 정리해 인쇄하거나 저장할 수 있어요.'}
       </Text>
-    </Pressable>
-  );
-}
-
-// 최근 검사 수치. **판정하지 않는다** — 값·단위·측정일만 옮겨 적고, 정상 여부에 색을 칠하거나
-// 화살표를 붙이지 않는다(앱 CLAUDE.md '절대 하지 말아야 할 것', 서버 `CARE_LOOP.md` §4-2).
-// 해석은 진료실에서 이루어진다.
-const LAB_PREVIEW_COUNT = 3;
-
-function LabSection({
-  results,
-  isConsentBlocked,
-  onPress,
-}: {
-  results: LabResult[] | null;
-  isConsentBlocked: boolean;
-  onPress: () => void;
-}) {
-  // 아직 안 읽혔으면 자리를 잡아두지 않는다 (빈 카드가 깜빡이는 것을 피한다).
-  if (results === null && !isConsentBlocked) {
-    return null;
-  }
-
-  const recent = (results ?? [])
-    .slice()
-    .sort((a, b) => b.measured_on.localeCompare(a.measured_on))
-    .slice(0, LAB_PREVIEW_COUNT);
-
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.labCard, pressed && styles.pressed]}>
-      <View style={styles.labCardHead}>
-        <MaterialIcons color="#2a7d76" name="science" size={20} />
-        <Text style={styles.labCardTitle}>검사 수치</Text>
-        <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
-      </View>
-
-      {isConsentBlocked ? (
-        <Text style={styles.labEmptyText}>
-          민감정보 동의를 하면 병원에서 받은 검사 결과를 옮겨 적을 수 있어요.
-        </Text>
-      ) : recent.length === 0 ? (
-        <Text style={styles.labEmptyText}>
-          아직 옮겨 적은 검사 결과가 없어요. 병원에서 받은 결과지를 적어 두면 식단 기록과 함께
-          리포트에 실립니다.
-        </Text>
-      ) : (
-        <View style={styles.labList}>
-          {recent.map((result) => (
-            <View key={result.id} style={styles.labRow}>
-              <Text style={styles.labRowLabel} numberOfLines={1}>
-                {result.label}
-              </Text>
-              <Text style={styles.labRowValue}>
-                {result.value}
-                <Text style={styles.labRowUnit}>{` ${result.unit}`}</Text>
-              </Text>
-              <Text style={styles.labRowDate}>{formatShortDate(result.measured_on)}</Text>
-            </View>
-          ))}
-        </View>
-      )}
     </Pressable>
   );
 }
@@ -1305,11 +1190,6 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-  reportCardDivider: {
-    backgroundColor: '#e4e2de',
-    height: 28,
-    width: 1,
-  },
   reportCardStatValue: {
     color: '#2a7d76',
     fontSize: 22,
@@ -1329,57 +1209,27 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 18,
   },
-  labCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    gap: 12,
-    padding: 18,
-  },
-  labCardHead: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  labCardTitle: {
-    color: '#22211f',
+  labLinkBody: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: '800',
+    gap: 2,
   },
-  labEmptyText: {
+  labLinkHint: {
     color: '#5c5b57',
     fontSize: 13,
-    lineHeight: 19,
+    lineHeight: 18,
   },
-  labList: {
-    gap: 10,
-  },
-  labRow: {
+  labLinkRow: {
     alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
+    padding: 16,
   },
-  labRowLabel: {
+  labLinkTitle: {
     color: '#22211f',
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  labRowValue: {
-    color: '#22211f',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
-  },
-  labRowUnit: {
-    color: '#5c5b57',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  labRowDate: {
-    color: '#a9a6a1',
-    fontSize: 12,
-    minWidth: 38,
-    textAlign: 'right',
   },
   pressed: {
     opacity: 0.74,

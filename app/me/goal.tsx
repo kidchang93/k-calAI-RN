@@ -1,6 +1,7 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
 import { ErrorBanner } from '@/components/error-banner';
@@ -103,6 +104,25 @@ export default function GoalEditScreen() {
               <Text style={styles.secondaryButtonText}>프로필 입력하러 가기</Text>
             </Pressable>
           ) : null}
+
+          {/* **질환·병기 수정 경로**(2026-09-16, KCAL-41). 내 정보 메뉴의 '질병 정보' 행을 뺐는데
+              그것이 `/me/conditions` 로 가는 **유일한** 길이었다 — 온보딩의 같은 화면은 프로필이
+              없을 때만 열리므로(탭 진입 가드) 가입을 마친 사람은 다시 들어갈 수 없다.
+              여기 두는 이유: 등록한 질환이 이 화면이 말하는 기준을 고르는 값이다. 신장병이면
+              투석 여부가 칼륨 과일 분류와 칼륨·인 참고치 노출을 가른다
+              (서버 `docs/CKD_NUTRITION.md` §3-6). */}
+          <Pressable
+            onPress={() => router.push('/me/conditions')}
+            style={({ pressed }) => [styles.linkRow, pressed && styles.pressed]}>
+            <MaterialIcons color="#2a7d76" name="medical-services" size={20} />
+            <View style={styles.linkBody}>
+              <Text style={styles.linkTitle}>등록한 질환</Text>
+              <Text style={styles.linkHint}>
+                질환에 따라 보여드리는 영양 기준이 달라져요. 신장 질환은 투석 여부도 함께 봐요.
+              </Text>
+            </View>
+            <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
+          </Pressable>
         </GoalForm>
       )}
     </Screen>
@@ -110,6 +130,28 @@ export default function GoalEditScreen() {
 }
 
 const styles = StyleSheet.create({
+  linkBody: {
+    flex: 1,
+    gap: 2,
+  },
+  linkHint: {
+    color: '#5c5b57',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  linkRow: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 16,
+  },
+  linkTitle: {
+    color: '#22211f',
+    fontSize: 16,
+    fontWeight: '800',
+  },
   pressed: {
     opacity: 0.74,
   },

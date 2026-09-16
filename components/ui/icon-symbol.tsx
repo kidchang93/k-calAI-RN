@@ -16,9 +16,10 @@ type IconSymbolName = keyof typeof MAPPING;
 const MAPPING = {
   'house.fill': 'home',
   'camera.fill': 'photo-camera',
-  // 진료 탭 (2026-08-19). 이 탭은 추이만 보는 곳이 아니라 진료를 준비하는 곳이라
-  // 그래프 아이콘으로는 성격이 드러나지 않는다.
-  stethoscope: 'medical-services',
+  // 돌아보기 탭 (2026-09-16, KCAL-44). '진료'(medical-services)에서 바뀌었다 —
+  // 이 탭은 진료 준비만이 아니라 지난 4주를 되짚는 곳이고, 십자 아이콘은 병원 자체를
+  // 가리켜 진료 중개처럼 읽힌다(하지 않기로 한 것). 달력이 '지난 날들'을 가리킨다.
+  calendar: 'calendar-month',
   'person.fill': 'person',
 } as IconMapping;
 

@@ -32,10 +32,14 @@ import {
 // revoked_at만 채울 뿐 서비스 이용은 그대로라, 버튼을 두면 "철회했는데 계속 쓰인다"는 더 나쁜
 // 거짓말이 된다. 이 둘을 그만두는 길은 회원 탈퇴다.
 //
-// 민감정보 동의는 네 상태다 (2026-09-13, KCAL-22). 'outdated'는 철회하지 않았지만 **이전 문구에 동의한**
-// 상태로, 서버가 무효로 보고 403 을 준다 — 그래서 '동의함'으로 그리지 않고 다시 동의를 받는다.
+// 민감정보 동의는 다섯 상태다 (2026-09-13 KCAL-22, 2026-09-16 'changed' 추가).
+// - 'outdated' : 이전 문구에 동의한 상태이고 **수집 항목·목적이 넓어진** 개정이라 서버가 403 을 준다.
+//                다시 동의하기 전까지 기능이 막히므로 '동의함'으로 그리지 않는다.
+// - 'changed'  : 문구가 바뀌긴 했지만 범위가 넓어지지 않아 **기능은 그대로** 동작한다. 막히지 않으니
+//                "쓸 수 없어요"라고 쓰면 거짓이다 — 바뀐 사실만 알리고 읽어 볼 길을 준다.
+// 둘의 구분은 서버가 준다(`requires_reconsent`). 앱이 버전을 비교해 판단하지 않는다.
 // 철회는 낡은 동의에도 된다(서버 revoke 는 버전을 보지 않는다).
-type HealthConsentState = 'none' | 'revoked' | 'outdated' | 'current';
+type HealthConsentState = 'none' | 'revoked' | 'outdated' | 'changed' | 'current';
 
 export default function ConsentsScreen() {
   const [consents, setConsents] = useState<ConsentRecord[] | null>(null);
@@ -78,7 +82,10 @@ export default function ConsentsScreen() {
 
   const health = consents === null ? null : latestConsent(consents, 'sensitive_health');
   const healthState = toHealthConsentState(health);
-  const canRevoke = healthState === 'current' || healthState === 'outdated';
+  // 살아 있는 동의는 전부 철회할 수 있다 — 'changed'(문구만 낡음)도 유효한 동의다. 빠뜨리면
+  // 철회 버튼 자리에 '동의하기'가 떠서, 온보딩이 약속한 "언제든 철회" 경로가 사라진다.
+  const canRevoke =
+    healthState === 'current' || healthState === 'changed' || healthState === 'outdated';
   const agree = () => void submit(() => postConsent('sensitive_health', CONSENT_VERSION));
 
   // Alert.alert는 react-native-web에서 no-op이라 웹에서 확인 없이 통과한다 (결제 해지 확인과
@@ -144,13 +151,24 @@ export default function ConsentsScreen() {
                 <Text style={styles.updateText}>{SENSITIVE_HEALTH_CHANGE_SUMMARY}</Text>
                 {/* 서버가 낡은 동의에 403 을 주는 라우트(require_sensitive_consent — 건강 프로필·질병·
                     알러지, 기록 경고, 식단 추천, 주간 조언, 검사 수치)와 403 없이 **읽지 않는** 곳
-                    (홈·진료 탭의 질환 기준 영양 합계, 리포트의 질환·검사 수치 — 서버 DATA_MODEL 7장). */}
+                    (홈·돌아보기 탭의 질환 기준 영양 합계, 리포트의 질환·검사 수치 — 서버 DATA_MODEL 7장). */}
                 <Text style={styles.updateText}>
                   다시 동의하기 전까지 질병·알러지 조회와 수정, 기록할 때 음식 경고, 질환 기준 영양
                   합계, 식단 추천, 주간 조언, 검사 수치를 쓸 수 없고 진료 리포트에도 질환·검사 수치가
                   빠져요.
                 </Text>
                 <AgreeButton isSubmitting={isSubmitting} label="다시 동의하기" onPress={agree} />
+              </View>
+            ) : healthState === 'changed' ? (
+              // 문구만 바뀐 개정. **아무것도 막히지 않는다** — 읽어 보고 새 문구로 동의를 갱신할지는
+              // 사용자가 정한다. 여기서 재촉하면 막히지 않는 일을 막힌 것처럼 보이게 한다.
+              <View style={styles.noticeBox}>
+                <Text style={styles.updateTitle}>안내 문구가 바뀌었어요</Text>
+                <Text style={styles.updateText}>
+                  받는 정보와 쓰는 곳은 그대로예요. 지금 쓰시던 기능은 그대로 쓸 수 있고, 위 내용을
+                  확인하신 뒤 새 문구로 동의를 갱신하셔도 됩니다.
+                </Text>
+                <AgreeButton isSubmitting={isSubmitting} label="새 문구로 동의 갱신" onPress={agree} />
               </View>
             ) : null}
 
@@ -268,12 +286,18 @@ function toHealthConsentState(consent: ConsentRecord | null): HealthConsentState
     return 'revoked';
   }
 
-  return consent.is_current ? 'current' : 'outdated';
+  if (consent.requires_reconsent) {
+    return 'outdated';
+  }
+
+  return consent.is_current ? 'current' : 'changed';
 }
 
 // 낡은 동의는 체크 표시를 달지 않는다 — 서버가 무효로 보는 것을 합격 도장처럼 그리면 안 된다.
+// 'changed' 는 **유효한 동의**라 'current' 와 같은 표시를 준다 — 문구가 낡았다는 것과 동의가
+// 무효라는 것은 다르다. 무효인 것(outdated·revoked·none)만 체크를 떼고 색을 바꾼다.
 function statusIconName(state: HealthConsentState): keyof typeof MaterialIcons.glyphMap {
-  if (state === 'current') {
+  if (state === 'current' || state === 'changed') {
     return 'check-circle';
   }
 
@@ -281,7 +305,7 @@ function statusIconName(state: HealthConsentState): keyof typeof MaterialIcons.g
 }
 
 function statusIconColor(state: HealthConsentState): string {
-  if (state === 'current') {
+  if (state === 'current' || state === 'changed') {
     return '#60beb8';
   }
 
@@ -299,6 +323,10 @@ function describeHealthStatus(consent: ConsentRecord | null, state: HealthConsen
 
   if (state === 'outdated') {
     return `${formatIsoYearMonthDay(consent.agreed_at)}에 이전 내용(${consent.version})으로 동의함`;
+  }
+
+  if (state === 'changed') {
+    return `${formatIsoYearMonthDay(consent.agreed_at)}에 동의함 · ${consent.version} (안내 문구가 바뀌었어요)`;
   }
 
   return `${formatIsoYearMonthDay(consent.agreed_at)}에 동의함 · ${consent.version}`;
@@ -407,6 +435,12 @@ const styles = StyleSheet.create({
     color: '#22211f',
     fontSize: 30,
     fontWeight: '900',
+  },
+  noticeBox: {
+    backgroundColor: '#eef7f5',
+    borderRadius: 8,
+    gap: 8,
+    padding: 14,
   },
   updateBox: {
     backgroundColor: '#fbeee7',

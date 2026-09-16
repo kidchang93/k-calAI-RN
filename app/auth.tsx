@@ -263,12 +263,12 @@ export default function AuthScreen() {
         />
         <Text style={styles.kicker}>CARE TABLE</Text>
         <Text style={styles.title}>
-          {isSignup ? '거의 다 됐어요' : '카카오로\n식단 기록을 시작해요'}
+          {isSignup ? '거의 다 됐어요' : '오늘 식탁,\n사진으로 기록해볼까요?'}
         </Text>
         <Text style={styles.description}>
           {isSignup
             ? '약관에 동의하고 요금제를 고르면 가입이 끝나요.'
-            : '비밀번호 없이 카카오 계정으로 가입하고 로그인합니다.'}
+            : '사진 한 장으로 기록하는\n내 식습관의 기록'}
         </Text>
       </View>
 

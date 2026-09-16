@@ -29,9 +29,9 @@ export default function ConditionsScreen() {
   );
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
   const [selectedValues, setSelectedValues] = useState<string[]>([]);
-  // 신장 질환을 고르면 **병기까지 이어서 묻는다** (2026-07-25). 나트륨 1일 상한이 병기에서
-  // 갈리므로(비투석 2,000 · 투석 3,000), 병기를 모르면 CKD 사용자에게 상한을 제시할 수 없다
-  // — 하루 누적이 "투석 여부를 입력해주세요"로 남는다 (서버 CKD_NUTRITION.md 3-6).
+  // 신장 질환을 고르면 **병기까지 이어서 묻는다** (2026-07-25). 2026-09-16 부터 나트륨 상한은
+  // 병기와 무관하게 2,000 mg 이고(KDOQI 2020 6.5.1 이 CKD 5D 를 같은 값으로 묶는다), 병기가
+  // 가르는 것은 **칼륨·인 참고치 노출과 칼륨 과일 분류**다 (서버 CKD_NUTRITION.md §3-6).
   const [stageOptions, setStageOptions] = useState<MetaOption[]>(FALLBACK_CKD_STAGE_OPTIONS);
   const [ckdStage, setCkdStage] = useState<CkdStage | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -123,16 +123,15 @@ export default function ConditionsScreen() {
         options={conditionOptions}
         saveLabel="다음"
         selectedValues={selectedValues}>
-        {/* 신장 질환을 골랐을 때만 나타난다. 나트륨 1일 상한이 병기에서 갈리므로
-            (비투석 2,000 · 투석 3,000) 여기서 묻지 않으면 그 사용자에게는 상한을 제시할 수
-            없다. 건너뛸 수 있게 두는 이유는 모르는 사람에게 강요하면 아무거나 고르기 때문이다 —
-            서버는 병기가 없으면 상한 대신 안내를 준다 (서버 CKD_NUTRITION.md 3-6). */}
+        {/* 신장 질환을 골랐을 때만 나타난다. 투석 중일 때만 칼륨·인 참고치를 보이고 칼륨 과일
+            분류가 달라지므로 여기서 묻는다(나트륨 2,000 mg 은 병기와 무관하다). 건너뛸 수 있게
+            두는 이유는 모르는 사람에게 강요하면 아무거나 고르기 때문이다 — 병기를 몰라도
+            나트륨 상한은 나오고, 칼륨·인은 엄격한 쪽으로 본다 (서버 CKD_NUTRITION.md §3-6). */}
         {isCkdSelected ? (
           <View style={styles.stageBlock}>
             <Text style={styles.stageTitle}>투석을 받고 계신가요?</Text>
             <Text style={styles.stageHint}>
-              투석 여부에 따라 하루 나트륨 기준이 2,000~3,000mg으로 달라요. 모르시면 건너뛰고
-              나중에 내 정보에서 입력하셔도 됩니다.
+              투석 중이면 칼륨·인을 함께 살펴드려요. 모르시면 건너뛰고 나중에 바꾸셔도 됩니다.
             </Text>
             <ChipGroup
               onToggle={(value) =>

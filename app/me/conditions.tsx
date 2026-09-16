@@ -25,7 +25,8 @@ import {
 } from '@/services/onboarding-api';
 
 // 병기를 물어보는 질병. 신장 질환만 나트륨 하루 상한이 병기에서 갈린다
-// (비투석 2,000 / 투석 3,000 — 서버 docs/CKD_NUTRITION.md 3-6).
+// (2026-09-16부터 나트륨은 병기와 무관하게 2,000 — 갈리는 것은 칼륨·인 참고치와 과일 분류다.
+// 서버 docs/CKD_NUTRITION.md §3-6 '나트륨 상한 정정').
 const CKD_CODE = 'ckd';
 
 export default function ConditionsEditScreen() {
@@ -174,7 +175,7 @@ export default function ConditionsEditScreen() {
             <View style={styles.stageSection}>
               <Text style={styles.stageTitle}>투석을 받고 계신가요?</Text>
               <Text style={styles.stageDescription}>
-                투석 여부에 따라 하루 나트륨 목표가 2,000~3,000mg으로 달라져요. 선택하면 그
+                투석 중이면 칼륨·인을 함께 살펴드려요. 선택하면 그
                 기준으로 오늘 섭취량을 알려드립니다. 모르시면 비워 두셔도 됩니다.
               </Text>
               <ChipGroup

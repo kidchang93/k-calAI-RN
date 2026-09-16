@@ -26,10 +26,14 @@ export type ConsentRecord = {
   version: string;
   agreed_at: string;
   revoked_at: string | null;
-  // 이 행의 버전이 서버의 현재 문서 버전과 같은가 (2026-09-13, KCAL-22). 서버는 철회되지 않았어도
-  // 낡은 민감정보 동의를 무효로 보고 403 을 준다 — 화면이 '동의함'으로 그리면 거짓이 된다.
+  // 이 행의 버전이 서버의 현재 문서 버전과 같은가 (2026-09-13, KCAL-22).
   // 옛 서버는 이 필드를 주지 않아 true 로 읽는다(없다고 멀쩡한 동의를 낡았다고 그리지 않는다).
   is_current: boolean;
+  // 이 동의로 **기능이 막히는가** (2026-09-16). `is_current` 와 다르다 — 문구만 다듬은 개정이면
+  // 낡아도(is_current=false) 기능은 그대로라 false 다. 둘을 가르지 않으면 화면이 멀쩡히 동작하는
+  // 사용자에게 "다시 동의하기 전까지 쓸 수 없어요"라고 거짓 안내를 한다.
+  // 옛 서버는 이 필드를 주지 않는다 → 그때는 `!is_current` 를 그대로 쓴다(예전 동작).
+  requires_reconsent: boolean;
 };
 
 // 신장병 병기(투석 여부). 나트륨 하루 상한이 여기서 갈린다 — 비투석 2,000 / 투석 3,000
@@ -85,14 +89,23 @@ export async function getConsents(): Promise<ConsentRecord[]> {
   return list.map((item) => ensure(parseConsent(item)));
 }
 
-// 민감정보 동의가 **철회되지 않았지만 이전 문구에 대한 것**인가 (2026-09-13, KCAL-22). 서버는 이 상태에서
-// 질환·병기·검사 수치를 읽지 않고 빈 값으로 준다 — 화면이 빈 값을 "없음"으로 그리면 거짓이 되므로 이걸로 가른다.
+// 민감정보 동의가 철회되지 않았지만 **다시 받아야 하는** 상태인가 (2026-09-13 KCAL-22, 2026-09-16 정정).
+// 서버는 이 상태에서 질환·병기·검사 수치를 읽지 않고 빈 값으로 준다 — 화면이 빈 값을 "없음"으로
+// 그리면 거짓이 되므로 이걸로 가른다.
+// ⚠️ `is_current` 가 아니라 `requires_reconsent` 를 본다: 문구만 다듬은 개정으로 낡은 동의는
+// 기능이 멀쩡히 동작하므로 리포트에서 질환을 빼면 안 된다.
 export function isSensitiveConsentOutdated(consents: ConsentRecord[]): boolean {
-  const latest = consents
-    .filter((consent) => consent.kind === 'sensitive_health')
-    .sort((left, right) => right.agreed_at.localeCompare(left.agreed_at))[0];
+  const latest = latestSensitiveConsent(consents);
 
-  return latest !== undefined && latest.revoked_at === null && !latest.is_current;
+  return latest !== null && latest.revoked_at === null && latest.requires_reconsent;
+}
+
+export function latestSensitiveConsent(consents: ConsentRecord[]): ConsentRecord | null {
+  return (
+    consents
+      .filter((consent) => consent.kind === 'sensitive_health')
+      .sort((left, right) => right.agreed_at.localeCompare(left.agreed_at))[0] ?? null
+  );
 }
 
 export async function postConsent(kind: ConsentKind, version: string): Promise<void> {
@@ -222,17 +235,23 @@ function parseConsent(value: unknown): ConsentRecord | null {
     (value.revoked_at !== null &&
       value.revoked_at !== undefined &&
       typeof value.revoked_at !== 'string') ||
-    (value.is_current !== undefined && typeof value.is_current !== 'boolean')
+    (value.is_current !== undefined && typeof value.is_current !== 'boolean') ||
+    (value.requires_reconsent !== undefined && typeof value.requires_reconsent !== 'boolean')
   ) {
     return null;
   }
+
+  const isCurrent = typeof value.is_current === 'boolean' ? value.is_current : true;
 
   return {
     kind,
     version: value.version,
     agreed_at: value.agreed_at,
     revoked_at: typeof value.revoked_at === 'string' ? value.revoked_at : null,
-    is_current: typeof value.is_current === 'boolean' ? value.is_current : true,
+    is_current: isCurrent,
+    // 옛 서버(필드 없음)는 "낡음 = 막힘"이었다 — 그 서버에 붙었을 때의 동작을 그대로 둔다.
+    requires_reconsent:
+      typeof value.requires_reconsent === 'boolean' ? value.requires_reconsent : !isCurrent,
   };
 }
 
