@@ -1,4 +1,3 @@
-import { Platform } from 'react-native';
 
 // 토스페이먼츠 결제창 SDK 어댑터 — **웹 전용**.
 //
@@ -38,8 +37,10 @@ type TossWindow = Window & { TossPayments?: TossPaymentsFactory };
 let sdkPromise: Promise<TossPaymentsFactory> | null = null;
 
 // 화면이 결제 버튼을 그릴지 '준비 중' 안내를 그릴지 판단하는 기준.
+// 2026-09-29: 웹 결제도 닫았다 — 유료화는 인앱 결제로 한다(서버 docs/LEGAL_COMPLIANCE.md §6-4).
+// 요금제·결제 화면과 서버 /api/billing/* 는 지우지 않고 숨긴다. 토스를 다시 팔면 Platform.OS === 'web' 으로 되돌린다.
 export function isBillingSupported(): boolean {
-  return Platform.OS === 'web';
+  return false;
 }
 
 export async function loadTossSdk(): Promise<TossPaymentsFactory> {

@@ -25,6 +25,24 @@ export const CHANGE_TYPE_LABELS: Record<ChangeType, string> = {
 // 최신순(위가 최신). 새 릴리즈는 이 배열 맨 앞에 추가한다.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-09-29',
+    title: '케어테이블은 무료로 제공돼요',
+    items: [
+      {
+        type: 'improved',
+        text: '가입할 때 요금제를 고르는 단계를 없앴어요. 약관에 동의하면 바로 시작할 수 있어요.',
+      },
+      {
+        type: 'improved',
+        text: '사진 인식을 하루 5번 모두 쓴 날에는 내일 다시 쓸 수 있다는 안내와 함께, 음식 이름을 직접 입력해 기록할 수 있다고 알려드려요.',
+      },
+      {
+        type: 'improved',
+        text: '이용약관과 개인정보 처리방침을 1.2로 고쳤어요. 결제·환불 조항과 결제 정보 수집 항목을 뺐고, 다시 동의하실 필요는 없어요.',
+      },
+    ],
+  },
+  {
     date: '2026-09-16',
     title: "'진료' 탭이 '돌아보기'로 바뀌고, 화면을 정리했어요",
     items: [

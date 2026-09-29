@@ -82,9 +82,9 @@ export default function GroupJoinScreen() {
 
       {planLimitMessage ? (
         <ErrorBanner
-          actionLabel="요금제 업그레이드"
+          actionLabel="확인"
           message={planLimitMessage}
-          onRetry={() => router.push('/plan')}
+          onRetry={() => setPlanLimitMessage(null)}
         />
       ) : null}
 

@@ -60,6 +60,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 |------|-------------|------|
 | `EXPO_PUBLIC_API_ORIGIN` | API 오리진 강제(예: `https://api.kcalai.link`). **모든 서비스가 이 하나를 따른다** — 서비스별 `EXPO_PUBLIC_*_API_URL`은 2026-09-14에 없앴다. `eas.json`의 빌드 프로파일이 운영 오리진을 넣는다 | `services/api-base.ts` |
 | `EXPO_PUBLIC_PUBLIC_WEB_ORIGIN` | 네이티브에서 만드는 그룹 초대 링크의 오리진(웹은 접속 도메인을 따른다) | `services/group-invite.ts` |
+| `EXPO_PUBLIC_BUSINESS_*` | 약관·처리방침의 사업자 정보(`NAME`·`OWNER`·`REG_NO`·`ADDRESS`·`EMAIL`, 선택 `MAIL_ORDER_NO`). **약관에 공개되는 값**이라 비밀이 아니다. 하나라도 비면 `[[...]]`와 '초안' 경고가 보인다. ⚠️ EAS 클라우드 빌드는 gitignore 된 `.env`를 올리지 않는다 — `eas env:create`로 같은 이름을 등록한다 (2026-09-29) | `constants/legal.ts` |
 | `EXPO_PUBLIC_DEV_AUTH_SESSION` | (오버라이드 아님) 로컬 개발 세션 JSON — **`../dev.sh`가 넣는다**. `__DEV__`에서만 읽고 저장된 세션보다 우선한다. 아래 '비밀값 금지'의 **유일한 예외**: 로컬 DB·로컬 pepper에서만 유효하고, 프로덕션 export는 빌드 시점에 값이 있어도 번들에 남지 않는다(2026-09-13 `expo export`로 확인) | `services/auth-session.ts` |
 
 기본 오리진(base)은 `services/api-base.ts`가 결정합니다(위 설명). 새 서비스는 `apiUrl('/api/…')` 패턴을 따르세요 — 호스트 분기·개별 환경변수를 서비스 파일에 두지 않습니다.
@@ -87,7 +88,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 | 칼로리·영양 추정 | `POST` | `/api/nutrition/estimate` | 동일 | 일치 (2026-07-13, `DATA_MODEL.md` **19장**). **2026-07-21: 응답에 `sodium_mg`·`potassium_mg`·`phosphorus_mg` 추가**(nullable, 1인분 실측) — 끼니 구성 화면이 항목마다 수치 칩을 그린다(선택한 양을 곱해 표시). 등급은 여기 없다 — 경고 API가 준다. 서버가 식약처 DB에 없는 음식은 **AI로 1회 추정해 DB에 적재·동결**한다 → 같은 음식은 항상 같은 값. `source === 'llm'`이면 실측이 아닌 **AI 추정값**이라 기록 화면이 항목 아래에 "칼로리는 AI 추정값" 표시를 붙인다(2026-09-13, AI기본법 제31조② — 그 전에는 이 문서에만 배지가 있고 **코드가 `source`를 읽지 않았다**). 사용자가 칼로리를 직접 고치면 사용자 값이라 표시를 뗀다(`compose.tsx`의 `aiEstimatedKcal`). **404** = 추정까지 실패(수동 입력) → `NutritionNotFoundError`, **503** = 추정 백엔드 일시 장애(재시도 가능) → `NutritionUnavailableError` |
 | 회원 탈퇴 | `DELETE` | `/api/me` | 동일 | 일치 (`health-api.ts` `deleteAccount`, 2026-07-11 openapi.json 확인 — 물리 삭제·전 토큰 무효라 로컬 호출 실측은 하지 않는다) |
 | 주/월 추이 집계 · **캘린더** | `GET` | `/api/me/trends?start_date&end_date` | 동일 | 일치 (`health-api.ts`, 2026-07-11 openapi.json·user 15 실측. Bearer 필수, 최대 92일, 초과·역순 400). 추이 탭의 **캘린더 뷰**(2026-07-13, `components/kcal-calendar.tsx`)가 같은 API를 '해당 달 1일~말일' 범위로 재사용한다 — 서버 신규 API 없음. 날짜를 누르면 `GET /api/meals?date=`로 그날 끼니를 읽는다 |
-| 동의·건강 프로필·질병·알러지 | — | `/api/me/consents*`, `/api/me/{health-profile\|conditions\|allergies}` | 동일 | 일치 (`onboarding-api.ts`). **2026-09-13(KCAL-22): 민감정보 동의 `v1.1`, 약관·처리방침 `1.1`** — 서버 `consent_service`의 세 버전 상수와 문자 단위로 같아야 한다(다르면 400). `GET /api/me/consents` 각 항목에 **`is_current`** 추가(기존 필드 불변, 없으면 옛 서버로 보고 true). 서버는 철회하지 않았어도 **버전이 낡은 민감정보 동의를 무효로 보고 403**을 준다 — 동의 관리(`app/me/consents.tsx`)가 이 상태를 '동의함'이 아니라 **"동의 내용이 바뀌었어요" + 다시 동의하기**(`postConsent('sensitive_health', CONSENT_VERSION)`)로 그린다. 철회는 낡은 동의에도 동작한다. 동의 고지 문구(항목·목적·보유 기간·거부 시 불이익)는 `constants/consent.ts` 한 곳에 있고 온보딩·동의 관리가 `components/consent-notice.tsx`로 같이 그린다 — **문구를 고치면 `CONSENT_VERSION`과 서버 상수를 함께 올린다.** **2026-07-23: `health-profile`에 `ckd_stage` 추가**(`nondialysis\|hemodialysis\|peritoneal\|null`). 나트륨 하루 상한이 병기에서 갈린다(비투석 2,000 / 투석 3,000). ⚠️ 이 PUT은 **전체 교체**라 병기만 바꿀 때도 혈액형·Rh를 함께 보내야 한다 — `app/me/conditions.tsx`가 프로필 조회에 **성공했을 때만** 병기 편집을 여는 이유다 |
+| 동의·건강 프로필·질병·알러지 | — | `/api/me/consents*`, `/api/me/{health-profile\|conditions\|allergies}` | 동일 | 일치 (`onboarding-api.ts`). **2026-09-29: 약관·처리방침 `1.2`**(유료 조항 제거 — 범위가 좁아진 개정이라 재동의 없음, 약관 버전은 가입 때만 검증). **2026-09-13(KCAL-22): 민감정보 동의 `v1.1`, 약관·처리방침 `1.1`** — 서버 `consent_service`의 세 버전 상수와 문자 단위로 같아야 한다(다르면 400). `GET /api/me/consents` 각 항목에 **`is_current`** 추가(기존 필드 불변, 없으면 옛 서버로 보고 true). 서버는 철회하지 않았어도 **버전이 낡은 민감정보 동의를 무효로 보고 403**을 준다 — 동의 관리(`app/me/consents.tsx`)가 이 상태를 '동의함'이 아니라 **"동의 내용이 바뀌었어요" + 다시 동의하기**(`postConsent('sensitive_health', CONSENT_VERSION)`)로 그린다. 철회는 낡은 동의에도 동작한다. 동의 고지 문구(항목·목적·보유 기간·거부 시 불이익)는 `constants/consent.ts` 한 곳에 있고 온보딩·동의 관리가 `components/consent-notice.tsx`로 같이 그린다 — **문구를 고치면 `CONSENT_VERSION`과 서버 상수를 함께 올린다.** **2026-07-23: `health-profile`에 `ckd_stage` 추가**(`nondialysis\|hemodialysis\|peritoneal\|null`). 나트륨 하루 상한이 병기에서 갈린다(비투석 2,000 / 투석 3,000). ⚠️ 이 PUT은 **전체 교체**라 병기만 바꿀 때도 혈액형·Rh를 함께 보내야 한다 — `app/me/conditions.tsx`가 프로필 조회에 **성공했을 때만** 병기 편집을 여는 이유다 |
 | 선택지 참조 | `GET` | `/api/meta/options` | 동일 | 일치 (`meta-api.ts`). **2026-07-23: `ckd_stages` 추가**(신장병 병기 3종). 지침에서 온 고정값이라 번들 폴백 `FALLBACK_CKD_STAGE_OPTIONS`를 두되, **라벨은 서버 값을 우선**한다 — 의학 용어를 앱이 임의로 쓰지 않는다 |
 | 그룹 | — | `/api/groups`, `/api/groups/join`, `/api/groups/{id}` | 동일 | 일치 (`group-api.ts`, 2026-07-10 로컬 실측). **2026-07-14: `GET /api/groups/{id}`의 `members[].phone_number_masked` → `members[].nickname`**(카카오 닉네임, 없으면 서버가 '이름 미설정'). **2026-07-22: 초대 링크 공유 — 서버 변경 없음.** 링크(`/invite?code=`)는 코드 전달 수단일 뿐이고 참여는 기존 `POST /api/groups/join` 하나를 쓴다. 착지 라우트 `app/invite.tsx`는 **인증 가드 밖**이며, 미로그인이면 코드를 보관했다가 로그인·온보딩 후 홈에서 이어받는다 (`services/group-invite.ts`, `docs/ARCHITECTURE.md` '그룹 초대 링크') |
 | 그룹 라이프사이클 | `DELETE` | `/api/groups/{id}`, `/api/groups/{id}/members/me`, `/api/groups/{id}/members/{user_id}` | 동일 | 일치 (`group-api.ts`, 2026-07-11 openapi.json·403/404 비파괴 실측. 파괴적 라우트는 비멤버 404 은닉, detail 한국어 — DATA_MODEL.md 17장) |
@@ -107,9 +108,11 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 서버(`main.py`의 전역 핸들러)가 어느 라우트에서든 같은 본문을 줍니다:
 `{ detail, code: 'plan_limit_exceeded', resource, plan, limit }` (`resource` = `vision_daily` | `owned_groups` | `group_members` | `pets`).
 
-`services/http.ts`의 **`apiFetch`가 402를 `PlanLimitError`로 변환해 던집니다.** 개별 API 클라이언트는 402를 다루지 않습니다 — 화면이 `catch`에서 `error instanceof PlanLimitError`로만 분기해 `components/error-banner.tsx`의 `ErrorBanner`를 `actionLabel="요금제 업그레이드"` + `onRetry={() => router.push('/plan')}`로 그립니다(2026-09-14, 전용 `PlanLimitBanner` 컴포넌트 삭제 — 재시도 버튼이 업그레이드 버튼으로 바뀔 뿐 배너 자체는 같은 부품이라서다). 402가 나올 수 있는 호출: `POST /api/predict`, `POST /api/groups`, `POST /api/groups/join`. (`pets` 자원은 서버 계약에 남아 있지만 **앱에 호출 경로가 없습니다** — 2026-08-18 반려동물 제거.)
+`services/http.ts`의 **`apiFetch`가 402를 `PlanLimitError`로 변환해 던집니다.** 개별 API 클라이언트는 402를 다루지 않습니다 — 화면이 `catch`에서 `error instanceof PlanLimitError`로만 분기해 `components/error-banner.tsx`의 `ErrorBanner`를 `actionLabel="확인"` + 닫기로 그립니다(**2026-09-29: 무료 출시라 '요금제 업그레이드' → `/plan` 이동을 뺐다** — 판매 경로 없이 결제를 권하면 심사 3.1.1에 걸린다. 문구는 서버 402 `detail`이 정하고 요금제를 말하지 않는다)(2026-09-14, 전용 `PlanLimitBanner` 컴포넌트 삭제 — 재시도 버튼이 업그레이드 버튼으로 바뀔 뿐 배너 자체는 같은 부품이라서다). 402가 나올 수 있는 호출: `POST /api/predict`, `POST /api/groups`, `POST /api/groups/join`. (`pets` 자원은 서버 계약에 남아 있지만 **앱에 호출 경로가 없습니다** — 2026-08-18 반려동물 제거.)
 
-### 토스페이먼츠 자동결제 (2026-07-16) — **결제는 웹 전용**
+### 토스페이먼츠 자동결제 (2026-07-16) — **2026-09-29부터 닫힘**
+
+> **닫혀 있다.** 유료화는 인앱 결제로 하므로 `isBillingSupported()`가 웹에서도 false다 — 요금제 화면은 '앱 내 구독은 준비 중이에요'만 그리고, 진입점(내 정보·가입 화면·402 배너)도 없다. 화면·클라이언트·서버 API는 지우지 않고 숨겼다(KCAL-14 원칙). 아래는 되살릴 때를 위한 기록이다.
 
 ```
 요금제 화면 [구독하기]  (웹에서만 그린다)
@@ -139,7 +142,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
      성공  kcalairn://auth?code=<1회용 연동코드>&is_new=true|false
      실패  kcalairn://auth?error=cancelled|invalid_state|expired|kakao_unavailable
 앱  is_new=false → POST /api/auth/kakao/login  { link_code }
-    is_new=true  → 동의 2종 + 요금제 선택 → POST /api/auth/kakao/signup { link_code, agreed_terms, agreed_privacy, plan_code }
+    is_new=true  → 동의 2종 → POST /api/auth/kakao/signup { link_code, agreed_terms, agreed_privacy }   (plan_code 생략 → lite, 2026-09-29 요금제 선택 제거)
 ```
 
 - **연동 코드는 1회용·TTL 10분**입니다. 동의 화면에 오래 머물면 만료되고, 그때는 카카오 로그인부터 다시 해야 합니다 (`KakaoLinkExpiredError` → 화면이 처음 단계로 되돌립니다).

@@ -16,11 +16,6 @@ import {
   startKakaoLogin,
 } from '@/services/auth-api';
 import { setAuthSession, useAuthSession } from '@/services/auth-session';
-import { formatPlanPrice } from '@/services/format';
-import { FALLBACK_PLANS, fetchPlans, Plan } from '@/services/subscription-api';
-
-// 가입 시 기본 선택. 서버도 plan_code 미지정 시 이 무료 플랜을 부여한다.
-const DEFAULT_PLAN_CODE = 'lite';
 
 // 연동 코드가 죽었을 때(TTL 10분 초과·1회용 소비) 붙이는 안내. 그 코드로는 더 진행할 수 없고
 // 카카오 로그인부터 다시 해야 한다.
@@ -28,7 +23,9 @@ const RESTART_GUIDE = '카카오 로그인부터 다시 진행해주세요.';
 
 // 카카오가 알려주므로 로그인·회원가입 탭을 나누지 않는다.
 // 'kakao'  = 카카오로 시작하기 버튼만 보이는 상태
-// 'signup' = 신규 회원(is_new=true) — 동의 2종 + 요금제를 받는 상태
+// 'signup' = 신규 회원(is_new=true) — 동의 2종을 받는 상태
+//   (요금제 선택은 2026-09-29 뺐다 — 무료 출시라 plan_code 를 보내지 않고 서버가 lite 를 준다.
+//    판매 경로 없이 유료 요금제를 고르게 하면 스토어 심사 3.1.1 에 걸린다.)
 type AuthStage = 'kakao' | 'signup';
 
 export default function AuthScreen() {
@@ -41,8 +38,6 @@ export default function AuthScreen() {
   // 가입 전용 상태 — 기존 회원은 화면에 그리지도, 서버로 보내지도 않는다.
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [agreedPrivacy, setAgreedPrivacy] = useState(false);
-  const [plans, setPlans] = useState<Plan[]>(FALLBACK_PLANS);
-  const [planCode, setPlanCode] = useState(DEFAULT_PLAN_CODE);
 
   // 카카오 콜백 결과를 로그인/가입 분기로 잇는다. 최초 시작(startKakao)과 웹 페이지 복귀
   // (아래 useEffect) 양쪽이 같은 분기를 탄다 — 신규 회원이면 가입 단계로, 아니면 로그인까지
@@ -124,30 +119,6 @@ export default function AuthScreen() {
     };
   }, [applyKakaoStart]);
 
-  // 가입 단계에 들어올 때만 가격표를 읽는다(무인증 GET). 실패해도 번들 폴백으로 그린다 —
-  // 네트워크 오류로 가입 자체가 막히면 안 된다 (선택지 데이터 규칙, DESIGN.md).
-  useEffect(() => {
-    if (stage !== 'signup') {
-      return;
-    }
-
-    let isActive = true;
-
-    fetchPlans()
-      .then((result) => {
-        if (isActive && result.length > 0) {
-          setPlans(result);
-        }
-      })
-      .catch(() => {
-        // 폴백 유지 — 가입 흐름을 막지 않는다.
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, [stage]);
-
   // 세션 복원 중에는 화면을 그리지 않는다. 복원 후 세션이 있으면 아래에서 탭으로 넘어가는데,
   // 로딩 동안 로그인 화면을 보였다가 리다이렉트하면 깜빡임이 생긴다.
   if (authState.status === 'loading') {
@@ -170,7 +141,6 @@ export default function AuthScreen() {
     setLinkCode(null);
     setAgreedTerms(false);
     setAgreedPrivacy(false);
-    setPlanCode(DEFAULT_PLAN_CODE);
     setErrorMessage(message);
   };
 
@@ -236,7 +206,6 @@ export default function AuthScreen() {
         await signupWithKakao(linkCode, {
           agreed_terms: agreedTerms,
           agreed_privacy: agreedPrivacy,
-          plan_code: planCode,
         }),
       );
     } catch (error) {
@@ -267,7 +236,7 @@ export default function AuthScreen() {
         </Text>
         <Text style={styles.description}>
           {isSignup
-            ? '약관에 동의하고 요금제를 고르면 가입이 끝나요.'
+            ? '약관에 동의하면 가입이 끝나요.'
             : '사진 한 장으로 기록하는\n내 식습관의 기록'}
         </Text>
       </View>
@@ -295,21 +264,6 @@ export default function AuthScreen() {
                 label="[필수] 개인정보 처리방침"
                 onToggle={() => setAgreedPrivacy((prev) => !prev)}
               />
-            </View>
-
-            <View style={styles.planSection}>
-              <Text style={styles.label}>요금제</Text>
-              <Text style={styles.planGuide}>
-                무료로 시작하고 언제든지 내 정보에서 바꿀 수 있어요.
-              </Text>
-              {plans.map((plan) => (
-                <PlanCard
-                  isSelected={plan.code === planCode}
-                  key={plan.code}
-                  onPress={() => setPlanCode(plan.code)}
-                  plan={plan}
-                />
-              ))}
             </View>
           </>
         ) : null}
@@ -423,36 +377,6 @@ function ConsentRow({
         <Text style={styles.consentViewText}>보기</Text>
       </Pressable>
     </View>
-  );
-}
-
-function PlanCard({
-  isSelected,
-  onPress,
-  plan,
-}: {
-  isSelected: boolean;
-  onPress: () => void;
-  plan: Plan;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ selected: isSelected }}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.planCard,
-        isSelected && styles.planCardSelected,
-        pressed && styles.pressed,
-      ]}>
-      <View style={styles.planCardHeader}>
-        <Text style={styles.planCardTitle}>{plan.label}</Text>
-        <Text style={styles.planCardPrice}>{formatPlanPrice(plan.price_krw)}</Text>
-      </View>
-      <Text style={styles.planCardDetail}>
-        {`사진 인식 하루 ${plan.daily_vision_quota}건 · 함께 보기 ${plan.max_group_members}명`}
-      </Text>
-    </Pressable>
   );
 }
 
@@ -614,45 +538,5 @@ const styles = StyleSheet.create({
   },
   checkBoxChecked: {
     backgroundColor: '#60beb8',
-  },
-  planSection: {
-    gap: 8,
-  },
-  planGuide: {
-    color: '#a9a6a1',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  planCard: {
-    backgroundColor: '#f7f6f4',
-    borderColor: '#e4e2de',
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: 6,
-    padding: 14,
-  },
-  planCardSelected: {
-    backgroundColor: '#eef7f5',
-    borderColor: '#2a7d76',
-  },
-  planCardHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  planCardTitle: {
-    color: '#22211f',
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  planCardPrice: {
-    color: '#2a7d76',
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  planCardDetail: {
-    color: '#5c5b57',
-    fontSize: 13,
-    lineHeight: 19,
   },
 });
