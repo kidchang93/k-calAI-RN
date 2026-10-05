@@ -77,6 +77,8 @@ k-calAI-RN/
 │   ├── error-banner.tsx        # 오류 배너 + 다시 시도 (actionLabel로 문구 교체 — 402는 '요금제 업그레이드')
 │   ├── back-button.tsx         # 탭 밖 스택 화면(그룹·요금제)의 뒤로가기
 │   ├── tab-header.tsx          # 세 탭 공통 머리 — 제목(둥근 글꼴) + 내 정보 동그라미 (2026-10-05)
+│   ├── detail-header.tsx       # 상세 화면 머리 — '← 식단'처럼 돌아갈 탭 이름 + 제목 (tone 으로 탭 색)
+│   ├── chunky-button.tsx       # 탭 색의 두툼한 버튼 (solid = 그 화면의 할 일, outline = 보조)
 │   ├── stamp-calendar.tsx      # 케어 탭 도장판 — 남긴 날에 도장. kcal·목표 색을 칸에 찍지 않는다 (옛 kcal-calendar)
 │   ├── visit-path.tsx          # 진료 탭 '진료까지의 길' — 지난 4주(주별 남긴 날) → 남은 길 → 도착(진료일)
 │   ├── chip-group.tsx, onboarding-progress.tsx
@@ -283,6 +285,28 @@ useAuthSession()      → useSyncExternalStore(subscribe, getSnapshot) → AuthS
 기록 확정 화면의 경고 배너에는 **'다음 끼니에 맞는 메뉴 보기'** 액션이 붙습니다. 경고를 막다른 길로
 두지 않기 위한 것이고, 기록을 막지 않으므로 이미 먹은 것을 지우라는 뜻이 아닙니다(그래서 '다음 끼니').
 
+### 상세 화면 (2026-10-05 상세 화면 기획)
+
+탭에서 한 번 더 들어가는 화면도 **할 일 하나**다. 머리는 `DetailHeader`(돌아갈 탭 이름·탭 색),
+그 화면의 할 일 버튼은 `Screen`의 `footer`(아래 고정)에 `ChunkyButton` 하나. 탭 색은
+`constants/tab-tone.ts`의 `TAB_TONES`가 정본이다. 디자인 원본: 캔버스 '상세 화면' 페이지.
+
+| 들어오는 곳 | 화면 | tone | 할 일 (footer) | 끝나면 |
+|---|---|---|---|---|
+| 식단 끼니 칸 · 그날의 식탁 빈 칸 · 추천 '이걸로 먹었어요' | `meals/compose` 기록 추가 | meal | 저장하고 {끼니} 도장 받기 | 화면 안 도장 → 뒤로 |
+| 식단 채운 칸 · 케어 도장판(`from=care`) | `meals/index` 그날의 식탁 | meal / care | (없음 — 빈 끼니 칸이 동작) | — |
+| 식단 '뭐 먹지?' · 기록 경고 '다음 끼니' | `recommendations` 뭐 먹지? | meal | 카드마다 '이걸로 먹었어요' → compose `food_label` | 기록 추가 |
+| 케어 도감 카드 · 기록 경고 '왜?'(`?axis=`) | `guides/[condition]` 질환 도감 | care | 진료 때 물어볼 것에 담기 | 진료 가방 |
+| 케어 몸 기록 | `me/weights` 체중 기록 | care | 오늘 몸무게 적기 | — |
+| 진료 가방 리포트 · 진료 당일 | `report` 진료 리포트 | visit | 진료실에서 크게 보기 / 인쇄·PDF | — |
+| 진료 가방 검사 결과 · 다녀온 날 ① | `labs` 검사 결과 | visit | 적은 결과 저장(여러 항목 한 번에) | — |
+
+- **추천 → 기록**: `recommendations`가 `/meals/compose`에 `{ date, meal_type, food_label }`을 넘기면 compose가
+  마운트 때 한 번 검색 추가와 같은 경로(estimate, 쿼터 0)로 그 음식을 담는다. 자동 저장은 하지 않는다.
+- **물어볼 것**: `GET·PUT /api/me/next-visit`의 `questions`(줄바꿈 목록). 도감은 `addVisitQuestion()`으로
+  한 줄을 덧붙이고, 진료 탭 가방의 '물어볼 것'이 목록을 고치고 지운다. 진료일이 없어도 담을 수 있다.
+- 같은 화면이 두 탭에서 열리면(그날의 식탁) 들어온 탭의 tone 을 쓴다 — 뒤로가기가 돌아갈 곳을 말해야 한다.
+
 ### 그룹 초대 링크 (2026-07-22) — **서버 API 추가 없음**
 
 ```
@@ -349,7 +373,7 @@ app/plan.tsx  [자동결제 해지] → 화면 내 2단계 확인 → cancelBill
         { date: 오늘, meal_type, ...photoParams(asset) })      # services/photo-picker.ts
   └─ '앨범·직접 입력'·빈 칸 → router.push('/meals/compose', { date: 오늘, meal_type })
 
-app/meals/compose.tsx   params: date, meal_type?, meal_id?(=append), photoUri?
+app/meals/compose.tsx   params: date, meal_type?, meal_id?(=append), photoUri?, food_label?, from?('care')
   ├─ (append) getMeals(date) → meal_id의 기존 항목 로드 (전체 교체 PUT에 그대로 다시 보냄)
   ├─ (photoUri 있으면) 마운트 시 1회 자동 분석
   │
@@ -361,7 +385,8 @@ app/meals/compose.tsx   params: date, meal_type?, meal_id?(=append), photoUri?
   │         성공 → 초안(source:'ai', kcalText=matched kcal_per_serving)
   │         실패(404/503) → 초안(kcal 비움 → 직접 입력 유도)
   │
-  ├─ addBySearch(name)                         # 쿼터 0
+  ├─ (food_label 있으면) 마운트 시 1회 addFoodByName(food_label)  # 추천 '이걸로 먹었어요', 저장은 사람이
+  ├─ addFoodByName(name)                       # 검색창과 같은 경로, 쿼터 0
   │    └─ estimateNutrition(name) → 초안(source:'manual')
   │         404 → 입력 이름으로 빈 kcal 초안 + 안내
   ├─ addManual()                               # 빈 초안(source:'manual') → 인라인 입력
@@ -372,7 +397,9 @@ app/meals/compose.tsx   params: date, meal_type?, meal_id?(=append), photoUri?
   └─ saveMeal()
        신규:  createMeal({ meal_type, logged_at: `${date}T12:00:00Z`, items })  # UTC 정오 앵커
        append: updateMeal(meal_id, { meal_type: 기존, items: [기존…, 신규…] })  # logged_at 생략
-       └─ router.back()   # 이전 화면(식단 탭·도장판·기록 목록)이 useFocusEffect로 재조회
+       └─ 신규: 화면 안 도장('{끼니} 칸을 채웠어요') → '확인' → router.back()   # 남겨서 받는 도장
+          append: 바로 router.back()
+          # 이전 화면(식단 탭·도장판·기록 목록)이 useFocusEffect로 재조회
 ```
 
 **`logged_at` UTC 앵커:** 서버는 끼니 하루를 **UTC 자정**으로 나눈다(`GET /api/meals?date=`도 UTC 날짜로 필터).

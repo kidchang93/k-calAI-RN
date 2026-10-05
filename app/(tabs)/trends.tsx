@@ -282,12 +282,16 @@ export default function TrendsScreen() {
                 meals={selectedMeals}
                 onPressAdd={() => {
                   if (selectedDate) {
-                    router.push({ pathname: '/meals/compose', params: { date: selectedDate } });
+                    router.push({
+                      pathname: '/meals/compose',
+                      params: { date: selectedDate, from: 'care' },
+                    });
                   }
                 }}
                 onPressManage={() => {
                   if (selectedDate) {
-                    router.push({ pathname: '/meals', params: { date: selectedDate } });
+                    // 그날의 식탁은 식단 탭과 같이 쓰는 화면이다 — 여기서 열면 뒤로가기가 '← 케어'다.
+                    router.push({ pathname: '/meals', params: { date: selectedDate, from: 'care' } });
                   }
                 }}
               />

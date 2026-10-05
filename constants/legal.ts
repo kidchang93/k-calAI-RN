@@ -222,6 +222,8 @@ export const PRIVACY_POLICY: LegalDocument = {
   title: '개인정보 처리방침',
   // 1.1 (2026-09-13, KCAL-22): 민감정보 항목·목적·보유 기간, 국외 이전의 법적 근거·연락처, 수집·파기 범위.
   // 1.2 (2026-09-29): 결제 정보 수집·토스페이먼츠 위탁·결제 기록 보존 삭제(무료 출시), 탭 이름 '돌아보기', 사업자 정보 기재.
+  // 1.2 초안 수정(2026-10-05): 민감정보 '진료 메모'에 진료 때 물어볼 것을 더했다 — 민감정보 동의 v1.2(재동의)와
+  //   같은 개정이다. 시행일 미정 초안이라 버전은 그대로 두고, 시행 전 확정본에서 함께 정리한다.
   version: '1.2',
   effectiveDate: EFFECTIVE_DATE,
   draftNotice: DRAFT_NOTICE,
@@ -257,7 +259,7 @@ export const PRIVACY_POLICY: LegalDocument = {
         // 결제 정보는 적지 않는다(1.2) — 운영 토스 키는 test_ 였고 실결제가 없었으며, 웹 결제를 닫았다(app services/toss-sdk
         //   isBillingSupported). payments·billing_keys 테이블은 숨긴 채 남아 있다. 인앱 결제를 넣을 때 이 자리에 다시 적는다.
         // 근거: 3항 참조
-        '[민감정보 — 별도 동의 시에만] 혈액형, Rh 인자, 질병 정보(신장질환 병기 포함), 알러지 정보, 검사 수치, 진료에서 들은 내용 메모. 자세한 내용은 3항을 참조하십시오.',
+        '[민감정보 — 별도 동의 시에만] 혈액형, Rh 인자, 질병 정보(신장질환 병기 포함), 알러지 정보, 검사 수치, 진료 메모(진료에서 들은 내용, 진료 때 물어볼 것). 자세한 내용은 3항을 참조하십시오.',
         // 근거: main.py:107-116 실측 — 메서드/경로/상태/시간만. IP·쿠키·UA 수집 0건
         '[자동 수집] 회사는 서비스 운영을 위해 접속 기록(요청 경로, 응답 상태, 처리 시간)을 남깁니다. IP 주소, 쿠키, 브라우저 정보(User-Agent)는 수집하지 않습니다.',
       ],
@@ -269,7 +271,7 @@ export const PRIVACY_POLICY: LegalDocument = {
         //   models/health_model.py — lab_results(measured_on·panel·value·unit·note)·care_visits.outcome.
         //   단위는 회원이 고르지 않고 서버가 항목별로 정한다(schemas/lab_schema.LabResultRequest). 혈압 항목이 있다(services/lab_panels.py).
         //   동의 화면 고지(constants/consent.ts SENSITIVE_HEALTH_NOTICE_ROWS)와 같은 내용이어야 한다.
-        '회사는 다음의 민감정보를 정보주체의 별도 동의를 받은 경우에만 수집·이용합니다: 혈액형, Rh 인자, 질병 정보(당뇨, 임신, 만성신장질환과 그 병기, 암, 고혈압 등), 알러지 정보(알레르겐 및 중증도), 검사 수치(회원이 검사 결과지 등을 보고 직접 입력한 검사 항목·수치·검사일·메모와 그 단위, 혈압 포함), 진료에서 들은 내용 메모.',
+        '회사는 다음의 민감정보를 정보주체의 별도 동의를 받은 경우에만 수집·이용합니다: 혈액형, Rh 인자, 질병 정보(당뇨, 임신, 만성신장질환과 그 병기, 암, 고혈압 등), 알러지 정보(알레르겐 및 중증도), 검사 수치(회원이 검사 결과지 등을 보고 직접 입력한 검사 항목·수치·검사일·메모와 그 단위, 혈압 포함), 진료 메모(진료에서 들은 내용, 진료 때 물어볼 것).',
         // 근거: api/nutrition_api.read_record_warnings(경고), services/day_nutrition.py(질환 축 하루·기간 합계),
         //   api/coaching_api(주간 조언 — coaching_service 가 질병을 읽는다), services/recommendation_service(제외),
         //   api/lab_api(검사 수치 — _NOTICE "정상 여부를 판단하지 않습니다"), api/visit_api(진료 메모),

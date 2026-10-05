@@ -12,7 +12,14 @@ import { DISPLAY_FONT } from '@/constants/typography';
 import { confirmDialog } from '@/services/dialog';
 import { formatFullDate, formatMonthDay } from '@/services/format';
 import { formatDateParam, getTrends, recentDateRange, TrendsResponse } from '@/services/health-api';
-import { clearNextVisit, daysUntil, getNextVisit, setNextVisit } from '@/services/visit-api';
+import {
+  clearNextVisit,
+  daysUntil,
+  getNextVisit,
+  NextVisit,
+  setNextVisit,
+  splitQuestions,
+} from '@/services/visit-api';
 
 const PATH_DAYS = 28;
 const WEEK_LABELS = ['3주 전', '2주 전', '지난주', '이번 주'];
@@ -29,6 +36,9 @@ export default function VisitScreen() {
   const router = useRouter();
   const [visitDate, setVisitDate] = useState<string | null>(null);
   const [visitOutcome, setVisitOutcome] = useState<string | null>(null);
+  // 진료 때 물어볼 것(줄바꿈 목록). 케어 탭 도감의 '물어볼 것에 담기'로도 쌓인다.
+  const [visitQuestions, setVisitQuestions] = useState<string | null>(null);
+  const [isEditingQuestions, setIsEditingQuestions] = useState(false);
   const [trends, setTrends] = useState<TrendsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -53,14 +63,16 @@ export default function VisitScreen() {
   useFocusEffect(
     useCallback(() => {
       void getNextVisit()
-        .then(({ scheduled_on, outcome }) => {
+        .then(({ scheduled_on, outcome, questions }) => {
           setVisitDate(scheduled_on);
           setVisitOutcome(outcome);
+          setVisitQuestions(questions);
         })
         // 진료일 조회 실패로 이 탭을 막지 않는다 — 없는 것과 같이 취급한다.
         .catch(() => {
           setVisitDate(null);
           setVisitOutcome(null);
+          setVisitQuestions(null);
         });
 
       void loadTrends();
@@ -70,6 +82,7 @@ export default function VisitScreen() {
   const weeks = useMemo(() => (trends === null ? [] : toWeeks(trends)), [trends]);
   const recordedDays = weeks.reduce((acc, week) => acc + week.recorded, 0);
   const remaining = visitDate === null ? null : daysUntil(visitDate);
+  const questions = splitQuestions(visitQuestions);
 
   const openReport = () => {
     // **길에 적힌 기간을 그대로 리포트에 넘긴다.** 리포트 화면은 파라미터가 없으면 자체 기본 기간을
@@ -89,9 +102,10 @@ export default function VisitScreen() {
           scheduledOn={visitDate}
           outcome={visitOutcome}
           onClose={() => setIsEditing(false)}
-          onSaved={(date, note) => {
-            setVisitDate(date);
-            setVisitOutcome(note);
+          onSaved={(saved) => {
+            setVisitDate(saved.scheduled_on);
+            setVisitOutcome(saved.outcome);
+            setVisitQuestions(saved.questions);
             setIsEditing(false);
           }}
         />
@@ -161,6 +175,23 @@ export default function VisitScreen() {
           hint="병원에서 받은 결과지를 옮겨 적으면 리포트에 함께 실려요"
           onPress={() => router.push('/labs')}
         />
+        {/* 진료 때 물어볼 것 (2026-10-05). 칼륨·인처럼 기준이 검사로 정해지는 것은 앱이 답하지 않고
+            **의료진에게 물을 거리**로 넘긴다 — 판단 대행을 하지 않는다는 목표(PRODUCT_STRATEGY §0-1)의
+            반대편 절반이다. 도감 카드에서 담거나 여기서 바로 적는다. */}
+        {isEditingQuestions ? (
+          <QuestionsEditor
+            questions={questions}
+            onClose={() => setIsEditingQuestions(false)}
+            onSaved={(saved) => setVisitQuestions(saved)}
+          />
+        ) : (
+          <BagRow
+            icon="help-outline"
+            title={questions.length > 0 ? `물어볼 것 ${questions.length}개` : '물어볼 것'}
+            hint={questions[0] ?? '케어 탭 도감에서 담거나, 여기서 바로 적어요'}
+            onPress={() => setIsEditingQuestions(true)}
+          />
+        )}
         {/* 진료에서 들은 것. 처방을 대신 적는 곳이 아니라 **옮겨 적는 곳**이다. */}
         <BagRow
           icon="chat-bubble-outline"
@@ -344,7 +375,7 @@ function VisitEditor({
 }: {
   scheduledOn: string | null;
   outcome: string | null;
-  onSaved: (date: string | null, note: string | null) => void;
+  onSaved: (saved: NextVisit) => void;
   onClose: () => void;
 }) {
   // 지난 진료일이어도 그 날짜로 시작한다 — 서버는 날짜 없이 메모만 저장하지 않으므로, 다음 진료일이
@@ -360,9 +391,7 @@ function VisitEditor({
     setError(null);
 
     try {
-      const saved = await setNextVisit(draft.trim(), noteDraft);
-
-      onSaved(saved.scheduled_on, saved.outcome);
+      onSaved(await setNextVisit(draft.trim(), { outcome: noteDraft }));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '저장하지 못했습니다.');
     } finally {
@@ -373,7 +402,7 @@ function VisitEditor({
   const remove = async () => {
     const confirmed = await confirmDialog({
       title: '진료 일정 삭제',
-      message: '적어 둔 다음 진료일을 지울까요?',
+      message: '적어 둔 다음 진료일과 들은 것·물어볼 것 메모를 함께 지울까요?',
       confirmLabel: '삭제',
       destructive: true,
     });
@@ -384,7 +413,7 @@ function VisitEditor({
 
     try {
       await clearNextVisit();
-      onSaved(null, null);
+      onSaved({ scheduled_on: null, outcome: null, questions: null, notice: '' });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '삭제하지 못했습니다.');
     }
@@ -446,6 +475,107 @@ function VisitEditor({
           </Pressable>
         ) : null}
       </View>
+    </View>
+  );
+}
+
+// 물어볼 것 편집 — 한 줄이 질문 하나. 지우기는 줄마다, 더하기는 아래 입력칸 하나.
+// 저장은 목록 전체를 보낸다(서버는 줄바꿈 문자열 하나로 갖는다). 민감정보 동의가 없으면 서버가
+// 403 과 함께 이유를 주고, 그 문장을 그대로 보여 준다.
+function QuestionsEditor({
+  questions,
+  onSaved,
+  onClose,
+}: {
+  questions: string[];
+  onSaved: (questions: string | null) => void;
+  onClose: () => void;
+}) {
+  const [items, setItems] = useState(questions);
+  const [draft, setDraft] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async (next: string[]) => {
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      const saved = await setNextVisit(null, { questions: next.join('\n') });
+
+      setItems(splitQuestions(saved.questions));
+      onSaved(saved.questions);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '저장하지 못했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const add = () => {
+    const text = draft.trim();
+
+    if (text === '' || items.includes(text)) {
+      setDraft('');
+      return;
+    }
+
+    setDraft('');
+    void save([...items, text]);
+  };
+
+  return (
+    <View style={styles.editor}>
+      <View style={styles.cardHead}>
+        <Text style={styles.cardTitle}>물어볼 것</Text>
+        <Pressable accessibilityRole="button" hitSlop={8} onPress={onClose}>
+          <Text style={styles.editorGhostText}>닫기</Text>
+        </Pressable>
+      </View>
+
+      {items.length === 0 ? (
+        <Text style={styles.bagHint}>아직 없어요. 진료 때 묻고 싶은 것을 한 줄씩 적어 두세요.</Text>
+      ) : (
+        items.map((item) => (
+          <View key={item} style={styles.questionRow}>
+            <Text style={styles.questionText}>{item}</Text>
+            <Pressable
+              accessibilityLabel={`'${item}' 지우기`}
+              accessibilityRole="button"
+              disabled={isSaving}
+              hitSlop={6}
+              onPress={() => void save(items.filter((other) => other !== item))}
+              style={({ pressed }) => [styles.questionDelete, pressed && styles.pressed]}>
+              <MaterialIcons color="#b8524e" name="close" size={20} />
+            </Pressable>
+          </View>
+        ))
+      )}
+
+      <Text nativeID="visit-question-label" style={styles.editorLabel}>
+        새로 적기
+      </Text>
+      <TextInput
+        accessibilityLabelledBy="visit-question-label"
+        onChangeText={setDraft}
+        onSubmitEditing={add}
+        placeholder="예: 칼륨은 하루 얼마까지 괜찮을까요?"
+        placeholderTextColor="#a9a6a1"
+        returnKeyType="done"
+        style={styles.editorInput}
+        value={draft}
+      />
+      {error !== null ? <Text style={styles.editorError}>{error}</Text> : null}
+      <Pressable
+        disabled={isSaving || draft.trim() === ''}
+        onPress={add}
+        style={({ pressed }) => [
+          styles.editorPrimary,
+          (isSaving || draft.trim() === '') && styles.disabled,
+          pressed && styles.pressed,
+        ]}>
+        <Text style={styles.editorPrimaryText}>{isSaving ? '저장 중…' : '담기'}</Text>
+      </Pressable>
     </View>
   );
 }
@@ -548,6 +678,9 @@ const styles = StyleSheet.create({
     color: '#22211f',
     fontFamily: DISPLAY_FONT,
     fontSize: 21,
+  },
+  disabled: {
+    opacity: 0.5,
   },
   dday: {
     color: '#ffffff',
@@ -690,6 +823,27 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.74,
+  },
+  questionDelete: {
+    alignItems: 'center',
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  questionRow: {
+    alignItems: 'center',
+    borderTopColor: '#e4e2de',
+    borderTopWidth: 2,
+    flexDirection: 'row',
+    gap: 8,
+    minHeight: 48,
+  },
+  questionText: {
+    color: '#22211f',
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 22,
   },
   sectionTitle: {
     color: '#22211f',

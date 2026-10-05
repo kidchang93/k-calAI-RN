@@ -13,7 +13,9 @@
 // v1.1 (2026-09-13, KCAL-22): v1.0 문구는 혈액형·질병·알러지를 "식단 추천에서 거르는 데만" 쓴다고 했지만,
 // 실제로는 검사 수치·진료 메모도 같은 동의로 받고 경고·주간 조언·진료 리포트에도 썼다(개인정보 보호법 제23조 —
 // 알린 범위에서만 처리). 서버는 v1.0 동의를 무효로 보고 403 을 준다.
-export const CONSENT_VERSION = 'v1.1';
+// v1.2 (2026-10-05): 진료 메모에 **진료 때 물어볼 것**(care_visits.questions)이 더해졌다 — 수집 항목이
+// 넓어진 개정이라 서버가 v1.1 동의도 재동의 전까지 무효로 본다(SENSITIVE_HEALTH_REVALIDATE_VERSIONS).
+export const CONSENT_VERSION = 'v1.2';
 
 // 그룹 활동 공유 동의 버전. 서버 consent_service.GROUP_ACTIVITY_SHARE_VERSION 과 **같아야** 한다.
 // 이 동의는 sensitive_health 와 성격이 다르다 — 우리가 수집·이용하는 것이 아니라
@@ -25,7 +27,7 @@ export type ConsentNoticeRow = {
   text: string;
 };
 
-// ── 민감정보 동의 고지 (v1.1) ────────────────────────────────────────────────
+// ── 민감정보 동의 고지 (v1.2) ────────────────────────────────────────────────
 // 개인정보 보호법 제23조①1호가 제15조②를 준용해 동의를 받을 때 알리게 한 것: 이용 목적, 수집 항목,
 // 보유·이용 기간, 동의를 거부할 권리와 거부 시 불이익. 처리방침 3항(constants/legal.ts)과 같은 내용이다.
 // **여기 문구를 고치면 CONSENT_VERSION 을 올린다.**
@@ -35,11 +37,11 @@ export const SENSITIVE_HEALTH_SUMMARY = '혈액형·질병·알러지·검사 �
 export const SENSITIVE_HEALTH_NOTICE_ROWS: ConsentNoticeRow[] = [
   {
     // 근거(서버): models/consent_model.py — user_health_profiles(blood_type·rh·ckd_stage)·user_conditions·
-    // user_allergies, models/health_model.py — lab_results(검사 항목·수치·검사일·메모), care_visits.outcome.
+    // user_allergies, models/health_model.py — lab_results(검사 항목·수치·검사일·메모), care_visits.outcome·questions.
     // 검사 항목에 혈압이 있다(services/lab_panels.py bp_systolic·bp_diastolic) — 결과지만이 아니라 가정용
     // 혈압계 값도 들어오므로 "결과지 등"이라 쓴다.
     label: '수집 항목',
-    text: '혈액형·Rh, 질병(신장질환 병기 포함), 알러지, 검사 수치(결과지 등을 보고 직접 입력한 값, 혈압 포함), 진료에서 들은 내용 메모',
+    text: '혈액형·Rh, 질병(신장질환 병기 포함), 알러지, 검사 수치(결과지 등을 보고 직접 입력한 값, 혈압 포함), 진료 메모(진료에서 들은 내용, 진료 때 물어볼 것)',
   },
   {
     // 근거(서버): api/nutrition_api.read_record_warnings(경고), services/day_nutrition.py(질환 축 합계),
@@ -69,7 +71,7 @@ export const SENSITIVE_HEALTH_NOTICE_ROWS: ConsentNoticeRow[] = [
 export const SENSITIVE_HEALTH_REFUSAL =
   '동의하지 않을 수 있어요. 동의하지 않아도 사진 기록·칼로리 계산, 체중·운동 기록, 진료 일정은 쓸 수 있어요. 다만 질병·알러지를 입력할 수 없어 기록할 때 음식 경고와 질환 기준 영양 합계가 나오지 않고, 식단 추천·주간 조언과 검사 수치·진료 메모 기록도 쓸 수 없어요. 진료 리포트에도 질환·검사 수치가 실리지 않아요.';
 
-// 이전 버전(v1.0)에 동의한 사람에게 무엇이 바뀌었는지 한 줄로 알린다(app/me/consents.tsx).
+// 이전 버전(v1.1)에 동의한 사람에게 무엇이 바뀌었는지 한 줄로 알린다(app/me/consents.tsx).
 // **버전을 다시 올리면 이 문구도 새 차이로 고쳐 쓴다.**
 export const SENSITIVE_HEALTH_CHANGE_SUMMARY =
-  '검사 수치·진료 메모가 수집 항목에, 기록 경고·질환 기준 영양 합계·주간 조언·진료 리포트가 이용 목적에 들어갔어요.';
+  '진료 메모에 ‘진료 때 물어볼 것’이 들어갔어요. 질환 도감에서 담거나 진료 탭에서 적는 질문이에요.';

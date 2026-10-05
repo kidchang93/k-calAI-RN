@@ -12,8 +12,8 @@ import {
   View,
 } from 'react-native';
 
-import { BackButton } from '@/components/back-button';
-import { ChipGroup } from '@/components/chip-group';
+import { ChunkyButton } from '@/components/chunky-button';
+import { DetailHeader } from '@/components/detail-header';
 import { ErrorBanner } from '@/components/error-banner';
 import { MedicalDisclaimer } from '@/components/medical-disclaimer';
 import { QuantityEditor, QuantityValue } from '@/components/quantity-editor';
@@ -22,10 +22,12 @@ import { Screen } from '@/components/screen';
 import { AI_USE_NOTICE } from '@/constants/ai-notice';
 import { isMealType, MEAL_TYPE_LABELS, MealType, mealTypeAt } from '@/constants/meal';
 import { NUTRIENT_LABELS, NUTRIENT_TIER_LABELS } from '@/constants/nutrition';
+import { TAB_TONES } from '@/constants/tab-tone';
+import { DISPLAY_FONT } from '@/constants/typography';
 import { FoodDetection, PhotoAsset, uploadFoodPhoto } from '@/services/calorie-api';
 import { notifyDialog } from '@/services/dialog';
 import { formatFoodLabel } from '@/services/food-label';
-import { formatMonthDay, formatTakenAt } from '@/services/format';
+import { formatFullDate, formatMonthDay, formatShortDate, formatTakenAt } from '@/services/format';
 import {
   checkFoodWarnings,
   createMeal,
@@ -48,6 +50,16 @@ import { PlanLimitError } from '@/services/http';
 import { pickPhoto } from '@/services/photo-picker';
 import { readPhotoTakenAt } from '@/services/photo-time';
 import { nextMealType } from '@/services/recommendation-api';
+
+// 상세 화면은 들어온 탭(식단)의 색을 이어 쓴다 (constants/tab-tone.ts).
+const MEAL_TONE = TAB_TONES.meal;
+
+// 경고 배너 색 — docs/DESIGN.md '영양 등급 3단계'의 보통·높음. 낮음(민트)은 쓰지 않는다:
+// 경고 배너가 초록이면 "괜찮다"로 읽힌다.
+const WARNING_TONES = {
+  mid: { background: '#fbeee7', border: '#ed9c89', text: '#a4603f' },
+  high: { background: '#fbeaea', border: '#ea8989', text: '#b8524e' },
+} as const;
 
 const MEAL_TYPE_OPTIONS: { value: MealType; label: string }[] = [
   { value: 'breakfast', label: MEAL_TYPE_LABELS.breakfast },
@@ -136,7 +148,12 @@ export default function MealComposeScreen() {
     photoName?: string;
     photoMime?: string;
     photoTakenAt?: string;
+    // 추천 화면의 '이걸로 먹었어요' — 그 음식을 검색 추가와 같은 경로로 담아 둔다(저장은 사람이).
+    food_label?: string;
+    // 케어 탭 도장판(그날의 식탁)에서 들어오면 'care' — 뒤로가기가 '← 케어'라고 말한다.
+    from?: string;
   }>();
+  const headerTone = params.from === 'care' ? 'care' : 'meal';
 
   // 홈·캘린더·기록관리가 넘긴 날짜(YYYY-MM-DD)만 신뢰한다. 형식이 다르면 오늘로 폴백.
   const today = formatDateParam(new Date());
@@ -193,9 +210,18 @@ export default function MealComposeScreen() {
   // 질환 축을 판정하지 못한 음식. 경고가 없는 것과 안전한 것은 다르다 — 침묵을 안전으로
   // 읽지 않도록 그 사실을 그대로 보여준다 (서버 PRODUCT_STRATEGY.md §0-1).
   const [unmeasured, setUnmeasured] = useState<string[]>([]);
+  // 새 끼니 저장에 성공하면 바로 돌아가지 않고 도장을 보여 준다. 저장 시점의 값을 굳혀 둔다.
+  // 도장은 잘 먹어서가 아니라 **남겨서** 받는다 — 나트륨·kcal 로 문구나 색을 바꾸지 않는다.
+  const [savedStamp, setSavedStamp] = useState<{
+    date: string;
+    mealType: MealType;
+    labels: string[];
+  } | null>(null);
 
   // 사진 자동 분석은 마운트 시 1회만. 라벨이 바뀌면 늦게 온 경고 응답을 무시한다.
   const autoAnalyzedRef = useRef(false);
+  // food_label 파라미터(추천 '이걸로 먹었어요')도 마운트 시 1회만 담는다.
+  const foodLabelAddedRef = useRef(false);
   const warningSeqRef = useRef(0);
   // 항목 추가·삭제 시점의 '현재 초안'을 setState 업데이터 밖에서 읽기 위한 미러 (경고 조회용).
   const draftsRef = useRef<Draft[]>([]);
@@ -469,6 +495,38 @@ export default function MealComposeScreen() {
     applyPhotoTime(source === 'library' ? await readPhotoTakenAt(asset) : null);
   };
 
+  // 이름 하나 → estimate(쿼터 0) → 초안. 검색창과 추천 '이걸로 먹었어요'가 같은 경로를 쓴다.
+  // 담았으면(미매칭으로 빈 kcal 초안을 담은 경우 포함) true — 검색창은 그때만 비운다.
+  const addFoodByName = useCallback(
+    async (name: string): Promise<boolean> => {
+      setIsSearching(true);
+      setErrorMessage(null);
+
+      try {
+        const estimate = await estimateNutrition(name);
+        appendDrafts([makeDraft('manual', name, estimate)]);
+
+        return true;
+      } catch (error) {
+        if (error instanceof NutritionNotFoundError) {
+          // 미매칭은 오류가 아니다 — 입력한 이름으로 빈 kcal 초안을 추가해 직접 입력을 잇는다.
+          appendDrafts([makeDraft('manual', name, null)]);
+          notifyDialog('영양 정보를 찾지 못했어요', '칼로리를 직접 입력해주세요.');
+
+          return true;
+        }
+
+        // 일시 장애(NutritionUnavailableError)도 일반 오류와 같은 메시지를 그대로 보여준다.
+        setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+
+        return false;
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [appendDrafts]
+  );
+
   const addBySearch = async () => {
     const name = searchText.trim();
 
@@ -476,27 +534,25 @@ export default function MealComposeScreen() {
       return;
     }
 
-    setIsSearching(true);
-    setErrorMessage(null);
-
-    try {
-      const estimate = await estimateNutrition(name);
-      appendDrafts([makeDraft('manual', name, estimate)]);
+    if (await addFoodByName(name)) {
       setSearchText('');
-    } catch (error) {
-      if (error instanceof NutritionNotFoundError) {
-        // 미매칭은 오류가 아니다 — 입력한 이름으로 빈 kcal 초안을 추가해 직접 입력을 잇는다.
-        appendDrafts([makeDraft('manual', name, null)]);
-        setSearchText('');
-        notifyDialog('영양 정보를 찾지 못했어요', '칼로리를 직접 입력해주세요.');
-      } else {
-        // 일시 장애(NutritionUnavailableError)도 일반 오류와 같은 메시지를 그대로 보여준다.
-        setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
-      }
-    } finally {
-      setIsSearching(false);
     }
   };
+
+  // 추천 화면에서 고른 음식. 담기만 하고 저장하지 않는다 — 양을 고치거나 더 담을 수 있게.
+  useEffect(() => {
+    const label =
+      !foodLabelAddedRef.current && typeof params.food_label === 'string'
+        ? params.food_label.trim()
+        : '';
+
+    if (label === '') {
+      return;
+    }
+
+    foodLabelAddedRef.current = true;
+    void addFoodByName(label);
+  }, [addFoodByName, params.food_label]);
 
   const addManual = () => {
     setErrorMessage(null);
@@ -559,6 +615,15 @@ export default function MealComposeScreen() {
             items: newItems,
           });
         }
+
+        // 새 끼니는 도장을 보여 준 뒤 '확인'으로 돌아간다(같은 끼니에 합친 경우도 칸은 채워졌다).
+        setSavedStamp({
+          date,
+          mealType,
+          labels: newItems.map((item) => item.food_label),
+        });
+
+        return;
       }
 
       // 이전 화면(기록관리·캘린더·기록 탭)이 useFocusEffect로 재조회한다.
@@ -571,34 +636,102 @@ export default function MealComposeScreen() {
   };
 
   const totalKcal = drafts.reduce((sum, draft) => sum + (draftKcal(draft) ?? 0), 0);
+  // 나트륨 합은 실측이 있는 항목만 더한다. 빠진 항목이 있으면 그 사실을 함께 적는다 —
+  // 없는 값을 0으로 읽으면 실제보다 적어 보인다.
+  const sodiumDrafts = drafts.filter(
+    (draft) => draft.nutrients !== null && draft.nutrients.sodium_mg !== null
+  );
+  const totalSodium = sodiumDrafts.reduce(
+    (sum, draft) => sum + (draft.nutrients?.sodium_mg ?? 0) * draft.serving_ratio,
+    0
+  );
   // 경고에 실린 등급을 (음식, 영양소)로 찾을 수 있게 정리한다 — 칩 색과 경고 문구가 어긋나지 않게.
   const tierByLabel = buildTierLookup(warnings);
+  const warningTone = WARNING_TONES[warningLevel(warnings)];
   const existingTotal = existingItems.reduce((sum, item) => sum + item.kcal, 0);
+  const mealLabel = MEAL_TYPE_LABELS[isAppend ? (existingMealType ?? mealType) : mealType];
+
+  if (savedStamp !== null) {
+    const stampLabel = MEAL_TYPE_LABELS[savedStamp.mealType];
+
+    return (
+      <Screen
+        footer={<ChunkyButton label="확인" onPress={() => router.back()} tone="meal" />}
+        gap={16}>
+        <DetailHeader
+          caption={formatFullDate(savedStamp.date)}
+          title={`${stampLabel} 남기기`}
+          tone={headerTone}
+        />
+
+        <View style={styles.stampCard}>
+          <View accessibilityLabel={`${stampLabel} 도장`} style={styles.stampOuter}>
+            <View style={styles.stampInner}>
+              <Text style={styles.stampLabel}>{stampLabel}</Text>
+              <Text style={styles.stampDate}>{formatShortDate(savedStamp.date)}</Text>
+            </View>
+          </View>
+          <Text accessibilityRole="header" style={styles.stampTitle}>
+            {savedStamp.date === today
+              ? `${stampLabel} 칸을 채웠어요`
+              : `${formatMonthDay(savedStamp.date)} ${stampLabel} 칸을 채웠어요`}
+          </Text>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>방금 남긴 것</Text>
+          <Text style={styles.stampFoods}>
+            {savedStamp.labels.map(formatFoodLabel).join(' · ')}
+          </Text>
+        </View>
+      </Screen>
+    );
+  }
 
   return (
-    <Screen contentStyle={{ paddingBottom: 36 }} gap={16} keyboard="persistTaps">
-      <BackButton />
-
-      <View style={styles.header}>
-        <Text style={styles.title}>{isAppend ? '항목 추가' : '기록 추가'}</Text>
-        <Text style={styles.subtitle}>
-          {isAppend
-            ? `${formatMonthDay(date)} · ${existingMealType ? MEAL_TYPE_LABELS[existingMealType] : ''} 끼니에 더하기`
-            : `${formatMonthDay(date)}에 새 끼니를 남겨요`}
-        </Text>
-      </View>
+    <Screen
+      footer={
+        <>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalText}>{`합계 ${totalKcal.toLocaleString()} kcal`}</Text>
+            {sodiumDrafts.length > 0 ? (
+              <Text style={styles.totalText}>
+                {`나트륨 ${Math.round(totalSodium).toLocaleString()}mg${
+                  sodiumDrafts.length < drafts.length
+                    ? ` (${drafts.length}개 중 ${sodiumDrafts.length}개만)`
+                    : ''
+                }`}
+              </Text>
+            ) : null}
+          </View>
+          <ChunkyButton
+            disabled={!canSave}
+            label={isAppend ? '항목 추가 저장' : `저장하고 ${mealLabel} 도장 받기`}
+            loading={isSaving}
+            onPress={() => void saveMeal()}
+            tone="meal"
+          />
+        </>
+      }
+      gap={16}
+      keyboard="persistTaps">
+      <DetailHeader
+        caption={formatFullDate(date)}
+        title={isAppend ? `${mealLabel}에 더 담기` : `${mealLabel} 남기기`}
+        tone={headerTone}
+      />
 
       {isLoadingExisting ? (
-        <View style={styles.stateBox}>
-          <ActivityIndicator color="#2a7d76" />
-          <Text style={styles.stateText}>기존 끼니를 불러오는 중입니다.</Text>
+        <View style={[styles.card, styles.stateCard]}>
+          <ActivityIndicator color={MEAL_TONE.text} />
+          <Text style={styles.bodyText}>기존 끼니를 불러오는 중입니다.</Text>
         </View>
       ) : null}
 
       {isAppend && existingItems.length > 0 ? (
-        <View style={styles.existingCard}>
-          <View style={styles.existingHeadRow}>
-            <Text style={styles.existingTitle}>기존 항목</Text>
+        <View style={styles.card}>
+          <View style={styles.cardHeadRow}>
+            <Text style={styles.cardTitle}>기존 항목</Text>
             <Text style={styles.existingTotal}>{`${existingTotal.toLocaleString()} kcal`}</Text>
           </View>
           {existingItems.map((item) => (
@@ -614,15 +747,31 @@ export default function MealComposeScreen() {
 
       {isAppend ? null : (
         <View style={styles.choiceSection}>
-          <Text style={styles.choiceLabel}>끼니</Text>
-          <ChipGroup
-            options={MEAL_TYPE_OPTIONS}
-            selectedValues={[mealType]}
-            onToggle={(value) => {
-              mealTypeTouchedRef.current = true;
-              selectMealType(value, setMealType);
-            }}
-          />
+          <View accessibilityLabel="끼니" style={styles.mealPills}>
+            {MEAL_TYPE_OPTIONS.map((option) => {
+              const isSelected = option.value === mealType;
+
+              return (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                  key={option.value}
+                  onPress={() => {
+                    mealTypeTouchedRef.current = true;
+                    setMealType(option.value);
+                  }}
+                  style={({ pressed }) => [
+                    styles.mealPill,
+                    isSelected && styles.mealPillSelected,
+                    pressed && styles.pressed,
+                  ]}>
+                  <Text style={[styles.mealPillText, isSelected && styles.mealPillTextSelected]}>
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
           {photoTime !== null ? (
             <PhotoTimeNotice
               photoTime={photoTime}
@@ -644,19 +793,37 @@ export default function MealComposeScreen() {
       {previewUri ? (
         <View style={styles.previewCard}>
           <Image resizeMode="cover" source={{ uri: previewUri }} style={styles.previewImage} />
-          {/* "저장되지 않아요"만 쓰면 사진이 기기 밖으로 안 나가는 것으로 읽힌다 — 실제로는
-              서버를 거쳐 AI 인식 서비스로 전송된다(저장만 하지 않는다). 전송 사실을 먼저 쓴다.
-              근거: services/calorie-api.ts 가 FormData 로 업로드 → 서버가 메모리에서 Gemini 로
-              넘기고 폐기(kcalAI-model/api/predict_api.py). 처리방침 2·6항과 같은 내용이다. */}
-          <Text style={styles.previewCaption}>
-            AI 인식을 위해 전송돼요 · 서버에 저장되지 않아요
-          </Text>
+          <View style={styles.previewBody}>
+            {/* "저장되지 않아요"만 쓰면 사진이 기기 밖으로 안 나가는 것으로 읽힌다 — 실제로는
+                서버를 거쳐 AI 인식 서비스로 전송된다(저장만 하지 않는다). 전송 사실을 먼저 쓴다.
+                근거: services/calorie-api.ts 가 FormData 로 업로드 → 서버가 메모리에서 Gemini 로
+                넘기고 폐기(kcalAI-model/api/predict_api.py). 처리방침 2·6항과 같은 내용이다. */}
+            <Text style={styles.previewCaption}>
+              AI 인식을 위해 전송돼요 · 서버에 저장되지 않아요
+            </Text>
+
+            {pendingAsset ? (
+              <ChunkyButton
+                label="이 사진 분석하기"
+                loading={isAnalyzing}
+                onPress={runAnalyze}
+                tone="meal"
+              />
+            ) : null}
+
+            {isAnalyzing ? (
+              <View style={styles.analyzingRow}>
+                <ActivityIndicator color={MEAL_TONE.text} size="small" />
+                <Text style={styles.bodyText}>사진 속 음식을 분석하고 있어요.</Text>
+              </View>
+            ) : null}
+          </View>
         </View>
       ) : null}
 
-      <View style={styles.addCard}>
-        <Text style={styles.addTitle}>항목 추가</Text>
-        <Text style={styles.addHint}>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>항목 추가</Text>
+        <Text style={styles.bodyText}>
           한 끼에 여러 메뉴를 담을 수 있어요. 사진은 고른 뒤 분석 버튼을 눌러야 생성형 AI(Google Gemini)가 인식하고, 인식 1건당 1건이 차감돼요.
         </Text>
 
@@ -681,27 +848,6 @@ export default function MealComposeScreen() {
           />
         </View>
 
-        {pendingAsset ? (
-          <Pressable
-            disabled={isAnalyzing}
-            onPress={runAnalyze}
-            style={({ pressed }) => [
-              styles.analyzeButton,
-              isAnalyzing && styles.analyzeButtonDisabled,
-              pressed && !isAnalyzing && styles.pressed,
-            ]}>
-            <MaterialIcons color="#22211f" name="restaurant-menu" size={18} />
-            <Text style={styles.analyzeButtonText}>이 사진 분석하기</Text>
-          </Pressable>
-        ) : null}
-
-        {isAnalyzing ? (
-          <View style={styles.analyzingRow}>
-            <ActivityIndicator color="#2a7d76" size="small" />
-            <Text style={styles.analyzingText}>사진 속 음식을 분석하고 있어요.</Text>
-          </View>
-        ) : null}
-
         <View style={styles.searchRow}>
           <TextInput
             onChangeText={setSearchText}
@@ -712,26 +858,21 @@ export default function MealComposeScreen() {
             style={styles.searchInput}
             value={searchText}
           />
-          <Pressable
-            disabled={isSearching || searchText.trim() === ''}
+          <ChunkyButton
+            disabled={searchText.trim() === ''}
+            label="추가"
+            loading={isSearching}
             onPress={() => void addBySearch()}
-            style={({ pressed }) => [
-              styles.searchButton,
-              (isSearching || searchText.trim() === '') && styles.searchButtonDisabled,
-              pressed && styles.pressed,
-            ]}>
-            {isSearching ? (
-              <ActivityIndicator color="#22211f" size="small" />
-            ) : (
-              <Text style={styles.searchButtonText}>추가</Text>
-            )}
-          </Pressable>
+            tone="meal"
+            variant="outline"
+          />
         </View>
 
         <Pressable
+          accessibilityRole="button"
           onPress={addManual}
           style={({ pressed }) => [styles.manualAddButton, pressed && styles.pressed]}>
-          <MaterialIcons color="#2a7d76" name="edit" size={18} />
+          <MaterialIcons color={MEAL_TONE.text} name="edit" size={20} />
           <Text style={styles.manualAddText}>직접 입력으로 추가</Text>
         </Pressable>
       </View>
@@ -751,84 +892,20 @@ export default function MealComposeScreen() {
         />
       ) : null}
 
-      {warnings.length > 0 ? (
-        <View style={styles.warningBox}>
-          <MaterialIcons color="#b8524e" name="warning-amber" size={20} />
-          <View style={styles.warningBody}>
-            {warnings.map((warning) => (
-              <View
-                key={`${warning.source}-${warning.code}-${warning.matched_label}`}
-                style={styles.warningLine}>
-                <Text style={styles.warningText}>{formatWarning(warning)}</Text>
-
-                {/* **경고를 이해할 수 있게 한다.** "칼륨이 높아요"만으로는 왜 줄여야 하는지,
-                    내 병기에서도 그런지 알 수 없다 — 실사용에서 "내 질환 정보를 찾기 너무
-                    힘들다"로 나온 지점이다 (서버 `docs/CARE_LOOP.md` §0-3·§5-2).
-                    `nutrient` 가 있는 경고만 축 가이드가 있다(알러지·임신·암은 없다).
-                    서버 테스트 `test_every_axis_warning_condition_has_a_guide` 가 이 대응을 건다. */}
-                {warning.nutrient !== null ? (
-                  <Pressable
-                    hitSlop={6}
-                    onPress={() =>
-                      router.push({
-                        pathname: '/guides/[condition]',
-                        params: { condition: warning.code, axis: warning.nutrient as string },
-                      })
-                    }
-                    style={({ pressed }) => [styles.warningWhy, pressed && styles.pressed]}>
-                    <Text style={styles.warningWhyText}>왜?</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            ))}
-            {/* 등급 근거가 지침 컷오프가 아니라 정책값이라는 고지. 서버가 문구를 정한다. */}
-            {warningNotice ? <Text style={styles.warningNotice}>{warningNotice}</Text> : null}
-
-            {/* 경고가 뜬 순간이 사용자가 식이 결정을 내리는 순간이다 — 최종 판단자가
-                누구인지 여기서 말해야 한다 (Apple 1.4.1). */}
-            <MedicalDisclaimer />
-
-            {/* 경고를 막다른 길로 두지 않는다 — "먹지 마세요" 다음에는 "그럼 뭘 먹지"가
-                와야 한다. 기록을 막지 않으므로 이건 대안 제시일 뿐이고, 이미 먹은 것을
-                지우라는 뜻이 아니다(그래서 문구가 '다음 끼니'다). */}
-            <Pressable
-              onPress={() =>
-                router.push({
-                  pathname: '/recommendations',
-                  params: { meal_type: nextMealType() },
-                })
-              }
-              style={({ pressed }) => [styles.warningAction, pressed && styles.pressed]}>
-              <MaterialIcons color="#2a7d76" name="restaurant-menu" size={16} />
-              <Text style={styles.warningActionText}>다음 끼니에 맞는 메뉴 보기</Text>
-            </Pressable>
-          </View>
-        </View>
-      ) : null}
-
-      {/* **경고가 없는 것과 안전한 것은 다르다.** 실측이 없는 음식은 판정 자체가 안 되는데,
-          아무 말도 하지 않으면 사용자는 "괜찮다"로 읽는다 — 신장병 환자의 돈까스·보쌈이
-          그랬다. 경고와 다른 톤(주의색이 아닌 회색)으로, 사실만 전한다. */}
-      {unmeasured.length > 0 ? (
-        <View style={styles.unmeasuredBox}>
-          <MaterialIcons color="#a9a6a1" name="help-outline" size={18} />
-          <Text style={styles.unmeasuredText}>
-            {`${unmeasured.map(formatFoodLabel).join(', ')}은(는) 영양 정보가 없어 확인하지 못했어요. 안전하다는 뜻은 아니에요.`}
-          </Text>
-        </View>
-      ) : null}
-
       {drafts.length === 0 ? (
         <View style={styles.emptyDraftBox}>
-          <MaterialIcons color="#a9a6a1" name="restaurant" size={28} />
+          <MaterialIcons color="#5c5b57" name="restaurant" size={28} />
           <Text style={styles.emptyDraftText}>
             위에서 사진·검색·직접 입력으로 먹은 메뉴를 추가해주세요.
           </Text>
         </View>
       ) : (
         <View style={styles.draftSection}>
+          <Text accessibilityRole="header" style={styles.sectionTitle}>
+            {`담은 것 ${drafts.length}`}
+          </Text>
           {drafts.map((draft) => (
-            <View key={draft.key} style={styles.draftBlock}>
+            <View key={draft.key} style={styles.draftCard}>
               <QuantityEditor
                 value={draft}
                 isLookingUp={lookupKey === draft.key}
@@ -837,40 +914,100 @@ export default function MealComposeScreen() {
                 onLabelBlur={() => void lookupDraftKcal(draft.key)}
                 onRemove={() => removeDraft(draft.key)}
               />
-              <AiProvenance
-                recognized={draft.source === 'ai'}
-                estimatedKcal={draft.aiEstimatedKcal}
-              />
-              {/* 먹은 음식의 실측 나트륨·칼륨·인. 미측정 음식은 아무것도 그리지 않는다. */}
-              <NutrientChips chips={draftNutrientChips(draft, tierByLabel)} />
+              <View style={styles.draftMeta}>
+                <AiProvenance
+                  recognized={draft.source === 'ai'}
+                  estimatedKcal={draft.aiEstimatedKcal}
+                />
+                {/* 먹은 음식의 실측 나트륨·칼륨·인. 미측정 음식은 아무것도 그리지 않는다. */}
+                <NutrientChips chips={draftNutrientChips(draft, tierByLabel)} />
+              </View>
             </View>
           ))}
         </View>
       )}
 
-      <View style={styles.footer}>
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>합계</Text>
-          <Text style={styles.totalValue}>{`${totalKcal.toLocaleString()} kcal`}</Text>
-        </View>
-        <Pressable
-          disabled={!canSave}
-          onPress={() => void saveMeal()}
-          style={({ pressed }) => [
-            styles.saveButton,
-            !canSave && styles.saveButtonDisabled,
-            pressed && canSave && styles.pressed,
+      {warnings.length > 0 ? (
+        <View
+          style={[
+            styles.warningBox,
+            { backgroundColor: warningTone.background, borderColor: warningTone.border },
           ]}>
-          {isSaving ? (
-            <ActivityIndicator color="#22211f" />
-          ) : (
-            <>
-              <MaterialIcons color="#22211f" name="check" size={20} />
-              <Text style={styles.saveButtonText}>{isAppend ? '항목 추가 저장' : '기록 저장'}</Text>
-            </>
-          )}
-        </Pressable>
-      </View>
+          {warnings.map((warning) => (
+            <View
+              key={`${warning.source}-${warning.code}-${warning.matched_label}`}
+              style={styles.warningLine}>
+              <Text style={[styles.warningText, { color: warningTone.text }]}>
+                {formatWarning(warning)}
+              </Text>
+
+              {/* **경고를 이해할 수 있게 한다.** "칼륨이 높아요"만으로는 왜 줄여야 하는지,
+                  내 병기에서도 그런지 알 수 없다 — 실사용에서 "내 질환 정보를 찾기 너무
+                  힘들다"로 나온 지점이다 (서버 `docs/CARE_LOOP.md` §0-3·§5-2).
+                  `nutrient` 가 있는 경고만 축 가이드가 있다(알러지·임신·암은 없다).
+                  서버 테스트 `test_every_axis_warning_condition_has_a_guide` 가 이 대응을 건다. */}
+              {warning.nutrient !== null ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() =>
+                    router.push({
+                      pathname: '/guides/[condition]',
+                      params: { condition: warning.code, axis: warning.nutrient as string },
+                    })
+                  }
+                  style={({ pressed }) => [
+                    styles.warningPill,
+                    { borderColor: warningTone.border },
+                    pressed && styles.pressed,
+                  ]}>
+                  <Text style={[styles.warningPillText, { color: warningTone.text }]}>왜?</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ))}
+          {/* 등급 근거가 지침 컷오프가 아니라 정책값이라는 고지. 서버가 문구를 정한다. */}
+          {warningNotice ? <Text style={styles.warningNotice}>{warningNotice}</Text> : null}
+
+          {/* 경고가 뜬 순간이 사용자가 식이 결정을 내리는 순간이다 — 최종 판단자가
+              누구인지 여기서 말해야 한다 (Apple 1.4.1). */}
+          <MedicalDisclaimer />
+
+          {/* 경고를 막다른 길로 두지 않는다 — "먹지 마세요" 다음에는 "그럼 뭘 먹지"가
+              와야 한다. 기록을 막지 않으므로 이건 대안 제시일 뿐이고, 이미 먹은 것을
+              지우라는 뜻이 아니다(그래서 문구가 '다음 끼니'다). */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() =>
+              router.push({
+                pathname: '/recommendations',
+                params: { meal_type: nextMealType() },
+              })
+            }
+            style={({ pressed }) => [
+              styles.warningPill,
+              styles.warningAction,
+              { borderColor: warningTone.border },
+              pressed && styles.pressed,
+            ]}>
+            <MaterialIcons color={warningTone.text} name="restaurant-menu" size={18} />
+            <Text style={[styles.warningPillText, { color: warningTone.text }]}>
+              다음 끼니에 맞는 메뉴 보기
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {/* **경고가 없는 것과 안전한 것은 다르다.** 실측이 없는 음식은 판정 자체가 안 되는데,
+          아무 말도 하지 않으면 사용자는 "괜찮다"로 읽는다 — 신장병 환자의 돈까스·보쌈이
+          그랬다. 경고와 다른 톤(주의색이 아닌 회색)으로, 사실만 전한다. */}
+      {unmeasured.length > 0 ? (
+        <View style={styles.unmeasuredBox}>
+          <MaterialIcons color="#5c5b57" name="help-outline" size={20} />
+          <Text style={styles.unmeasuredText}>
+            {`${unmeasured.map(formatFoodLabel).join(', ')}은(는) 영양 정보가 없어 확인하지 못했어요. 안전하다는 뜻은 아니에요.`}
+          </Text>
+        </View>
+      ) : null}
 
       <Text style={styles.disclaimer}>{AI_USE_NOTICE}</Text>
     </Screen>
@@ -889,13 +1026,13 @@ function AiProvenance({ recognized, estimatedKcal }: { recognized: boolean; esti
     <View style={styles.aiRow}>
       {recognized ? (
         <View style={styles.aiBadge}>
-          <MaterialIcons color="#2a7d76" name="auto-awesome" size={12} />
+          <MaterialIcons color="#5c5b57" name="auto-awesome" size={14} />
           <Text style={styles.aiBadgeText}>AI가 사진에서 인식</Text>
         </View>
       ) : null}
       {estimatedKcal ? (
         <View style={styles.aiBadge}>
-          <MaterialIcons color="#2a7d76" name="auto-awesome" size={12} />
+          <MaterialIcons color="#5c5b57" name="auto-awesome" size={14} />
           <Text style={styles.aiBadgeText}>칼로리는 AI 추정값 · 식약처 DB에 없는 음식</Text>
         </View>
       ) : null}
@@ -927,7 +1064,7 @@ function PhotoTimeNotice({
 
   return (
     <View style={styles.photoTimeNotice}>
-      <MaterialIcons color="#2a7d76" name="schedule" size={16} />
+      <MaterialIcons color={MEAL_TONE.text} name="schedule" size={20} />
       <View style={styles.photoTimeBody}>
         <Text style={styles.photoTimeText}>
           {applied.length > 0
@@ -935,13 +1072,19 @@ function PhotoTimeNotice({
             : `사진은 ${takenLabel}에 찍었어요.`}
         </Text>
         {photoTime.appliedDate && date !== today ? (
-          <Pressable onPress={onMoveToday} hitSlop={6}>
-            <Text style={styles.photoTimeLink}>오늘 기록으로 바꾸기</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onMoveToday}
+            style={({ pressed }) => [styles.photoTimeLink, pressed && styles.pressed]}>
+            <Text style={styles.photoTimeLinkText}>오늘 기록으로 바꾸기</Text>
           </Pressable>
         ) : null}
         {!photoTime.appliedDate && photoDate !== date ? (
-          <Pressable onPress={onMoveToPhotoDate} hitSlop={6}>
-            <Text style={styles.photoTimeLink}>{`사진 찍은 날(${formatMonthDay(photoDate)}) 기록으로 옮기기`}</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onMoveToPhotoDate}
+            style={({ pressed }) => [styles.photoTimeLink, pressed && styles.pressed]}>
+            <Text style={styles.photoTimeLinkText}>{`사진 찍은 날(${formatMonthDay(photoDate)}) 기록으로 옮기기`}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -957,12 +1100,6 @@ function parseTakenAtParam(value: string | undefined): Date | null {
   const time = new Date(value);
 
   return Number.isNaN(time.getTime()) ? null : time;
-}
-
-function selectMealType(value: string, setMealType: (value: MealType) => void) {
-  if (isMealType(value)) {
-    setMealType(value);
-  }
 }
 
 function toPhotoAsset(asset: ImagePicker.ImagePickerAsset): PhotoAsset {
@@ -1017,6 +1154,8 @@ function AddActionButton({
 }) {
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
@@ -1024,10 +1163,19 @@ function AddActionButton({
         disabled && styles.addActionButtonDisabled,
         pressed && !disabled && styles.pressed,
       ]}>
-      <MaterialIcons color="#2a7d76" name={icon} size={22} />
+      <MaterialIcons color={MEAL_TONE.text} name={icon} size={24} />
       <Text style={styles.addActionLabel}>{label}</Text>
     </Pressable>
   );
+}
+
+// 경고 배너 색. 알러지나 '높음' 등급이 하나라도 있으면 높음, 그 외(보통·이름 분류·당류)는 보통.
+function warningLevel(warnings: FoodWarning[]): keyof typeof WARNING_TONES {
+  if (warnings.some((warning) => warning.source === 'allergy')) {
+    return 'high';
+  }
+
+  return warnings.some((warning) => warning.tier === 'high') ? 'high' : 'mid';
 }
 
 function buildTierLookup(warnings: FoodWarning[]): Map<string, FoodWarningTier> {
@@ -1127,89 +1275,43 @@ function subjectParticle(word: string): string {
 const styles = StyleSheet.create({
   addActionButton: {
     alignItems: 'center',
-    backgroundColor: '#eef7f5',
-    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 4,
+    borderColor: MEAL_TONE.shade,
+    borderRadius: 14,
+    borderWidth: 2,
     flex: 1,
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     justifyContent: 'center',
-    paddingVertical: 14,
+    minHeight: 52,
   },
   addActionButtonDisabled: {
     opacity: 0.5,
   },
   addActionGrid: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
   },
   addActionLabel: {
-    color: '#2a7d76',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  addCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    gap: 12,
-    padding: 16,
-  },
-  addHint: {
-    color: '#5c5b57',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  addTitle: {
-    color: '#22211f',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  analyzeButton: {
-    alignItems: 'center',
-    backgroundColor: '#60beb8',
-    borderRadius: 8,
-    flexDirection: 'row',
-    gap: 6,
-    justifyContent: 'center',
-    paddingVertical: 13,
-  },
-  analyzeButtonDisabled: {
-    backgroundColor: '#99d2ce',
-  },
-  analyzeButtonText: {
-    color: '#22211f',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  analyzingRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  analyzingText: {
-    color: '#5c5b57',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  choiceLabel: {
-    color: '#5c5b57',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  choiceSection: {
-    gap: 8,
+    color: MEAL_TONE.text,
+    fontFamily: DISPLAY_FONT,
+    fontSize: 19,
   },
   aiBadge: {
     alignItems: 'center',
-    backgroundColor: '#eef7f5',
-    borderRadius: 999,
+    backgroundColor: '#ffffff',
+    borderColor: '#a9a6a1',
+    borderRadius: 6,
+    borderWidth: 1.5,
     flexDirection: 'row',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
   },
   aiBadgeText: {
-    color: '#2a7d76',
-    fontSize: 11,
+    color: '#5c5b57',
+    fontSize: 13,
     fontWeight: '800',
   },
   aiRow: {
@@ -1217,73 +1319,84 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 6,
   },
-  photoTimeBody: {
-    flex: 1,
-    gap: 4,
-  },
-  photoTimeLink: {
-    color: '#2a7d76',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  photoTimeNotice: {
-    alignItems: 'flex-start',
-    backgroundColor: '#eef7f5',
-    borderRadius: 8,
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  photoTimeText: {
-    color: '#22211f',
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  disclaimer: {
-    color: '#a9a6a1',
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  draftBlock: {
-    gap: 6,
-  },
-  draftSection: {
-    gap: 10,
-  },
-  emptyDraftBox: {
+  analyzingRow: {
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    gap: 10,
-    padding: 28,
-  },
-  emptyDraftText: {
-    color: '#a9a6a1',
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-  },
-  existingCard: {
-    backgroundColor: '#e4e2de',
-    borderRadius: 8,
+    flexDirection: 'row',
     gap: 8,
+  },
+  bodyText: {
+    color: '#5c5b57',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  card: {
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 5,
+    borderColor: '#e4e2de',
+    borderRadius: 20,
+    borderWidth: 2,
+    gap: 12,
     padding: 16,
   },
-  existingHeadRow: {
+  cardHeadRow: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  existingKcal: {
+  cardTitle: {
+    color: '#22211f',
+    fontFamily: DISPLAY_FONT,
+    fontSize: 20,
+  },
+  choiceSection: {
+    gap: 10,
+  },
+  disclaimer: {
     color: '#5c5b57',
     fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+  },
+  draftCard: {
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 5,
+    borderColor: '#e4e2de',
+    borderRadius: 20,
+    borderWidth: 2,
+    overflow: 'hidden',
+  },
+  draftMeta: {
+    gap: 6,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
+  },
+  draftSection: {
+    gap: 12,
+  },
+  emptyDraftBox: {
+    alignItems: 'center',
+    borderColor: '#a9a6a1',
+    borderRadius: 20,
+    borderStyle: 'dashed',
+    borderWidth: 2,
+    gap: 10,
+    padding: 28,
+  },
+  emptyDraftText: {
+    color: '#5c5b57',
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  existingKcal: {
+    color: '#5c5b57',
+    fontSize: 15,
     fontWeight: '700',
   },
   existingLabel: {
     color: '#22211f',
     flex: 1,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
   },
   existingRow: {
@@ -1292,50 +1405,96 @@ const styles = StyleSheet.create({
     gap: 8,
     justifyContent: 'space-between',
   },
-  existingTitle: {
-    color: '#5c5b57',
-    fontSize: 13,
-    fontWeight: '800',
-  },
   existingTotal: {
-    color: '#5c5b57',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  footer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    gap: 12,
-    padding: 16,
-  },
-  header: {
-    gap: 4,
+    color: '#22211f',
+    fontFamily: DISPLAY_FONT,
+    fontSize: 18,
   },
   manualAddButton: {
     alignItems: 'center',
     alignSelf: 'flex-start',
     flexDirection: 'row',
-    gap: 4,
-    paddingVertical: 4,
+    gap: 6,
+    minHeight: 44,
   },
   manualAddText: {
-    color: '#2a7d76',
-    fontSize: 14,
+    color: MEAL_TONE.text,
+    fontSize: 15,
     fontWeight: '800',
+  },
+  mealPill: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderColor: '#e4e2de',
+    borderRadius: 999,
+    borderWidth: 2,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  mealPillSelected: {
+    backgroundColor: MEAL_TONE.fill,
+    borderColor: MEAL_TONE.shade,
+  },
+  mealPillText: {
+    color: '#5c5b57',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  mealPillTextSelected: {
+    color: '#ffffff',
+  },
+  mealPills: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  photoTimeBody: {
+    flex: 1,
+    gap: 2,
+  },
+  photoTimeLink: {
+    alignSelf: 'flex-start',
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  photoTimeLinkText: {
+    color: MEAL_TONE.text,
+    fontSize: 15,
+    fontWeight: '800',
+    textDecorationLine: 'underline',
+  },
+  photoTimeNotice: {
+    alignItems: 'flex-start',
+    backgroundColor: MEAL_TONE.tint,
+    borderRadius: 16,
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  photoTimeText: {
+    color: '#22211f',
+    fontSize: 15,
+    lineHeight: 22,
   },
   pressed: {
     opacity: 0.74,
   },
+  previewBody: {
+    gap: 12,
+    padding: 14,
+  },
   previewCaption: {
-    color: '#a9a6a1',
-    fontSize: 12,
+    color: '#5c5b57',
+    fontSize: 13,
     fontWeight: '700',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
   },
   previewCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 8,
+    borderBottomWidth: 5,
+    borderColor: '#e4e2de',
+    borderRadius: 20,
+    borderWidth: 2,
     overflow: 'hidden',
   },
   previewImage: {
@@ -1343,166 +1502,156 @@ const styles = StyleSheet.create({
     backgroundColor: '#e4e2de',
     width: '100%',
   },
-  saveButton: {
-    alignItems: 'center',
-    backgroundColor: '#60beb8',
-    borderRadius: 8,
-    flexDirection: 'row',
-    gap: 8,
-    height: 54,
-    justifyContent: 'center',
-  },
-  saveButtonDisabled: {
-    backgroundColor: '#99d2ce',
-  },
-  saveButtonText: {
-    color: '#22211f',
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  searchButton: {
-    alignItems: 'center',
-    backgroundColor: '#60beb8',
-    borderRadius: 8,
-    justifyContent: 'center',
-    minWidth: 60,
-    paddingHorizontal: 16,
-  },
-  searchButtonDisabled: {
-    backgroundColor: '#99d2ce',
-  },
-  searchButtonText: {
-    color: '#22211f',
-    fontSize: 15,
-    fontWeight: '800',
-  },
   searchInput: {
-    backgroundColor: '#e4e2de',
-    borderRadius: 8,
+    backgroundColor: '#f7f6f4',
+    borderColor: '#e4e2de',
+    borderRadius: 16,
+    borderWidth: 2,
     color: '#22211f',
     flex: 1,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
+    minHeight: 56,
     paddingHorizontal: 14,
-    paddingVertical: 12,
   },
   searchRow: {
     flexDirection: 'row',
     gap: 8,
   },
-  stateBox: {
+  sectionTitle: {
+    color: '#22211f',
+    fontFamily: DISPLAY_FONT,
+    fontSize: 22,
+  },
+  stampCard: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderRadius: 8,
-    gap: 12,
+    borderBottomWidth: 5,
+    borderColor: '#e4e2de',
+    borderRadius: 20,
+    borderWidth: 2,
+    gap: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 24,
+  },
+  stampDate: {
+    color: MEAL_TONE.text,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  stampFoods: {
+    color: '#22211f',
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 24,
+  },
+  stampInner: {
+    alignItems: 'center',
+    borderColor: MEAL_TONE.fill,
+    borderRadius: 47,
+    borderStyle: 'dashed',
+    borderWidth: 2,
+    gap: 2,
+    height: 94,
+    justifyContent: 'center',
+    width: 94,
+  },
+  stampLabel: {
+    color: MEAL_TONE.text,
+    fontFamily: DISPLAY_FONT,
+    fontSize: 32,
+    lineHeight: 36,
+  },
+  stampOuter: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderColor: MEAL_TONE.fill,
+    borderRadius: 58,
+    borderWidth: 5,
+    height: 116,
+    justifyContent: 'center',
+    transform: [{ rotate: '-10deg' }],
+    width: 116,
+  },
+  stampTitle: {
+    color: '#22211f',
+    fontFamily: DISPLAY_FONT,
+    fontSize: 27,
+    textAlign: 'center',
+  },
+  stateCard: {
+    alignItems: 'center',
     padding: 24,
   },
-  stateText: {
-    color: '#5c5b57',
-    fontSize: 14,
-  },
-  subtitle: {
-    color: '#5c5b57',
-    fontSize: 14,
-  },
-  title: {
-    color: '#22211f',
-    fontSize: 28,
-    fontWeight: '900',
-  },
-  totalLabel: {
-    color: '#5c5b57',
-    fontSize: 14,
-    fontWeight: '700',
-  },
   totalRow: {
-    alignItems: 'center',
-    backgroundColor: '#e4e2de',
-    borderRadius: 8,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  totalValue: {
-    color: '#22211f',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  usageText: {
-    color: '#5c5b57',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  warningBody: {
-    flex: 1,
-    gap: 4,
-  },
-  warningBox: {
-    alignItems: 'flex-start',
-    backgroundColor: '#fbeaea',
-    borderRadius: 8,
-    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
-    padding: 14,
+    justifyContent: 'space-between',
   },
-  warningAction: {
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: '#eef7f5',
-    borderRadius: 6,
-    flexDirection: 'row',
-    gap: 6,
-    marginTop: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  warningActionText: {
-    color: '#2a7d76',
-    fontSize: 13,
+  totalText: {
+    color: '#5c5b57',
+    fontSize: 15,
     fontWeight: '800',
   },
   unmeasuredBox: {
     alignItems: 'flex-start',
     backgroundColor: '#e4e2de',
-    borderRadius: 8,
+    borderRadius: 16,
     flexDirection: 'row',
     gap: 8,
     padding: 14,
   },
   unmeasuredText: {
-    color: '#5c5b57',
+    color: '#22211f',
     flex: 1,
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: 15,
+    lineHeight: 22,
   },
-  warningNotice: {
+  usageText: {
     color: '#5c5b57',
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 4,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  warningAction: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  warningBox: {
+    borderBottomWidth: 5,
+    borderRadius: 20,
+    borderWidth: 2,
+    gap: 10,
+    padding: 14,
   },
   warningLine: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
     flexDirection: 'row',
     gap: 8,
   },
-  warningText: {
-    color: '#b8524e',
-    flex: 1,
+  warningNotice: {
+    color: '#5c5b57',
     fontSize: 13,
-    fontWeight: '700',
     lineHeight: 19,
   },
-  warningWhy: {
+  warningPill: {
+    alignItems: 'center',
     backgroundColor: '#ffffff',
     borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    borderWidth: 2,
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: 14,
   },
-  warningWhyText: {
-    color: '#b8524e',
-    fontSize: 12,
+  warningPillText: {
+    fontSize: 15,
     fontWeight: '800',
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 22,
   },
 });

@@ -3,9 +3,10 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { BackButton } from '@/components/back-button';
 import { ChipGroup } from '@/components/chip-group';
+import { ChunkyButton } from '@/components/chunky-button';
 import { DayNutrientsCard } from '@/components/day-nutrients-card';
+import { DetailHeader } from '@/components/detail-header';
 import { ErrorBanner } from '@/components/error-banner';
 import { LoadingState } from '@/components/loading-state';
 import { NutrientChip, NutrientChips } from '@/components/nutrient-chips';
@@ -14,6 +15,8 @@ import { Screen } from '@/components/screen';
 import { INTAKE_ESTIMATE_NOTICE } from '@/constants/ai-notice';
 import { isMealType, MEAL_TYPE_LABELS, MEAL_TYPES, MealType } from '@/constants/meal';
 import { NUTRIENT_LABELS } from '@/constants/nutrition';
+import { TAB_TONES } from '@/constants/tab-tone';
+import { DISPLAY_FONT } from '@/constants/typography';
 import { formatFoodLabel } from '@/services/food-label';
 import { confirmDialog } from '@/services/dialog';
 import { formatIsoTime, formatMonthDay } from '@/services/format';
@@ -29,13 +32,6 @@ import {
   MealLog,
   updateMeal,
 } from '@/services/health-api';
-
-const MEAL_TYPE_ICONS: Record<MealType, keyof typeof MaterialIcons.glyphMap> = {
-  breakfast: 'wb-sunny',
-  lunch: 'restaurant',
-  dinner: 'dinner-dining',
-  snack: 'cookie',
-};
 
 const MEAL_TYPE_OPTIONS: { value: MealType; label: string }[] = MEAL_TYPES.map((value) => ({
   value,
@@ -53,19 +49,26 @@ type EditItem = QuantityValue & {
 
 export default function MealListScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ date?: string }>();
+  const params = useLocalSearchParams<{ date?: string; from?: string }>();
   // 홈·캘린더가 넘긴 날짜(YYYY-MM-DD)만 신뢰한다. 형식이 다르면 오늘로 폴백.
   const date =
     typeof params.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(params.date)
       ? params.date
       : formatDateParam(new Date());
+  // 같은 화면이 두 탭에서 열린다 — 케어 탭 도장판이면 '← 케어'(청록), 그 외(식단 탭 채운 칸·
+  // 어제 요약)는 '← 식단'(주황). 들어온 방의 색을 잃지 않게 한다.
+  const tone = params.from === 'care' ? 'care' : 'meal';
+  const toneStyle = TAB_TONES[tone];
 
-  // 새 끼니: compose(meal_id 없음). 기존 끼니에 항목 더하기: compose append(meal_id·meal_type).
-  const openAddMeal = () => router.push({ pathname: '/meals/compose', params: { date } });
+  // 새 끼니: 빈 끼니 칸 → compose(meal_id 없음). 기존 끼니에 항목 더하기: compose append(meal_id·meal_type).
+  // 케어 탭에서 들어왔으면 기록 화면에도 그대로 넘긴다 — 뒤로가기가 들어온 탭을 말하게.
+  const fromParams = tone === 'care' ? { from: 'care' } : {};
+  const openNewMeal = (mealType: MealType) =>
+    router.push({ pathname: '/meals/compose', params: { date, meal_type: mealType, ...fromParams } });
   const openAppendMeal = (meal: MealLog) =>
     router.push({
       pathname: '/meals/compose',
-      params: { date, meal_id: String(meal.id), meal_type: meal.meal_type },
+      params: { date, meal_id: String(meal.id), meal_type: meal.meal_type, ...fromParams },
     });
 
   const [meals, setMeals] = useState<MealLog[]>([]);
@@ -272,35 +275,23 @@ export default function MealListScreen() {
   };
 
   const totalKcal = meals.reduce((sum, meal) => sum + meal.total_kcal, 0);
+  const isToday = date === formatDateParam(new Date());
+  // 기록이 없는 끼니 자리. 빈 날도 이 칸들로 바로 채울 수 있다(예전 '기록 추가' 버튼을 대신한다).
+  const emptyMealTypes = MEAL_TYPES.filter((type) => !meals.some((meal) => meal.meal_type === type));
+  const isBusy = deletingId !== null || isSavingEdit;
 
   return (
-    <Screen keyboard="persistTaps">
-      <BackButton />
-
-      <View style={styles.header}>
-        <Text style={styles.title}>{`${formatMonthDay(date)} 기록`}</Text>
-        <Text style={styles.subtitle}>
-          {meals.length === 0
-            ? '이날 저장된 끼니 기록을 보여드려요.'
-            : `총 ${totalKcal.toLocaleString()} kcal · ${meals.length}건`}
-        </Text>
-      </View>
+    <Screen gap={16} keyboard="persistTaps">
+      <DetailHeader
+        caption={isLoading ? null : `끼니 ${meals.length}개 · ${totalKcal.toLocaleString()} kcal`}
+        title={isToday ? '오늘의 식탁' : `${formatMonthDay(date)}의 식탁`}
+        tone={tone}
+      />
 
       {/* 질환 축 누적을 **kcal 합계 바로 아래**에 둔다 — 만성질환자에게는 이 숫자가 더
           중요하다(홈에서 칼로리 링 아래 놓은 것과 같은 이유). 이 카드가 없던 동안 지난
           기록은 kcal 만 말했고, 경고는 저장하는 순간에만 보였다 (`CARE_LOOP.md` §0-3). */}
-      <DayNutrientsCard
-        nutrients={nutrients}
-        title={date === formatDateParam(new Date()) ? '오늘의 영양' : '이날의 영양'}
-      />
-
-      {/* 빈 날짜에도 새 끼니를 남길 수 있어야 한다 — 항상 노출한다. */}
-      <Pressable
-        onPress={openAddMeal}
-        style={({ pressed }) => [styles.addMealButton, pressed && styles.pressed]}>
-        <MaterialIcons color="#22211f" name="add" size={20} />
-        <Text style={styles.addMealButtonText}>기록 추가</Text>
-      </Pressable>
+      <DayNutrientsCard nutrients={nutrients} title={isToday ? '오늘의 영양' : '이날의 영양'} />
 
       {errorMessage ? (
         <ErrorBanner message={errorMessage} onRetry={() => void loadMeals()} />
@@ -308,124 +299,146 @@ export default function MealListScreen() {
 
       {isLoading ? (
         <LoadingState label="끼니 기록을 불러오는 중입니다." />
-      ) : meals.length === 0 ? (
-        <View style={styles.stateBox}>
-          <MaterialIcons color="#a9a6a1" name="no-meals" size={32} />
-          <Text style={styles.stateText}>
-            아직 기록이 없어요. 식단 탭의 끼니 칸에서 사진으로 남겨 보세요.
-          </Text>
-        </View>
       ) : (
-        <View style={styles.section}>
-          {meals.map((meal) => (
-            <View key={meal.id} style={styles.mealCard}>
-              <View style={styles.mealHeader}>
-                <View style={styles.mealIconWrap}>
-                  <MaterialIcons
-                    color="#2a7d76"
-                    name={MEAL_TYPE_ICONS[meal.meal_type]}
-                    size={18}
-                  />
-                </View>
-                <View style={styles.mealHeaderBody}>
-                  <Text style={styles.mealTypeLabel}>{MEAL_TYPE_LABELS[meal.meal_type]}</Text>
-                  <Text style={styles.mealTime}>{formatIsoTime(meal.logged_at)}</Text>
-                </View>
-                <Text style={styles.mealKcal}>{`${meal.total_kcal.toLocaleString()} kcal`}</Text>
-                <Pressable
-                  accessibilityLabel="이 끼니에 항목 추가"
-                  disabled={deletingId !== null || isSavingEdit}
-                  hitSlop={8}
-                  onPress={() => openAppendMeal(meal)}
-                  style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
-                  <MaterialIcons color="#2a7d76" name="add-circle-outline" size={20} />
-                </Pressable>
-                <Pressable
-                  disabled={deletingId !== null || isSavingEdit}
-                  hitSlop={8}
-                  onPress={() => (editingMealId === meal.id ? cancelEdit() : startEdit(meal))}
-                  style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
-                  <MaterialIcons
-                    color={editingMealId === meal.id ? '#2a7d76' : '#5c5b57'}
-                    name={editingMealId === meal.id ? 'close' : 'edit'}
-                    size={20}
-                  />
-                </Pressable>
-                <Pressable
-                  disabled={deletingId !== null || isSavingEdit}
-                  hitSlop={8}
-                  onPress={() => confirmDelete(meal)}
-                  style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
-                  {deletingId === meal.id ? (
-                    <ActivityIndicator color="#b8524e" size="small" />
-                  ) : (
-                    <MaterialIcons color="#b8524e" name="delete-outline" size={20} />
-                  )}
-                </Pressable>
-              </View>
-
-              {editingMealId === meal.id ? (
-                <View style={styles.editBox}>
-                  <Text style={styles.editSectionLabel}>끼니</Text>
-                  <ChipGroup
-                    options={MEAL_TYPE_OPTIONS}
-                    selectedValues={[editMealType]}
-                    onToggle={(value) => selectEditMealType(value, setEditMealType)}
-                  />
-
-                  {editItems.map((item) => (
-                    <QuantityEditor
-                      key={item.key}
-                      value={item}
-                      isLookingUp={editLookupKeys.includes(item.key)}
-                      onChange={(next) => applyQuantity(item.key, next)}
-                      onRemove={() => removeEditItem(item.key)}
-                    />
-                  ))}
-
-                  <View style={styles.editActions}>
-                    <Pressable
-                      disabled={isSavingEdit}
-                      onPress={cancelEdit}
-                      style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
-                      <Text style={styles.cancelButtonText}>취소</Text>
-                    </Pressable>
-                    <Pressable
-                      disabled={!isEditValid || isSavingEdit}
-                      onPress={() => void saveEdit()}
-                      style={({ pressed }) => [
-                        styles.saveButton,
-                        (!isEditValid || isSavingEdit) && styles.saveButtonDisabled,
-                        pressed && styles.pressed,
-                      ]}>
-                      {isSavingEdit ? (
-                        <ActivityIndicator color="#22211f" size="small" />
-                      ) : (
-                        <Text style={styles.saveButtonText}>저장</Text>
-                      )}
-                    </Pressable>
-                  </View>
-                </View>
-              ) : (
-                meal.items.map((item) => (
-                  <View key={item.id} style={styles.itemBlock}>
-                    <View style={styles.itemRow}>
-                      <Text style={styles.itemLabel}>
-                        {formatFoodLabel(item.food_label)}
-                        {/* AI기본법 제31조② — 사진 인식으로 담은 항목은 지난 기록에서도 밝힌다. */}
-                        {item.source === 'ai' ? <Text style={styles.aiTag}>{'  AI 인식'}</Text> : null}
-                      </Text>
-                      <Text style={styles.itemMeta}>
-                        {`${item.serving_ratio}인분 · ${item.kcal.toLocaleString()} kcal`}
-                      </Text>
-                    </View>
-                    <NutrientChips chips={itemNutrientChips(item)} />
-                  </View>
-                ))
-              )}
+        <>
+          {meals.length === 0 ? (
+            <View style={styles.stateBox}>
+              <MaterialIcons color="#a9a6a1" name="no-meals" size={32} />
+              <Text style={styles.stateText}>
+                아직 기록이 없어요. 식단 탭의 끼니 칸에서 사진으로 남겨 보세요.
+              </Text>
             </View>
-          ))}
-        </View>
+          ) : (
+            meals.map((meal) => (
+              <View key={meal.id} style={styles.mealCard}>
+                <View style={styles.mealHeader}>
+                  <View accessibilityLabel="도장 받음" style={styles.stamp}>
+                    <MaterialIcons color="#4a3200" name="check" size={18} />
+                  </View>
+                  <View style={styles.mealTitle}>
+                    <Text style={styles.mealTypeLabel}>{MEAL_TYPE_LABELS[meal.meal_type]}</Text>
+                    <Text style={styles.mealTime}>{formatIsoTime(meal.logged_at)}</Text>
+                  </View>
+                  <Text style={styles.mealKcal}>{`${meal.total_kcal.toLocaleString()} kcal`}</Text>
+                </View>
+
+                {editingMealId === meal.id ? (
+                  <View style={styles.editBox}>
+                    <Text style={styles.editSectionLabel}>끼니</Text>
+                    <ChipGroup
+                      options={MEAL_TYPE_OPTIONS}
+                      selectedValues={[editMealType]}
+                      onToggle={(value) => selectEditMealType(value, setEditMealType)}
+                    />
+
+                    {editItems.map((item) => (
+                      <QuantityEditor
+                        key={item.key}
+                        value={item}
+                        isLookingUp={editLookupKeys.includes(item.key)}
+                        onChange={(next) => applyQuantity(item.key, next)}
+                        onRemove={() => removeEditItem(item.key)}
+                      />
+                    ))}
+
+                    <View style={styles.editActions}>
+                      <View style={styles.editAction}>
+                        <ChunkyButton
+                          disabled={isSavingEdit}
+                          label="취소"
+                          onPress={cancelEdit}
+                          tone={tone}
+                          variant="outline"
+                        />
+                      </View>
+                      <View style={styles.editAction}>
+                        <ChunkyButton
+                          disabled={!isEditValid}
+                          label="저장"
+                          loading={isSavingEdit}
+                          onPress={() => void saveEdit()}
+                          tone={tone}
+                        />
+                      </View>
+                    </View>
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.itemList}>
+                      {meal.items.map((item) => (
+                        <View key={item.id} style={styles.itemBlock}>
+                          <View style={styles.itemRow}>
+                            <Text style={styles.itemLabel}>
+                              {formatFoodLabel(item.food_label)}
+                              {/* AI기본법 제31조② — 사진 인식으로 담은 항목은 지난 기록에서도 밝힌다. */}
+                              {item.source === 'ai' ? (
+                                <Text style={styles.aiTag}>{'  AI 인식'}</Text>
+                              ) : null}
+                            </Text>
+                            <Text style={styles.itemMeta}>
+                              {`${item.serving_ratio}인분 · ${item.kcal.toLocaleString()} kcal`}
+                            </Text>
+                          </View>
+                          <NutrientChips chips={itemNutrientChips(item)} />
+                        </View>
+                      ))}
+                    </View>
+
+                    <View style={styles.actionRow}>
+                      <Pressable
+                        accessibilityLabel={`${MEAL_TYPE_LABELS[meal.meal_type]}에 더 담기`}
+                        accessibilityRole="button"
+                        disabled={isBusy}
+                        onPress={() => openAppendMeal(meal)}
+                        style={({ pressed }) => [
+                          styles.actionButton,
+                          { backgroundColor: toneStyle.tint, borderColor: toneStyle.tint },
+                          pressed && styles.pressed,
+                        ]}>
+                        <Text style={[styles.actionText, { color: toneStyle.text }]}>+ 더 담기</Text>
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        disabled={isBusy}
+                        onPress={() => startEdit(meal)}
+                        style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}>
+                        <Text style={styles.actionText}>고치기</Text>
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        disabled={isBusy}
+                        onPress={() => void confirmDelete(meal)}
+                        style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}>
+                        {deletingId === meal.id ? (
+                          <ActivityIndicator color="#b8524e" size="small" />
+                        ) : (
+                          <Text style={[styles.actionText, styles.deleteText]}>지우기</Text>
+                        )}
+                      </Pressable>
+                    </View>
+                  </>
+                )}
+              </View>
+            ))
+          )}
+
+          {/* 빈 칸은 점선 — 코랄을 쓰지 않는다(벌이 아니다, DESIGN.md '탭 색·게임 톤'). */}
+          {emptyMealTypes.length > 0 ? (
+            <View style={styles.slotGrid}>
+              {emptyMealTypes.map((type) => (
+                <Pressable
+                  key={type}
+                  accessibilityLabel={`${MEAL_TYPE_LABELS[type]} 남기기`}
+                  accessibilityRole="button"
+                  onPress={() => openNewMeal(type)}
+                  style={({ pressed }) => [styles.slot, pressed && styles.pressed]}>
+                  <Text style={styles.slotLabel}>{MEAL_TYPE_LABELS[type]}</Text>
+                  <Text style={styles.slotText}>남기기</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+        </>
       )}
 
       <Text style={styles.disclaimer}>{INTAKE_ESTIMATE_NOTICE}</Text>
@@ -478,36 +491,45 @@ function itemNutrientChips(item: MealItem): NutrientChip[] {
 }
 
 const styles = StyleSheet.create({
-  addMealButton: {
+  actionButton: {
     alignItems: 'center',
-    backgroundColor: '#60beb8',
-    borderRadius: 8,
-    flexDirection: 'row',
-    gap: 6,
-    height: 50,
-    justifyContent: 'center',
-  },
-  addMealButtonText: {
-    color: '#22211f',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  cancelButton: {
-    alignItems: 'center',
-    backgroundColor: '#e4e2de',
-    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    borderColor: '#e4e2de',
+    borderRadius: 12,
+    borderWidth: 2,
     flex: 1,
-    paddingVertical: 12,
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: 6,
   },
-  cancelButtonText: {
-    color: '#5c5b57',
+  actionRow: {
+    borderTopColor: '#f7f6f4',
+    borderTopWidth: 2,
+    flexDirection: 'row',
+    gap: 8,
+    paddingTop: 10,
+  },
+  actionText: {
+    color: '#22211f',
     fontSize: 15,
     fontWeight: '800',
   },
+  aiTag: {
+    color: '#2a7d76',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  deleteText: {
+    color: '#b8524e',
+  },
   disclaimer: {
-    color: '#a9a6a1',
+    color: '#5c5b57',
     fontSize: 13,
+    lineHeight: 18,
     textAlign: 'center',
+  },
+  editAction: {
+    flex: 1,
   },
   editActions: {
     flexDirection: 'row',
@@ -518,39 +540,30 @@ const styles = StyleSheet.create({
   },
   editSectionLabel: {
     color: '#5c5b57',
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '800',
   },
-  header: {
-    gap: 4,
-  },
-  iconButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 24,
-  },
-  aiTag: {
-    color: '#2a7d76',
-    fontSize: 11,
-    fontWeight: '800',
+  // 이름·kcal 한 줄 아래에 수치 칩이 붙으므로 바깥은 세로, 안쪽 한 줄만 가로다.
+  itemBlock: {
+    backgroundColor: '#f7f6f4',
+    borderRadius: 12,
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   itemLabel: {
     color: '#22211f',
     flex: 1,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
+    lineHeight: 22,
+  },
+  itemList: {
+    gap: 8,
   },
   itemMeta: {
     color: '#5c5b57',
-    fontSize: 13,
-  },
-  // 이름·kcal 한 줄 아래에 수치 칩이 붙으므로 바깥은 세로, 안쪽 한 줄만 가로다.
-  itemBlock: {
-    backgroundColor: '#e4e2de',
-    borderRadius: 8,
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    fontSize: 15,
   },
   itemRow: {
     alignItems: 'center',
@@ -559,81 +572,96 @@ const styles = StyleSheet.create({
   },
   mealCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 8,
+    borderBottomWidth: 5,
+    borderColor: '#e4e2de',
+    borderRadius: 20,
+    borderWidth: 2,
     gap: 10,
-    padding: 16,
+    padding: 14,
   },
   mealHeader: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 10,
   },
-  mealHeaderBody: {
-    flex: 1,
-    gap: 2,
-  },
-  mealIconWrap: {
-    alignItems: 'center',
-    backgroundColor: '#bee2dd',
-    borderRadius: 999,
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
-  },
   mealKcal: {
     color: '#22211f',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
   },
   mealTime: {
-    color: '#a9a6a1',
-    fontSize: 12,
+    color: '#5c5b57',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  mealTitle: {
+    alignItems: 'baseline',
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
   },
   mealTypeLabel: {
     color: '#22211f',
-    fontSize: 15,
-    fontWeight: '800',
+    fontFamily: DISPLAY_FONT,
+    fontSize: 22,
   },
   pressed: {
     opacity: 0.74,
   },
-  saveButton: {
+  slot: {
     alignItems: 'center',
-    backgroundColor: '#60beb8',
-    borderRadius: 8,
-    flex: 1,
-    paddingVertical: 12,
+    borderColor: '#a9a6a1',
+    borderRadius: 18,
+    borderStyle: 'dashed',
+    borderWidth: 2,
+    flexBasis: '40%',
+    flexDirection: 'row',
+    flexGrow: 1,
+    gap: 8,
+    minHeight: 64,
+    paddingHorizontal: 14,
   },
-  saveButtonDisabled: {
-    backgroundColor: '#99d2ce',
+  slotGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
   },
-  saveButtonText: {
+  slotLabel: {
     color: '#22211f',
+    fontFamily: DISPLAY_FONT,
+    fontSize: 20,
+  },
+  slotText: {
+    color: '#5c5b57',
     fontSize: 15,
     fontWeight: '800',
   },
-  section: {
-    gap: 10,
+  // 도장 — 식단 탭 끼니 칸(home.tsx `stamp`)과 같은 모양을 한 치수 작게.
+  stamp: {
+    alignItems: 'center',
+    backgroundColor: '#ffc83d',
+    borderColor: '#d9a200',
+    borderRadius: 17,
+    borderWidth: 3,
+    height: 34,
+    justifyContent: 'center',
+    transform: [{ rotate: '-12deg' }],
+    width: 34,
   },
   stateBox: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderRadius: 8,
+    borderBottomWidth: 5,
+    borderColor: '#e4e2de',
+    borderRadius: 20,
+    borderWidth: 2,
     gap: 12,
-    padding: 32,
+    padding: 28,
   },
   stateText: {
     color: '#5c5b57',
-    fontSize: 14,
+    fontSize: 15,
+    lineHeight: 22,
     textAlign: 'center',
-  },
-  subtitle: {
-    color: '#5c5b57',
-    fontSize: 14,
-  },
-  title: {
-    color: '#22211f',
-    fontSize: 30,
-    fontWeight: '900',
   },
 });
