@@ -5,8 +5,8 @@
 ```
 k-calAI-RN/
 ├── app/                        # expo-router 파일 기반 라우트 (이 안의 파일 = 화면)
-│   ├── _layout.tsx             # 루트 Stack + ThemeProvider + 인증 가드
-│   ├── auth.tsx                # 카카오 로그인 + 신규 회원 동의·요금제 (initialRouteName, 딥링크 kcalairn://auth 목적지)
+│   ├── _layout.tsx             # 루트 Stack(헤더 전부 끔 — 화면마다 BackButton) + ThemeProvider + 인증 가드
+│   ├── auth.tsx                # 카카오·Apple(iOS) 로그인 + 신규 회원 동의 (initialRouteName, 딥링크 kcalairn://auth 목적지)
 │   ├── (tabs)/
 │   │   ├── _layout.tsx         # 하단 탭 (식단 / 케어 / 진료) + 온보딩 게이트. index·record·account 는 href:null 로 숨김 (2026-10-05)
 │   │   ├── home.tsx            # 식단 탭 - 오늘의 퀘스트(끼니 4칸 → 사진·기록) + 소금 항아리
@@ -47,7 +47,7 @@ k-calAI-RN/
 │       ├── _layout.tsx         # 인증 가드
 │       └── index.tsx           # 끼니 선택 + 오늘 추천 목록
 ├── services/                   # 외부 통신 + 앱 전역 상태
-│   ├── auth-api.ts             # 카카오 로그인 API 클라이언트 (expo-web-browser로 서버 start URL 오픈 → 딥링크 파싱. 발급 전 순수 fetch, logout만 apiFetch로 Bearer 첨부)
+│   ├── auth-api.ts             # 카카오·Apple 로그인 API 클라이언트 (카카오: expo-web-browser로 서버 start URL 오픈 → 딥링크 파싱. Apple: 네이티브 시트 토큰을 서버로. 발급 전 순수 fetch, logout만 apiFetch로 Bearer 첨부)
 │   ├── auth-session.ts         # 세션 싱글톤 + 영속화(SecureStore) + useAuthSession 훅 + parseAuthTokenResponse(auth-api 공유) + getWebStorage(웹 localStorage, group-invite·yesterday-summary 공유)
 │   ├── calorie-api.ts          # 추론/칼로리 API 클라이언트
 │   ├── photo-picker.ts         # pickPhoto('camera'|'library') — 권한 요청·거부 안내·촬영/앨범 옵션(앨범만 exif). 취소·거부는 null
@@ -115,6 +115,7 @@ expo-router의 파일 기반 라우팅입니다. `app/` 하위 파일이 곧 경
 | 파일 | 경로 | 비고 |
 |------|------|------|
 | `app/auth.tsx` | `/auth` | `unstable_settings.initialRouteName = 'auth'` |
+| `app/support.tsx` | `/support` | 고객 지원(2026-10-05) — **인증 가드 없음**. App Store 지원 URL(`https://api.kcalai.link/support`)이라 로그인 없이 열린다. 문의 이메일·FAQ·사업자 정보(`BUSINESS_INFO_LINES`) |
 | `app/(tabs)/home.tsx` | `/home` | **식단 탭.** 로그인·온보딩 직후 진입(`auth.tsx`·`onboarding/goal.tsx`가 `/home`으로 보낸다) |
 | `app/(tabs)/index.tsx` | `/` | `/home`으로 리다이렉트만 한다. 그룹 `(tabs)`는 URL에 나타나지 않음 |
 | `app/(tabs)/record.tsx` | `/record` | (숨김) 옛 기록 탭 런처 |
@@ -238,6 +239,24 @@ useAuthSession()      → useSyncExternalStore(subscribe, getSnapshot) → AuthS
 연동 코드는 **1회용·TTL 10분**입니다 (서버 `auth_service.LINK_CODE_TTL_MINUTES`). 요금제 목록은 가입 단계에 진입할 때만 `GET /api/plans`(무인증)로 읽고, 실패하면 번들 폴백(`FALLBACK_PLANS`)으로 그립니다 — 네트워크 오류로 가입이 막히면 안 됩니다.
 
 **웹:** `platform=web`으로 열면 서버가 같은 오리진의 `/auth?…`로 되돌립니다. 팝업이 결과를 부모 창에 넘기도록 `app/auth.tsx`가 마운트 시 `completeKakaoAuthSession()`(`WebBrowser.maybeCompleteAuthSession()`)을 호출합니다 (네이티브 no-op).
+
+### 인증 — Apple 로그인 (iOS 전용, 2026-10-05)
+
+카카오만 있으면 App Store 심사 4.8에서 거부되어 붙였습니다. 브라우저를 거치지 않고 **네이티브 시트(`expo-apple-authentication`)가 준 토큰을 서버가 검증**합니다. 웹·안드로이드에는 버튼이 없습니다(`isAppleLoginAvailable()` — 웹은 패키지가 가짜 모듈로 떨어져 false).
+
+```
+[Apple로 계속하기]  (공식 버튼 — disabled 가 없어 누름 처리에서 막는다)
+  └─ startAppleLogin() → signInAsync({ requestedScopes: [FULL_NAME] })   이메일은 요청하지 않는다
+       ← { identity_token, authorization_code, nickname }   이름은 Apple 이 최초 인증 때만 준다
+       ERR_REQUEST_CANCELED → AppleCancelledError (배너 없이 원상복귀)
+  └─ loginWithApple(identity_token) → POST {AUTH_API_URL}/apple/login
+       404 → AppleNotRegisteredError → credential 을 들고 카카오와 같은 동의 단계로
+  └─ signupWithApple(credential, 동의) → POST {AUTH_API_URL}/apple/signup
+       400 + 만료 문구 → AppleLoginExpiredError → Apple 시트를 한 번 더 띄워 새 토큰으로 한 번만 재시도
+                                               (이름은 첫 값 유지, 실패하면 처음 단계로)
+```
+
+`authorization_code`는 서버가 Apple과 교환해 refresh token으로 보관하고(암호화), **탈퇴 때 Apple에 철회를 요청**합니다(심사 5.1.1(v)). 만료 판정은 400 본문의 문구로 가르므로(`APPLE_EXPIRED_DETAIL`) 서버 문구와 문자 단위로 같아야 합니다.
 
 ### 탭 정보 구조 (2026-10-05 화면 재구성)
 

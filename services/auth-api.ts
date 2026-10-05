@@ -1,3 +1,4 @@
+import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
@@ -62,7 +63,39 @@ export class KakaoLinkExpiredError extends Error {
   name = 'KakaoLinkExpiredError';
 }
 
+// Sign in with Apple (iOS 전용 — 심사 4.8: 카카오만 있으면 리젝). Apple 이 준 identity_token 을
+// 서버가 검증한다. 가입 때만 authorization_code 도 보낸다(탈퇴 시 서버가 Apple 토큰을 철회할 때 쓴다).
+// authorization_code 는 5분, identity_token 은 10분짜리다.
+export type AppleCredential = {
+  identity_token: string;
+  authorization_code: string;
+  // 이름은 Apple 이 **최초 인증 때만** 준다. 거부했거나 두 번째부터는 null 이다.
+  nickname: string | null;
+};
+
+// Apple 시트를 닫았다(ERR_REQUEST_CANCELED). KakaoCancelledError 와 같이 오류가 아니다.
+export class AppleCancelledError extends Error {
+  name = 'AppleCancelledError';
+  message = 'Apple 로그인을 취소했습니다.';
+}
+
+// POST /api/auth/apple/login 이 404 — 아직 가입하지 않은 Apple 계정이다. 화면은 동의 단계로 넘긴다.
+export class AppleNotRegisteredError extends Error {
+  name = 'AppleNotRegisteredError';
+}
+
+// identity_token·authorization_code 가 만료·무효다. 화면은 Apple 시트를 다시 띄워 새 값을 받는다.
+export class AppleLoginExpiredError extends Error {
+  name = 'AppleLoginExpiredError';
+}
+
 const AUTH_API_URL = apiUrl('/api/auth');
+
+// apple/signup 의 400 은 동의·버전 문제와 토큰 만료가 같은 상태코드라 서버 문구로 가른다.
+// 문구가 바뀌면 만료도 일반 오류로 떨어진다(재시도 없이 메시지만 보인다) — 서버와 함께 고친다.
+const APPLE_EXPIRED_DETAIL = 'Apple 로그인 정보가 만료되었습니다. 다시 시도해주세요.';
+const APPLE_FALLBACK_MESSAGE = 'Apple 로그인에 실패했습니다. 잠시 후 다시 시도해주세요.';
+const HANGUL_ONLY = /^[가-힣]+$/;
 
 // 서버가 딥링크로 돌려보내는 error 코드 → 사용자 문구 (서버 api/auth_api.py의 _redirect_to_app).
 const KAKAO_ERROR_MESSAGES: Record<string, string> = {
@@ -184,6 +217,88 @@ export async function signupWithKakao(
   return ensure(parseAuthTokenResponse(data));
 }
 
+// iOS 에서만 true 다. 웹은 별도 설정(Services ID)이 필요해 범위 밖이고, 안드로이드는 심사 대상이 아니다.
+export async function isAppleLoginAvailable(): Promise<boolean> {
+  return Platform.OS === 'ios' && (await AppleAuthentication.isAvailableAsync());
+}
+
+// Apple 시트를 띄운다. 이메일은 요청하지 않는다 — 서버도 받지 않는다(최소 수집).
+export async function startAppleLogin(): Promise<AppleCredential> {
+  let credential: AppleAuthentication.AppleAuthenticationCredential;
+
+  try {
+    credential = await AppleAuthentication.signInAsync({
+      requestedScopes: [AppleAuthentication.AppleAuthenticationScope.FULL_NAME],
+    });
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ERR_REQUEST_CANCELED') {
+      throw new AppleCancelledError();
+    }
+
+    throw new Error(APPLE_FALLBACK_MESSAGE);
+  }
+
+  // signInAsync 는 두 값이 없으면 던지지만 타입은 nullable 이다.
+  if (credential.identityToken === null || credential.authorizationCode === null) {
+    throw new Error(APPLE_FALLBACK_MESSAGE);
+  }
+
+  return {
+    identity_token: credential.identityToken,
+    authorization_code: credential.authorizationCode,
+    nickname: toNickname(credential.fullName),
+  };
+}
+
+export async function loginWithApple(identityToken: string): Promise<AuthTokenResponse> {
+  const response = await fetch(`${AUTH_API_URL}/apple/login`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ identity_token: identityToken }),
+  });
+
+  const data = await readOk(response, 'Apple 로그인 실패', {
+    404: AppleNotRegisteredError,
+    400: AppleLoginExpiredError,
+  });
+
+  return ensure(parseAuthTokenResponse(data));
+}
+
+// 카카오 가입과 같은 약관 버전을 보낸다(signupWithKakao 주석 참고). plan_code 는 보내지 않는다 → lite.
+export async function signupWithApple(
+  credential: AppleCredential,
+  terms: Omit<SignupTerms, 'plan_code'>,
+): Promise<AuthTokenResponse> {
+  const response = await fetch(`${AUTH_API_URL}/apple/signup`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({
+      identity_token: credential.identity_token,
+      authorization_code: credential.authorization_code,
+      nickname: credential.nickname,
+      agreed_terms: terms.agreed_terms,
+      agreed_privacy: terms.agreed_privacy,
+      terms_version: TERMS.version,
+      privacy_version: PRIVACY_POLICY.version,
+    }),
+  });
+
+  let data: unknown;
+
+  try {
+    data = await readOk(response, '회원가입 실패');
+  } catch (error) {
+    if (response.status === 400 && error instanceof Error && error.message === APPLE_EXPIRED_DETAIL) {
+      throw new AppleLoginExpiredError(error.message);
+    }
+
+    throw error;
+  }
+
+  return ensure(parseAuthTokenResponse(data));
+}
+
 // 로그아웃은 발급된 세션을 폐기하는 요청이라 예외적으로 apiFetch로 Bearer를 첨부한다.
 // 서버 폐기 실패(오프라인 등)와 무관하게 로컬 세션 삭제는 호출부(clearAuthSession)가 책임진다.
 export async function logout(): Promise<void> {
@@ -223,6 +338,19 @@ function parseKakaoRedirect(url: string): KakaoStartResult {
   }
 
   return { link_code: code, is_new: readParam(queryParams, 'is_new') === 'true' };
+}
+
+// 성+이름(한국어 순서). 둘 다 한글이면 붙여 쓰고('홍길동'), 아니면 한 칸 띄운다. 비면 null.
+function toNickname(fullName: AppleAuthentication.AppleAuthenticationFullName | null): string | null {
+  const parts = [fullName?.familyName, fullName?.givenName]
+    .map((part) => (part ?? '').replace(/\s+/g, ' ').trim())
+    .filter((part) => part.length > 0);
+
+  if (parts.length === 0) {
+    return null;
+  }
+
+  return parts.join(parts.every((part) => HANGUL_ONLY.test(part)) ? '' : ' ');
 }
 
 function readParam(

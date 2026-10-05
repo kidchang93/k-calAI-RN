@@ -26,6 +26,28 @@ export const CHANGE_TYPE_LABELS: Record<ChangeType, string> = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: '2026-10-05',
+    title: 'Apple로 시작하고, 사진은 동의를 받고 보내요',
+    items: [
+      {
+        type: 'new',
+        text: '아이폰 앱에서는 카카오 말고 Apple 계정으로도 가입하고 로그인할 수 있어요. 이메일은 받지 않아요.',
+      },
+      {
+        type: 'new',
+        text: '사진을 AI로 보내기 전에 한 번 동의를 받아요. 동의하지 않아도 음식 이름을 직접 적어 기록할 수 있고, 내 정보 › 동의 관리에서 언제든 거둘 수 있어요.',
+      },
+      {
+        type: 'improved',
+        text: '사진을 AI로 보낼 때 촬영 위치 같은 사진 속 부가 정보는 지우고 보내요.',
+      },
+      {
+        type: 'new',
+        text: '내 정보에 고객 지원을 더했어요. 문의 메일과 자주 묻는 것을 볼 수 있어요.',
+      },
+    ],
+  },
+  {
+    date: '2026-10-05',
     title: '진료 때 물어볼 것을 담고, 들어가는 화면도 새로 그렸어요',
     items: [
       {

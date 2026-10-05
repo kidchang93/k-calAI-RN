@@ -1,4 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { Redirect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -6,13 +7,21 @@ import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'rea
 import { Screen } from '@/components/screen';
 import { SessionLoading } from '@/components/session-loading';
 import {
+  AppleCancelledError,
+  AppleCredential,
+  AppleLoginExpiredError,
+  AppleNotRegisteredError,
   consumeKakaoWebRedirect,
+  isAppleLoginAvailable,
   KakaoCancelledError,
   KakaoLinkExpiredError,
   KakaoNotRegisteredError,
   KakaoStartResult,
+  loginWithApple,
   loginWithKakao,
+  signupWithApple,
   signupWithKakao,
+  startAppleLogin,
   startKakaoLogin,
 } from '@/services/auth-api';
 import { setAuthSession, useAuthSession } from '@/services/auth-session';
@@ -20,10 +29,11 @@ import { setAuthSession, useAuthSession } from '@/services/auth-session';
 // 연동 코드가 죽었을 때(TTL 10분 초과·1회용 소비) 붙이는 안내. 그 코드로는 더 진행할 수 없고
 // 카카오 로그인부터 다시 해야 한다.
 const RESTART_GUIDE = '카카오 로그인부터 다시 진행해주세요.';
+const APPLE_RESTART_GUIDE = 'Apple 로그인부터 다시 진행해주세요.';
 
 // 카카오가 알려주므로 로그인·회원가입 탭을 나누지 않는다.
-// 'kakao'  = 카카오로 시작하기 버튼만 보이는 상태
-// 'signup' = 신규 회원(is_new=true) — 동의 2종을 받는 상태
+// 'kakao'  = 시작 버튼(카카오, iOS 면 Apple 도)만 보이는 상태
+// 'signup' = 신규 회원(카카오 is_new=true · Apple 로그인 404) — 동의 2종을 받는 상태
 //   (요금제 선택은 2026-09-29 뺐다 — 무료 출시라 plan_code 를 보내지 않고 서버가 lite 를 준다.
 //    판매 경로 없이 유료 요금제를 고르게 하면 스토어 심사 3.1.1 에 걸린다.)
 type AuthStage = 'kakao' | 'signup';
@@ -32,7 +42,11 @@ export default function AuthScreen() {
   const authState = useAuthSession();
   const [stage, setStage] = useState<AuthStage>('kakao');
   const [linkCode, setLinkCode] = useState<string | null>(null);
+  // 값이 있으면 지금 가입 단계는 Apple 가입이다(카카오는 linkCode).
+  const [appleCredential, setAppleCredential] = useState<AppleCredential | null>(null);
+  const [isAppleAvailable, setIsAppleAvailable] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [isAppleStarting, setIsAppleStarting] = useState(false);
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // 가입 전용 상태 — 기존 회원은 화면에 그리지도, 서버로 보내지도 않는다.
@@ -119,6 +133,20 @@ export default function AuthScreen() {
     };
   }, [applyKakaoStart]);
 
+  useEffect(() => {
+    let isActive = true;
+
+    void isAppleLoginAvailable().then((isAvailable) => {
+      if (isActive) {
+        setIsAppleAvailable(isAvailable);
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
   // 세션 복원 중에는 화면을 그리지 않는다. 복원 후 세션이 있으면 아래에서 탭으로 넘어가는데,
   // 로딩 동안 로그인 화면을 보였다가 리다이렉트하면 깜빡임이 생긴다.
   if (authState.status === 'loading') {
@@ -134,11 +162,13 @@ export default function AuthScreen() {
   const isSignup = stage === 'signup';
   const hasAgreedAll = agreedTerms && agreedPrivacy;
   // 가입은 필수 동의 2종을 모두 체크해야 완료할 수 있다 (서버도 false면 400으로 막는다).
-  const canSignup = !isSigningUp && linkCode !== null && hasAgreedAll;
+  const canSignup = !isSigningUp && (linkCode !== null || appleCredential !== null) && hasAgreedAll;
+  const isBusy = isStarting || isAppleStarting;
 
   const restartFromKakao = (message: string | null) => {
     setStage('kakao');
     setLinkCode(null);
+    setAppleCredential(null);
     setAgreedTerms(false);
     setAgreedPrivacy(false);
     setErrorMessage(message);
@@ -192,7 +222,88 @@ export default function AuthScreen() {
     }
   };
 
+  // Apple 공식 버튼에는 disabled 가 없어 여기서 막는다.
+  const startApple = async () => {
+    if (isBusy) {
+      return;
+    }
+
+    setIsAppleStarting(true);
+    setErrorMessage(null);
+
+    try {
+      const credential = await startAppleLogin();
+
+      try {
+        setAuthSession(await loginWithApple(credential.identity_token));
+      } catch (error) {
+        // 미가입 — 받은 토큰·코드를 들고 카카오 신규 회원과 같은 동의 단계로 간다.
+        if (error instanceof AppleNotRegisteredError) {
+          setAppleCredential(credential);
+          setStage('signup');
+          return;
+        }
+
+        throw error;
+      }
+    } catch (error) {
+      if (error instanceof AppleCancelledError) {
+        return;
+      }
+
+      setErrorMessage(error instanceof Error ? error.message : 'Apple 로그인 중 오류가 발생했습니다.');
+    } finally {
+      setIsAppleStarting(false);
+    }
+  };
+
+  const completeAppleSignup = async (credential: AppleCredential) => {
+    const terms = { agreed_terms: agreedTerms, agreed_privacy: agreedPrivacy };
+
+    setIsSigningUp(true);
+    setErrorMessage(null);
+
+    try {
+      setAuthSession(await signupWithApple(credential, terms));
+    } catch (error) {
+      if (!(error instanceof AppleLoginExpiredError)) {
+        setErrorMessage(error instanceof Error ? error.message : '회원가입 중 오류가 발생했습니다.');
+        return;
+      }
+
+      // authorization_code 는 5분짜리라 동의 화면에 오래 머물면 만료된다. Apple 시트를 한 번 더
+      // 띄워 새 토큰·코드로 **한 번만** 다시 보낸다. 그래도 안 되면 처음 단계로 되돌린다.
+      try {
+        const renewed = await startAppleLogin();
+
+        // 이름은 최초 인증 때만 오므로 두 번째 시트의 빈 이름으로 덮지 않는다.
+        setAuthSession(
+          await signupWithApple(
+            { ...renewed, nickname: credential.nickname ?? renewed.nickname },
+            terms,
+          ),
+        );
+      } catch (retryError) {
+        // 시트를 닫았다 — 동의는 그대로 두고 조용히 머문다. 다시 누르면 같은 재시도를 탄다.
+        if (retryError instanceof AppleCancelledError) {
+          return;
+        }
+
+        restartFromKakao(
+          `${retryError instanceof Error ? retryError.message : '회원가입 중 오류가 발생했습니다.'}\n${APPLE_RESTART_GUIDE}`,
+        );
+      }
+    } finally {
+      setIsSigningUp(false);
+    }
+  };
+
   const completeSignup = async () => {
+    if (appleCredential !== null) {
+      await completeAppleSignup(appleCredential);
+      return;
+    }
+
     if (linkCode === null) {
       restartFromKakao(RESTART_GUIDE);
       return;
@@ -295,22 +406,31 @@ export default function AuthScreen() {
               )}
             </Pressable>
 
-            <Pressable
-              disabled={isSigningUp}
-              onPress={() => void switchKakaoAccount()}
-              style={({ pressed }) => [styles.textButton, pressed && styles.pressed]}>
-              <Text style={styles.textButtonLabel}>다른 카카오 계정으로 시작하기</Text>
-            </Pressable>
+            {appleCredential === null ? (
+              <Pressable
+                disabled={isSigningUp}
+                onPress={() => void switchKakaoAccount()}
+                style={({ pressed }) => [styles.textButton, pressed && styles.pressed]}>
+                <Text style={styles.textButtonLabel}>다른 카카오 계정으로 시작하기</Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                disabled={isSigningUp}
+                onPress={() => restartFromKakao(null)}
+                style={({ pressed }) => [styles.textButton, pressed && styles.pressed]}>
+                <Text style={styles.textButtonLabel}>처음으로 돌아가기</Text>
+              </Pressable>
+            )}
           </>
         ) : (
           <>
             <Pressable
-              disabled={isStarting}
+              disabled={isBusy}
               onPress={() => void startKakao()}
               style={({ pressed }) => [
                 styles.kakaoButton,
-                isStarting && styles.buttonDisabled,
-                pressed && !isStarting && styles.pressed,
+                isBusy && styles.buttonDisabled,
+                pressed && !isBusy && styles.pressed,
               ]}>
               {isStarting ? (
                 <ActivityIndicator color="#22211f" />
@@ -322,10 +442,21 @@ export default function AuthScreen() {
               )}
             </Pressable>
 
+            {/* iOS 전용(심사 4.8). 색·글자는 Apple 공식 버튼 그대로 — 카카오 버튼과 크기·모서리만 맞춘다. */}
+            {isAppleAvailable ? (
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                cornerRadius={8}
+                onPress={() => void startApple()}
+                style={[styles.appleButton, isBusy && styles.buttonDisabled]}
+              />
+            ) : null}
+
             {/* 브라우저에 카카오 세션이 남아 있으면 위 버튼은 늘 같은 계정으로 들어간다.
                 계정을 바꾸려면 카카오에 로그인 화면을 다시 띄우라고 요청해야 한다. */}
             <Pressable
-              disabled={isStarting}
+              disabled={isBusy}
               onPress={() => void switchKakaoAccount()}
               style={({ pressed }) => [styles.textButton, pressed && styles.pressed]}>
               <Text style={styles.textButtonLabel}>다른 카카오 계정으로 로그인</Text>
@@ -429,6 +560,10 @@ const styles = StyleSheet.create({
     gap: 8,
     justifyContent: 'center',
     minHeight: 54,
+  },
+  appleButton: {
+    height: 54,
+    width: '100%',
   },
   kakaoButtonText: {
     color: '#22211f',

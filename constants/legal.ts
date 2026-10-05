@@ -28,26 +28,42 @@ export type LegalDocument = {
 // 사업자 정보는 앱 `.env` 의 `EXPO_PUBLIC_BUSINESS_*` 에서 읽는다(2026-09-29). 약관에 공개되는 값이라
 // 비밀이 아니고, 빌드 시점에 번들에 인라인된다 — 값을 바꾸면 웹·네이티브를 다시 빌드해야 한다.
 // ⚠️ Expo 는 `process.env.EXPO_PUBLIC_X` 를 글자 그대로 쓴 곳만 치환한다. 구조 분해·동적 키로 읽지 않는다.
-// ⚠️ EAS 클라우드 빌드는 gitignore 된 `.env` 를 올리지 않는다 — `eas env:create` 로 같은 이름을 등록한다.
+// ⚠️ EAS 클라우드 빌드는 gitignore 된 `.env` 를 올리지 않는다 — `eas env:set production` 으로 같은 이름을 등록한다.
 const BUSINESS = {
   name: process.env.EXPO_PUBLIC_BUSINESS_NAME,
   owner: process.env.EXPO_PUBLIC_BUSINESS_OWNER,
   registrationNumber: process.env.EXPO_PUBLIC_BUSINESS_REG_NO,
   address: process.env.EXPO_PUBLIC_BUSINESS_ADDRESS,
   email: process.env.EXPO_PUBLIC_BUSINESS_EMAIL,
+  // 전자상거래법 제10조①3호(사이버몰 운영자 표시 — 전화번호·전자우편주소). 2026-10-05 추가.
+  phone: process.env.EXPO_PUBLIC_BUSINESS_PHONE,
 };
 // 통신판매업 신고번호는 유료 판매를 시작할 때 필요하다. 무료 출시에는 없을 수 있어 선택값이다 —
 // 없으면 그 줄을 싣지 않는다(빈 자리표시자를 보여주지 않는다).
 const MAIL_ORDER_NUMBER = process.env.EXPO_PUBLIC_BUSINESS_MAIL_ORDER_NO;
 
 // 시행일은 문서 버전에 딸린 값이라 env 가 아니라 여기 둔다. 버전을 올리면 함께 고친다.
-const EFFECTIVE_DATE = '[[시행일자]]';
+// 2026-10-05 확정 — 앱스토어 첫 제출판(약관·처리방침 1.2). 그 전의 1.2 '초안 수정' 메모는 모두 이 날 시행분에 들어간다.
+const EFFECTIVE_DATE = '2026년 10월 5일';
 
 const filled = (value: string | undefined, placeholder: string) =>
   value?.trim() || `[[${placeholder}]]`;
 
 const BUSINESS_NAME = filled(BUSINESS.name, '사업자명');
-const BUSINESS_EMAIL = filled(BUSINESS.email, '고객문의 이메일');
+export const BUSINESS_EMAIL = filled(BUSINESS.email, '고객문의 이메일');
+
+// 약관 '사업자 정보'와 고객 지원 화면(app/support.tsx — App Store 지원 URL)이 같은 줄을 쓴다.
+export const BUSINESS_INFO_LINES = [
+  `상호: ${BUSINESS_NAME}`,
+  `대표자: ${filled(BUSINESS.owner, '대표자명')}`,
+  `사업자등록번호: ${filled(BUSINESS.registrationNumber, '사업자등록번호')}`,
+  ...(MAIL_ORDER_NUMBER?.trim() ? [`통신판매업 신고번호: ${MAIL_ORDER_NUMBER.trim()}`] : []),
+  `주소: ${filled(BUSINESS.address, '사업장 주소')}`,
+  `전화: ${filled(BUSINESS.phone, '전화번호')}`,
+  `문의: ${BUSINESS_EMAIL}`,
+  // 전자상거래법 시행령 — 호스팅서비스 제공자의 상호. 운영 서버가 AWS Lightsail 이라 고정값이다(옮기면 고친다).
+  '호스팅 서비스 제공자: Amazon Web Services, Inc.',
+];
 
 // 사업자 정보가 하나라도 비었거나 시행일이 정해지지 않았으면 초안이다 — 빈 칸을 둔 채 정식 시행하지 않는다.
 const DRAFT_NOTICE =
@@ -60,6 +76,8 @@ export const TERMS: LegalDocument = {
   // 1.1 (2026-09-13, KCAL-22): 제2조·제14조(현 제10조) — 생성형 인공지능 이용 사전고지(AI기본법 제31조①).
   // 1.2 (2026-09-29): 토스페이먼츠 유료 조항(옛 제6~10조) 제거 — 무료 출시, 유료화는 인앱 결제로 한다
   //   (서버 docs/LEGAL_COMPLIANCE.md §6-4). 조항 번호가 당겨졌다.
+  // 1.2 초안 수정(2026-10-05): 가입 수단에 Apple 계정(iOS)을 더했다(제2조·제4조·탈퇴·책임 제한). 시행 전
+  //   초안이라 버전은 그대로다 — 처리방침과 같은 판단.
   version: '1.2',
   effectiveDate: EFFECTIVE_DATE,
   draftNotice: DRAFT_NOTICE,
@@ -76,7 +94,7 @@ export const TERMS: LegalDocument = {
         // 근거: AI기본법 제31조①·시행령 제23조①(약관 기재로 사전고지) — 서버 docs/LEGAL_COMPLIANCE.md §7-1.
         // "생성형"을 빼고 "인공지능"만 써도 고지로 인정되는지 확인하지 못해(§7-5) 명시한다.
         '"서비스"란 회원이 촬영·선택한 음식 사진을 생성형 인공지능으로 인식하고, 식품의약품안전처 등 공공 데이터베이스를 조회해 예상 칼로리·영양 정보를 제공하며, 식단·체중 기록과 식단 추천을 제공하는 일체의 서비스를 말합니다.',
-        '"회원"이란 이 약관에 동의하고 카카오 계정으로 가입해 서비스를 이용하는 자를 말합니다.',
+        '"회원"이란 이 약관에 동의하고 카카오 계정 또는 Apple 계정으로 가입해 서비스를 이용하는 자를 말합니다.',
         '"사진 인식"이란 회원이 올린 사진 1장에서 음식을 인식하는 기능을 말하며, 1일 이용 횟수가 정해져 있습니다.',
       ],
     },
@@ -91,8 +109,9 @@ export const TERMS: LegalDocument = {
     {
       title: '제4조 (회원가입)',
       paragraphs: [
-        // 근거: services/kakao_client.py (scope=profile_nickname), auth_service.py — 카카오 단일 수단
-        '회원가입은 카카오 계정을 통한 로그인으로만 가능합니다. 회사는 카카오로부터 회원번호와 닉네임만을 전달받으며, 이메일·연락처·성별·연령대는 전달받지 않습니다.',
+        // 근거: services/kakao_client.py (scope=profile_nickname), auth_service.py
+        //   + 2026-10-05 Apple 로그인(iOS, App Store 심사 4.8): services/apple_client.py — 앱이 이메일 범위를 요청하지 않는다(FULL_NAME 만).
+        '회원가입은 카카오 계정 또는 Apple 계정(iOS 앱)을 통한 로그인으로만 가능합니다. 회사는 카카오로부터 회원번호와 닉네임만을, Apple로부터 Apple 사용자 식별자와 회원이 제공에 동의한 이름만을 전달받으며, 이메일·연락처·성별·연령대는 전달받지 않습니다.',
         // 근거: services/auth_service.py:196-197 — 동의 2종 미동의 시 가입 차단
         '회원가입 시 이 약관과 개인정보 처리방침에 대한 동의가 필요합니다.',
         // 근거: services/health_service.py:98 MIN_SIGNUP_AGE=14 — 프로필 저장 시 연 나이로 거부
@@ -124,8 +143,8 @@ export const TERMS: LegalDocument = {
         // 근거: services/account_service.delete_account
         '회원은 언제든지 서비스 내 내 정보 화면에서 회원 탈퇴를 할 수 있습니다.',
         '탈퇴 시 회원의 개인정보와 서비스 이용 기록(식단·체중 기록, 반려동물 정보, 소유한 그룹 등)은 즉시 파기되며 복구할 수 없습니다. 파기의 범위와 예외는 개인정보 처리방침에 따릅니다.',
-        // 근거: account_service.py:66-72 — 파기 커밋 후 카카오 unlink
-        '탈퇴 시 회사는 카카오 계정과의 연결을 해제합니다.',
+        // 근거: account_service.py — 파기 커밋 후 카카오 unlink, Apple 가입자는 Apple 토큰 폐기(revoke) 요청
+        '탈퇴 시 회사는 카카오 계정과의 연결을 해제하고, Apple 계정으로 가입한 경우 Apple에 로그인 연결 해제를 요청합니다.',
       ],
     },
     {
@@ -181,7 +200,7 @@ export const TERMS: LegalDocument = {
     {
       title: '제12조 (책임의 제한)',
       paragraphs: [
-        '회사는 천재지변, 통신 장애, 외부 서비스(인공지능 인식 서비스, 카카오 로그인 등)의 장애 등 회사의 합리적인 통제를 벗어난 사유로 서비스를 제공할 수 없는 경우 책임을 지지 않습니다.',
+        '회사는 천재지변, 통신 장애, 외부 서비스(인공지능 인식 서비스, 카카오 로그인, Apple 로그인 등)의 장애 등 회사의 합리적인 통제를 벗어난 사유로 서비스를 제공할 수 없는 경우 책임을 지지 않습니다.',
         '회사는 회원이 서비스의 정보에 의존해 내린 결정과 그 결과에 대해 책임지지 않습니다(제9조·제10조 참조).',
         '회사는 회원 간 또는 회원과 제3자 간에 서비스를 매개로 발생한 분쟁에 관여하지 않습니다.',
         // ⚠️ 손해배상 범위는 전문가 검토 전이다 — 사업자 책임을 부당하게 배제·제한하는 조항은 무효가 될 수 있다
@@ -198,14 +217,7 @@ export const TERMS: LegalDocument = {
     },
     {
       title: '사업자 정보',
-      paragraphs: [
-        `상호: ${BUSINESS_NAME}`,
-        `대표자: ${filled(BUSINESS.owner, '대표자명')}`,
-        `사업자등록번호: ${filled(BUSINESS.registrationNumber, '사업자등록번호')}`,
-        ...(MAIL_ORDER_NUMBER?.trim() ? [`통신판매업 신고번호: ${MAIL_ORDER_NUMBER.trim()}`] : []),
-        `주소: ${filled(BUSINESS.address, '사업장 주소')}`,
-        `문의: ${BUSINESS_EMAIL}`,
-      ],
+      paragraphs: BUSINESS_INFO_LINES,
     },
     {
       title: '부칙',
@@ -222,6 +234,8 @@ export const PRIVACY_POLICY: LegalDocument = {
   title: '개인정보 처리방침',
   // 1.1 (2026-09-13, KCAL-22): 민감정보 항목·목적·보유 기간, 국외 이전의 법적 근거·연락처, 수집·파기 범위.
   // 1.2 (2026-09-29): 결제 정보 수집·토스페이먼츠 위탁·결제 기록 보존 삭제(무료 출시), 탭 이름 '돌아보기', 사업자 정보 기재.
+  // 1.2 초안 수정(2026-10-05): Apple 로그인(iOS) — 수집 항목·위탁·국외 이전·파기에 Apple 을 더했다.
+  // 1.2 초안 수정(2026-10-05): 사진 AI 분석 전 화면 동의(App Store 5.1.2(i))와 사진 부가 정보(EXIF) 제거를 위탁·국외 이전에 밝혔다.
   // 1.2 초안 수정(2026-10-05): 민감정보 '진료 메모'에 진료 때 물어볼 것을 더했다 — 민감정보 동의 v1.2(재동의)와
   //   같은 개정이다. 시행일 미정 초안이라 버전은 그대로 두고, 시행 전 확정본에서 함께 정리한다.
   version: '1.2',
@@ -240,6 +254,8 @@ export const PRIVACY_POLICY: LegalDocument = {
       paragraphs: [
         // 근거: services/kakao_client.py:40 — scope=profile_nickname
         '[회원가입 시 — 카카오 로그인] 카카오 회원번호, 닉네임. 회사는 카카오로부터 이 두 가지만 전달받으며, 이메일·전화번호·성별·연령대·생일·프로필 사진은 전달받지 않습니다. 카카오 프로필 제공에 동의하지 않으신 경우 닉네임은 수집되지 않습니다.',
+        // 근거: 2026-10-05 Apple 로그인 — users.apple_sub·apple_refresh_token(암호화 저장). 이름은 Apple 이 첫 로그인에만 준다.
+        '[회원가입 시 — Apple로 로그인(iOS 앱)] Apple 사용자 식별자, 이름(회원이 Apple에서 제공한 경우), 탈퇴 시 Apple 로그인 연결 해제에 쓰는 인증 토큰(암호화하여 보관). 회사는 이메일을 요청하지 않으며 전달받지 않습니다.',
         // 근거: schemas/health_schema.py:13-18 — 전부 필수
         '[서비스 이용을 위한 프로필 — 필수] 성별, 태어난 해, 키, 몸무게, 활동량. 목표 칼로리 산출에 사용됩니다.',
         '[선택 입력] 목표 유형, 목표 칼로리, 목표 체중.',
@@ -316,9 +332,11 @@ export const PRIVACY_POLICY: LegalDocument = {
         // 근거: services/gemini_vision_service.identify_food — 이미지 바이트 + 고정 프롬프트만 전송.
         //   services/gemini_nutrition_service.estimate_by_label — 음식명 1개를 넣은 고정 프롬프트만 전송.
         //   두 호출 모두 user_id·닉네임·질병·알러지·검사 수치를 싣지 않는다(gemini_client.generate_json 호출부 전수, 2026-09-13).
-        '[Google LLC] 위탁 업무: 음식 사진의 인공지능 인식, 데이터베이스에 없는 음식의 영양 정보 추정. 제공 항목: 회원이 업로드한 음식 사진, 음식명. 회원을 식별할 수 있는 정보(회원번호, 닉네임 등)와 질병·검사 수치 등 민감정보는 함께 전송되지 않습니다.',
+        '[Google LLC] 위탁 업무: 음식 사진의 인공지능 인식, 데이터베이스에 없는 음식의 영양 정보 추정. 제공 항목: 회원이 업로드한 음식 사진(촬영 위치·기기 정보 등 사진에 딸린 부가 정보는 지운 뒤 전송), 음식명. 회원을 식별할 수 있는 정보(회원번호, 닉네임 등)와 질병·검사 수치 등 민감정보는 함께 전송되지 않습니다.',
         // 근거: services/kakao_client.py
         '[주식회사 카카오] 위탁 업무: 카카오 로그인 인증 및 연결 해제. 제공 항목: 카카오 회원번호.',
+        // 근거: services/apple_client.py — 가입 시 인증 코드 교환, 탈퇴 시 토큰 폐기
+        '[Apple Inc.] 위탁 업무: Apple 로그인 인증 및 연결 해제. 제공 항목: Apple 로그인 인증 코드·토큰.',
         '회사는 위탁계약 체결 시 개인정보가 안전하게 처리되도록 필요한 사항을 규정하고 관리·감독합니다.',
         // Google: 유료 서비스 이용에 「Data Processing Addendum for Products Where Google is a Data
         // Processor」(business.safety.google/processorterms)가 적용됨을 Gemini API 약관이 명시한다.
@@ -347,7 +365,12 @@ export const PRIVACY_POLICY: LegalDocument = {
         '이전받는 자의 연락처: Google 개인정보 문의 양식(https://support.google.com/policies?p=privpol_privts), 이메일 googlekrsupport@google.com',
         // 근거: predict_api.py:58 — image_bytes 메모리 처리, 저장 코드 없음. meal_logs.photo_s3_key 라이브 0행
         '회사는 회원이 업로드한 사진을 저장하지 않습니다. 사진은 인식 처리를 위해 메모리에서만 사용된 뒤 즉시 폐기되며, 회사의 서버·데이터베이스·별도 저장소 어디에도 남지 않습니다. 회사가 보관하는 것은 사진에서 인식한 음식명과 칼로리뿐입니다.',
-        '국외 이전을 원하지 않는 경우 사진 인식 기능을 이용하지 않고 음식명을 직접 입력하는 방식으로 서비스를 이용할 수 있습니다. 이 경우 사진은 전송되지 않습니다.',
+        // 근거: app/meals/compose.tsx 의 사진 AI 분석 동의(2026-10-05, App Store 5.1.2(i)) — '분석' 버튼을 누르기 전에는
+        //   사진이 기기 밖으로 나가지 않는다. 동의는 기기에 남고 app/me/consents.tsx 에서 거둔다.
+        '회사는 사진을 처음 전송하기 전에 화면에서 이 내용을 알리고 동의를 받으며, 회원은 내 정보 › 동의 관리에서 언제든 동의를 거둘 수 있습니다. 국외 이전을 원하지 않는 경우 사진 인식 기능을 이용하지 않고 음식명을 직접 입력하는 방식으로 서비스를 이용할 수 있습니다. 이 경우 사진은 전송되지 않습니다.',
+        // 근거: 2026-10-05 Apple 로그인 — appleid.apple.com /auth/token(가입)·/auth/revoke(탈퇴). 같은 조 제1항 제3호·제2항 공개.
+        // ⚠️ 법률 검토 전이다(이 문서 전체와 같다). Apple 이 수탁자인지 독립 처리자인지 확인하지 못했다.
+        '회사는 Apple 계정으로 가입·탈퇴하는 회원의 로그인 연결을 확인하고 해제하기 위해 Apple Inc.에 다음과 같이 개인정보를 이전합니다. 이전받는 자: Apple Inc.(미국). 이전 항목: Apple 로그인 인증 코드·토큰. 이전 일시 및 방법: Apple 계정으로 가입할 때와 탈퇴할 때 네트워크를 통해 전송. 이전받는 자의 이용 목적: 로그인 연결 확인 및 해제. 보유·이용 기간: Apple의 개인정보 처리방침에 따릅니다. 이전받는 자의 연락처: https://www.apple.com/kr/legal/privacy/contact/ . 이전을 원하지 않는 경우 카카오 계정으로 가입할 수 있습니다.',
       ],
     },
     {
@@ -365,7 +388,7 @@ export const PRIVACY_POLICY: LegalDocument = {
         // 결제 기록 5년 보존 문장은 1.2 에서 뺐다 — 유료 판매가 없다. 인앱 결제를 넣을 때 되돌린다
         //   (account_service.delete_account 는 여전히 payments 를 익명화하고 billing_keys 를 지운다).
         // 근거: auth_service.SESSION_RETENTION_DAYS=7, CODE_RETENTION_DAYS=1
-        '로그인 세션 기록은 만료·폐기 후 7일이 지나면 파기합니다. 카카오 연동 코드는 발급 후 1일이 지나면 파기합니다.',
+        '로그인 세션 기록은 만료·폐기 후 7일이 지나면 파기합니다. 카카오 연동 코드는 발급 후 1일이 지나면 파기합니다. Apple 로그인 인증 토큰은 탈퇴할 때 Apple에 폐기를 요청하고 함께 파기합니다.',
         '동의 이력(동의 항목, 버전, 동의·철회 일시)은 동의 사실의 증빙을 위해 보존하며, 회원 탈퇴 시 파기합니다.',
         // 근거: 전자상거래법 시행령 제6조 — 표시·광고 6개월 / 계약·청약철회 5년 / 대금결제·공급 5년 / 소비자 불만·분쟁처리 3년
         '그 밖에 전자상거래 등에서의 소비자보호에 관한 법률에 따라, 계약 또는 청약철회 등에 관한 기록은 5년, 소비자의 불만 또는 분쟁처리에 관한 기록은 3년, 표시·광고에 관한 기록은 6개월간 보존합니다. 이 기록들은 해당 사유가 발생한 경우에만 생성되며, 보존 기간이 지나면 파기합니다.',
@@ -380,12 +403,12 @@ export const PRIVACY_POLICY: LegalDocument = {
         //   weight_logs, lab_results, care_visits, exercise_logs·exercise_goals, user_goals, user_profiles, diet_recommendations,
         //   pet_feeding_logs·group_pets·pets, 소유 그룹의 group_members·group_challenges·groups, 남의 그룹 멤버십, users.
         //   payments 는 파기하지 않고 user_id 를 끊는다(8항).
-        '파기 범위: 회원 정보, 로그인 세션과 카카오 연동 코드, 프로필(성별·태어난 해·키·몸무게·활동량), 목표, 식단 기록과 그 항목, 체중 기록, 운동 기록과 주간 운동 목표, 진료 예정일과 진료 메모, 검사 수치, 식단 추천 결과, 민감정보(혈액형·Rh·질병·신장질환 병기·알러지), 동의 이력, 반려동물과 급여 기록, 소유한 그룹, 구독 정보, 사진 인식 사용량.',
+        '파기 범위: 회원 정보(Apple 사용자 식별자·인증 토큰 포함), 로그인 세션과 카카오 연동 코드, 프로필(성별·태어난 해·키·몸무게·활동량), 목표, 식단 기록과 그 항목, 체중 기록, 운동 기록과 주간 운동 목표, 진료 예정일과 진료 메모, 검사 수치, 식단 추천 결과, 민감정보(혈액형·Rh·질병·신장질환 병기·알러지), 동의 이력, 반려동물과 급여 기록, 소유한 그룹, 구독 정보, 사진 인식 사용량.',
         // 근거: 같은 함수 5)·6) — 소유 그룹은 멤버·챌린지째 삭제, 남의 그룹에 만든 챌린지는 created_by 만 null.
         '소유한 그룹은 그룹의 멤버 목록과 챌린지를 포함해 그룹 자체가 삭제되며, 다른 회원이 만든 그룹에 참여한 기록은 참여 기록만 삭제되고 그룹은 유지됩니다. 다른 회원의 그룹에 회원이 만든 챌린지는 그 그룹에 남고, 회원과의 연결(작성자 정보)만 삭제됩니다.',
         '파기 방법: 데이터베이스에서 물리적으로 삭제합니다.',
-        // 근거: account_service.py:66-72
-        '탈퇴 시 회사는 카카오 계정과의 연결을 해제합니다.',
+        // 근거: account_service.py — 카카오 unlink, Apple revoke
+        '탈퇴 시 회사는 카카오 계정과의 연결을 해제하고, Apple 계정으로 가입한 경우 Apple에 로그인 연결 해제를 요청합니다.',
       ],
     },
     {
@@ -458,7 +481,7 @@ export const PRIVACY_POLICY: LegalDocument = {
         '이 방침을 변경하는 경우 변경 사항을 시행 7일 전부터 서비스 내에 공지합니다. 다만 정보주체의 권리에 중대한 변경이 있는 경우에는 30일 전에 공지합니다.',
         `이 방침은 ${EFFECTIVE_DATE}부터 적용됩니다.`,
         '개정 이력: 1.1 — 민감정보 항목(검사 수치·진료 메모)·이용 목적·보유 기간 명시, 국외 이전의 법적 근거·이전받는 자 연락처 명시, 수집 항목·파기 범위 갱신.',
-        '개정 이력: 1.2 — 결제 정보 수집·결제 처리 위탁·결제 기록 보존 항목 삭제(서비스 무료 제공), 화면 이름 갱신.',
+        '개정 이력: 1.2 — 결제 정보 수집·결제 처리 위탁·결제 기록 보존 항목 삭제(서비스 무료 제공), Apple 로그인 추가, 진료 메모에 진료 때 물어볼 것 추가, 사진을 AI로 보내기 전 동의와 사진 부가 정보 제거 명시, 화면 이름 갱신.',
       ],
     },
   ],

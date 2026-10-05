@@ -47,6 +47,7 @@ const MENU_ROWS: { href: Href; icon: keyof typeof MaterialIcons.glyphMap; label:
   // (app/onboarding/consent.tsx). 이 행이 없으면 그 고지가 거짓이 된다.
   { href: '/me/consents', icon: 'fact-check', label: '동의 관리' },
   { href: '/updates', icon: 'campaign', label: '업데이트 이력' },
+  { href: '/support', icon: 'support-agent', label: '고객 지원' },
 ];
 
 export default function AccountScreen() {

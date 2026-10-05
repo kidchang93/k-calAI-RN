@@ -9,12 +9,15 @@ import { ErrorBanner } from '@/components/error-banner';
 import { LoadingState } from '@/components/loading-state';
 import { Screen } from '@/components/screen';
 import {
+  AI_PHOTO_CONSENT_REFUSAL,
+  AI_PHOTO_CONSENT_ROWS,
   CONSENT_VERSION,
   SENSITIVE_HEALTH_CHANGE_SUMMARY,
   SENSITIVE_HEALTH_NOTICE_ROWS,
   SENSITIVE_HEALTH_REFUSAL,
   SENSITIVE_HEALTH_SUMMARY,
 } from '@/constants/consent';
+import { readAiPhotoConsent, saveAiPhotoConsent } from '@/services/ai-photo-consent';
 import { confirmDialog } from '@/services/dialog';
 import { formatIsoYearMonthDay } from '@/services/format';
 import {
@@ -47,9 +50,12 @@ export default function ConsentsScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const [photoConsent, setPhotoConsent] = useState(false);
+
   const loadConsents = useCallback(async () => {
     setIsLoading(true);
     setErrorMessage(null);
+    void readAiPhotoConsent().then(setPhotoConsent);
 
     try {
       setConsents(await getConsents());
@@ -78,6 +84,12 @@ export default function ConsentsScreen() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // 사진 AI 분석 동의는 기기에만 남아 서버 왕복이 없다(services/ai-photo-consent.ts). 거둬도 잃는 것이
+  // 없어서(사진은 저장하지 않는다) 확인 창 없이 바로 바꾼다.
+  const changePhotoConsent = (agreed: boolean) => {
+    void saveAiPhotoConsent(agreed).then(() => setPhotoConsent(agreed));
   };
 
   const health = consents === null ? null : latestConsent(consents, 'sensitive_health');
@@ -183,6 +195,42 @@ export default function ConsentsScreen() {
               <>
                 <Text style={styles.cardText}>{SENSITIVE_HEALTH_REFUSAL}</Text>
                 <AgreeButton isSubmitting={isSubmitting} label="동의하기" onPress={agree} />
+              </>
+            )}
+          </View>
+
+          <View style={styles.card}>
+            <View style={styles.cardHead}>
+              <Text style={styles.cardTitle}>사진 AI 분석</Text>
+              <View style={styles.optionalBadge}>
+                <Text style={styles.optionalBadgeText}>선택</Text>
+              </View>
+            </View>
+            <ConsentNotice rows={AI_PHOTO_CONSENT_ROWS} />
+            <View style={styles.statusRow}>
+              <MaterialIcons
+                color={statusIconColor(photoConsent ? 'current' : 'none')}
+                name={statusIconName(photoConsent ? 'current' : 'none')}
+                size={16}
+              />
+              <Text style={styles.statusText}>
+                {photoConsent ? '이 기기에서 동의했어요' : '동의하지 않았어요'}
+              </Text>
+            </View>
+            {photoConsent ? (
+              <Pressable
+                onPress={() => changePhotoConsent(false)}
+                style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}>
+                <Text style={styles.linkButtonText}>동의 거두기</Text>
+              </Pressable>
+            ) : (
+              <>
+                <Text style={styles.cardText}>{AI_PHOTO_CONSENT_REFUSAL}</Text>
+                <AgreeButton
+                  isSubmitting={false}
+                  label="동의하기"
+                  onPress={() => changePhotoConsent(true)}
+                />
               </>
             )}
           </View>

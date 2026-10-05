@@ -64,10 +64,9 @@ export default function RootLayout() {
           <title>케어테이블</title>
         </Head>
       ) : null}
-      <Stack initialRouteName="auth">
-        <Stack.Screen name="auth" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
+      {/* 헤더는 전부 끈다 — 탭 밖 화면은 각자 BackButton 을 그린다. 루트에 바로 놓인 화면
+          (updates·support·plan·invite)에 라우트 이름이 영어 헤더로 붙어 나오던 것을 여기서 한 번에 막는다(2026-10-05). */}
+      <Stack initialRouteName="auth" screenOptions={{ headerShown: false }} />
       <StatusBar style="auto" />
     </ThemeProvider>
   );

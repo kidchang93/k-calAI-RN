@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 
 import { ChunkyButton } from '@/components/chunky-button';
+import { ConsentNotice } from '@/components/consent-notice';
 import { DetailHeader } from '@/components/detail-header';
 import { ErrorBanner } from '@/components/error-banner';
 import { MedicalDisclaimer } from '@/components/medical-disclaimer';
@@ -20,10 +21,12 @@ import { QuantityEditor, QuantityValue } from '@/components/quantity-editor';
 import { NutrientChip, NutrientChips } from '@/components/nutrient-chips';
 import { Screen } from '@/components/screen';
 import { AI_USE_NOTICE } from '@/constants/ai-notice';
+import { AI_PHOTO_CONSENT_ROWS, AI_PHOTO_CONSENT_TITLE } from '@/constants/consent';
 import { isMealType, MEAL_TYPE_LABELS, MealType, mealTypeAt } from '@/constants/meal';
 import { NUTRIENT_LABELS, NUTRIENT_TIER_LABELS } from '@/constants/nutrition';
 import { TAB_TONES } from '@/constants/tab-tone';
 import { DISPLAY_FONT } from '@/constants/typography';
+import { readAiPhotoConsent, saveAiPhotoConsent } from '@/services/ai-photo-consent';
 import { FoodDetection, PhotoAsset, uploadFoodPhoto } from '@/services/calorie-api';
 import { notifyDialog } from '@/services/dialog';
 import { formatFoodLabel } from '@/services/food-label';
@@ -189,6 +192,9 @@ export default function MealComposeScreen() {
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   // 고른 뒤 아직 분석하지 않은 사진. '분석' 버튼을 눌러야 API 요청한다(쿼터 오용 방지).
   const [pendingAsset, setPendingAsset] = useState<PhotoAsset | null>(null);
+  // 사진 AI 분석 동의(App Store 5.1.2(i)). null = 기기에서 읽는 중 — 그동안은 분석 버튼도 동의 상자도
+  // 그리지 않는다(동의한 사람에게 상자가 깜빡이지 않게). 동의 전에는 사진이 기기 밖으로 나가지 않는다.
+  const [photoConsent, setPhotoConsent] = useState<boolean | null>(null);
   // 직접 입력 항목의 이름으로 DB 칼로리를 조회 중인 draft key(로딩 표시용).
   const [lookupKey, setLookupKey] = useState<string | null>(null);
 
@@ -457,6 +463,22 @@ export default function MealComposeScreen() {
     if (pendingAsset !== null && !isAnalyzing) {
       void analyzePhoto(pendingAsset);
     }
+  };
+
+  useEffect(() => {
+    void readAiPhotoConsent().then(setPhotoConsent);
+  }, []);
+
+  const agreeAndAnalyze = async () => {
+    await saveAiPhotoConsent(true);
+    setPhotoConsent(true);
+    runAnalyze();
+  };
+
+  // 거절해도 기록은 이어진다 — 사진만 내려놓고 아래 '항목 추가'에서 이름을 적는다.
+  const declinePhoto = () => {
+    setPendingAsset(null);
+    setPreviewUri(null);
   };
 
   // photoUri 파라미터(기록 탭 런처)로 넘어온 사진은 미리보기만 하고, 분석은 버튼으로 시작한다.
@@ -802,14 +824,32 @@ export default function MealComposeScreen() {
               AI 인식을 위해 전송돼요 · 서버에 저장되지 않아요
             </Text>
 
-            {pendingAsset ? (
+            {pendingAsset === null || photoConsent === null ? null : photoConsent ? (
               <ChunkyButton
                 label="이 사진 분석하기"
                 loading={isAnalyzing}
                 onPress={runAnalyze}
                 tone="meal"
               />
-            ) : null}
+            ) : (
+              <View style={styles.photoConsentBox}>
+                <Text style={styles.photoConsentTitle}>{AI_PHOTO_CONSENT_TITLE}</Text>
+                <ConsentNotice rows={AI_PHOTO_CONSENT_ROWS} />
+                <ChunkyButton
+                  label="동의하고 분석하기"
+                  loading={isAnalyzing}
+                  onPress={() => void agreeAndAnalyze()}
+                  tone="meal"
+                />
+                <ChunkyButton
+                  disabled={isAnalyzing}
+                  label="사진 없이 직접 적기"
+                  onPress={declinePhoto}
+                  tone="meal"
+                  variant="outline"
+                />
+              </View>
+            )}
 
             {isAnalyzing ? (
               <View style={styles.analyzingRow}>
@@ -1483,6 +1523,17 @@ const styles = StyleSheet.create({
   previewBody: {
     gap: 12,
     padding: 14,
+  },
+  photoConsentBox: {
+    backgroundColor: '#f7f6f4',
+    borderRadius: 14,
+    gap: 12,
+    padding: 14,
+  },
+  photoConsentTitle: {
+    color: '#22211f',
+    fontFamily: DISPLAY_FONT,
+    fontSize: 19,
   },
   previewCaption: {
     color: '#5c5b57',

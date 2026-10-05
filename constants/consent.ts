@@ -75,3 +75,20 @@ export const SENSITIVE_HEALTH_REFUSAL =
 // **버전을 다시 올리면 이 문구도 새 차이로 고쳐 쓴다.**
 export const SENSITIVE_HEALTH_CHANGE_SUMMARY =
   '진료 메모에 ‘진료 때 물어볼 것’이 들어갔어요. 질환 도감에서 담거나 진료 탭에서 적는 질문이에요.';
+
+// 사진 AI 분석 동의 (2026-10-05). App Store 심사지침 5.1.2(i)(2025-11 개정)는 개인정보를 제3자 AI 로
+// 보내기 **전에** 보내는 곳·보내는 것을 밝히고 명시적으로 동의받으며, 거둘 수 있게 하라고 요구한다.
+// 기록 화면(app/meals/compose.tsx)의 '분석' 버튼 자리와 동의 관리(app/me/consents.tsx)가 같은 줄을 쓴다.
+// 처리방침 5·6항(constants/legal.ts)과 같은 내용이어야 한다 — 근거: 서버 services/gemini_vision_service.py
+// (strip_metadata 로 EXIF 를 지우고 픽셀만 보낸다, 사진은 저장하지 않는다).
+export const AI_PHOTO_CONSENT_TITLE = '사진을 AI로 보내도 될까요?';
+
+export const AI_PHOTO_CONSENT_ROWS: ConsentNoticeRow[] = [
+  { label: '보내는 곳', text: 'Google의 생성형 AI(Gemini)' },
+  { label: '보내는 것', text: '음식 사진. 촬영 위치 같은 사진 속 부가 정보는 지우고 보내요.' },
+  { label: '보내지 않는 것', text: '이름·회원번호·질환·검사 수치' },
+  { label: '쓰는 곳', text: '사진 속 음식과 양을 알아보는 데만 써요. 사진은 저장하지 않아요.' },
+];
+
+export const AI_PHOTO_CONSENT_REFUSAL =
+  '동의하지 않아도 음식 이름을 직접 적어 기록할 수 있어요. 동의는 이 기기에 남고, 여기서 언제든 거둘 수 있어요.';
