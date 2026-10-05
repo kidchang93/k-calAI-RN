@@ -20,7 +20,7 @@ import { QuantityEditor, QuantityValue } from '@/components/quantity-editor';
 import { NutrientChip, NutrientChips } from '@/components/nutrient-chips';
 import { Screen } from '@/components/screen';
 import { AI_USE_NOTICE } from '@/constants/ai-notice';
-import { isMealType, MEAL_TYPE_LABELS, MealType } from '@/constants/meal';
+import { isMealType, MEAL_TYPE_LABELS, MealType, mealTypeAt } from '@/constants/meal';
 import { NUTRIENT_LABELS, NUTRIENT_TIER_LABELS } from '@/constants/nutrition';
 import { FoodDetection, PhotoAsset, uploadFoodPhoto } from '@/services/calorie-api';
 import { notifyDialog } from '@/services/dialog';
@@ -95,26 +95,6 @@ function nutrientsOf(estimate: NutritionEstimate): DraftNutrients | null {
     potassium_mg: estimate.potassium_mg,
     phosphorus_mg: estimate.phosphorus_mg,
   };
-}
-
-// 시각 → 끼니 기본값. 앨범 사진이면 **촬영 시각**, 그 외엔 지금 시각을 넣는다(KCAL-20).
-// 사용자가 칩에서 언제든 바꿀 수 있다. 경계(11·16·22시)는 기준과 별개라 여기서 바꾸지 않는다.
-function mealTypeAt(time: Date): MealType {
-  const hour = time.getHours();
-
-  if (hour < 11) {
-    return 'breakfast';
-  }
-
-  if (hour < 16) {
-    return 'lunch';
-  }
-
-  if (hour < 22) {
-    return 'dinner';
-  }
-
-  return 'snack';
 }
 
 let draftKeySeq = 0;

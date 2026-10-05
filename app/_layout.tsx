@@ -1,9 +1,11 @@
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import Head from 'expo-router/head';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
+import { DISPLAY_FONT } from '@/constants/typography';
 import { restoreAuthSession } from '@/services/auth-session';
 
 export const unstable_settings = {
@@ -36,6 +38,15 @@ export default function RootLayout() {
   useEffect(() => {
     void restoreAuthSession();
   }, []);
+
+  const [isFontReady, fontError] = useFonts({
+    [DISPLAY_FONT]: require('@/assets/fonts/Jua-Regular.ttf'),
+  });
+
+  // 글꼴은 번들 에셋이라 금방 끝난다. 실패하면 기다리지 않고 시스템 글꼴로 그린다.
+  if (!isFontReady && fontError === null) {
+    return null;
+  }
 
   return (
     <ThemeProvider value={NAV_THEME}>

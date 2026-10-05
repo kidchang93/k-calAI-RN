@@ -128,7 +128,7 @@ export default function AuthScreen() {
   // 인증이 끝나면 세션 스토어가 리렌더를 유발하고, 여기서 탭으로 넘어갑니다.
   // router.replace() 를 쓰지 않는 이유는 app/_layout.tsx 주석 참고.
   if (authState.status === 'authenticated') {
-    return <Redirect href="/(tabs)" />;
+    return <Redirect href="/home" />;
   }
 
   const isSignup = stage === 'signup';

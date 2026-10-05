@@ -220,7 +220,7 @@ export class NutritionUnavailableError extends Error {
   name = 'NutritionUnavailableError';
 }
 
-// 주/월 섭취 집계 — 진료 탭이 쓴다 (DATA_MODEL.md 15장). days는 범위 내 모든 날짜를 오름차순으로 채운다.
+// 주/월 섭취 집계 — 케어 탭(도장판·그래프)·진료 탭(진료까지의 길)이 쓴다 (DATA_MODEL.md 15장). days는 범위 내 모든 날짜를 오름차순으로 채운다.
 // 기록 없는 날도 0으로 존재한다. target_kcal은 목표 미설정 시 null (0이 아니다 — summary와 동일 규칙).
 export type TrendDay = {
   date: string;
@@ -435,7 +435,7 @@ export function dayAnchorLoggedAt(date: string): string {
   return `${date}T12:00:00.000Z`;
 }
 
-// 오늘을 끝으로 하는 최근 N일(오늘 포함) 범위. 진료 탭의 주(7)/월(30) 조회에 쓴다.
+// 오늘을 끝으로 하는 최근 N일(오늘 포함) 범위. 케어 탭 그래프(7·28일)와 진료 탭의 길(28일)이 쓴다.
 export function recentDateRange(days: number): { start_date: string; end_date: string } {
   const end = new Date();
   const start = new Date();

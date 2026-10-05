@@ -1,13 +1,16 @@
 import { Redirect, Tabs } from 'expo-router';
 import React, { useEffect, useState } from 'react';
+import { StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { SessionLoading } from '@/components/session-loading';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { DISPLAY_FONT } from '@/constants/typography';
 import { useAuthSession } from '@/services/auth-session';
 import { getProfile } from '@/services/health-api';
 
-// 로그인 직후 홈(오늘) 탭으로 진입한다.
+// 로그인 직후 식단 탭으로 진입한다.
 export const unstable_settings = {
   initialRouteName: 'home',
 };
@@ -21,6 +24,9 @@ type OnboardingCheck = 'checking' | 'needed' | 'done';
 export default function TabLayout() {
   const authState = useAuthSession();
   const [onboardingCheck, setOnboardingCheck] = useState<OnboardingCheck>('checking');
+  // 탭바를 기본(49)보다 키운다 — 둥근 글꼴 라벨과 아이콘을 엄지 크기로 그리려면 높이가 모자란다.
+  // 높이를 직접 주면 라이브러리가 하단 안전 영역을 더해 주지 않으므로 여기서 더한다.
+  const insets = useSafeAreaInsets();
 
   const isAuthenticated = authState.status === 'authenticated';
 
@@ -71,43 +77,69 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#2a7d76',
         headerShown: false,
         tabBarButton: HapticTab,
+        tabBarInactiveTintColor: '#5c5b57',
+        tabBarItemStyle: styles.tabItem,
+        tabBarLabelStyle: styles.tabLabel,
+        tabBarStyle: [styles.tabBar, { height: 70 + insets.bottom, paddingBottom: 8 + insets.bottom }],
       }}>
+      {/* 2026-10-05 화면 재구성: 탭은 **할 일이 있는 곳 셋**만 — 식단 관리 · 케어 · 진료(병원 연계).
+          탭마다 색이 하나다(식단 주황 · 케어 청록 · 진료 파랑). 예전 홈은 카드 9장이 같은 무게로
+          쌓여 핀테크 앱처럼 읽혔다. 기록·내 정보·`/`는 지우지 않고 탭바에서만 숨긴다(KCAL-14).
+          라우트 이름은 그대로다: URL 이 바뀌면 저장해 둔 링크가 깨진다. */}
       <Tabs.Screen
         name="home"
         options={{
-          title: '홈',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: '식단',
+          tabBarActiveBackgroundColor: '#ffebdd',
+          tabBarActiveTintColor: '#8f3b0e',
+          tabBarIcon: ({ color }) => <IconSymbol size={24} name="fork.knife" color={color} />,
         }}
       />
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: '기록',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="camera.fill" color={color} />,
-        }}
-      />
-      {/* '리포트' → '진료'(2026-08-19) → **'돌아보기'**(2026-09-16, KCAL-44). 담긴 것이 먼저
-          바뀌고 이름이 따라온다 — 이 탭은 지난 4주의 식탁·몸·활동을 되짚는 곳이고, 진료에
-          가져갈 리포트는 그 마지막 한 칸이다. 십자 아이콘은 병원 자체를 가리켜 진료 중개처럼
-          읽혔다(하지 않기로 한 것 — 의료법 제27조 제3항).
-          라우트 이름(`trends`)은 그대로다: URL 이 바뀌면 저장해 둔 링크가 깨진다. */}
+      {/* '리포트' → '진료'(2026-08-19) → '돌아보기'(2026-09-16, KCAL-44) → **'케어'**(2026-10-05).
+          진료 준비 묶음이 진료 탭으로 독립하면서, 남은 것(도장판·질환 영양 추이·질환 도감·몸 기록)은
+          '내 몸을 돌보는 곳'이 됐다. */}
       <Tabs.Screen
         name="trends"
         options={{
-          title: '돌아보기',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar" color={color} />,
+          title: '케어',
+          tabBarActiveBackgroundColor: '#bee2dd',
+          tabBarActiveTintColor: '#1c5a55',
+          tabBarIcon: ({ color }) => <IconSymbol size={24} name="heart.fill" color={color} />,
         }}
       />
+      {/* 병원 연계 = **진료 준비**다. 예약·중개가 아니라 받아 온 것을 이어받는다(의료법 제27조
+          제3항 — 서버 `docs/CARE_LOOP.md` §3). 그래서 아이콘도 십자가 아니라 가방이다. */}
       <Tabs.Screen
-        name="account"
+        name="visit"
         options={{
-          title: '내 정보',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
+          title: '진료',
+          tabBarActiveBackgroundColor: '#e3ebfb',
+          tabBarActiveTintColor: '#1e4290',
+          tabBarIcon: ({ color }) => <IconSymbol size={24} name="briefcase.fill" color={color} />,
         }}
       />
+      <Tabs.Screen name="index" options={{ href: null }} />
+      <Tabs.Screen name="record" options={{ href: null }} />
+      <Tabs.Screen name="account" options={{ href: null }} />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: {
+    borderTopColor: '#e4e2de',
+    borderTopWidth: 2,
+    paddingTop: 8,
+  },
+  tabItem: {
+    borderRadius: 16,
+    marginHorizontal: 6,
+    overflow: 'hidden',
+  },
+  tabLabel: {
+    fontFamily: DISPLAY_FONT,
+    fontSize: 15,
+  },
+});

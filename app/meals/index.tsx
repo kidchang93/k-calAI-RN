@@ -112,7 +112,7 @@ export default function MealListScreen() {
     }
   }, [date]);
 
-  // 기록 탭에서 저장하고 돌아왔을 때 갱신되도록 포커스마다 다시 읽는다 (홈 화면 패턴).
+  // 기록 화면에서 저장하고 돌아왔을 때 갱신되도록 포커스마다 다시 읽는다 (홈 화면 패턴).
   useFocusEffect(
     useCallback(() => {
       void loadMeals();
@@ -312,7 +312,7 @@ export default function MealListScreen() {
         <View style={styles.stateBox}>
           <MaterialIcons color="#a9a6a1" name="no-meals" size={32} />
           <Text style={styles.stateText}>
-            아직 기록이 없어요. 기록 탭에서 사진으로 남겨보세요.
+            아직 기록이 없어요. 식단 탭의 끼니 칸에서 사진으로 남겨 보세요.
           </Text>
         </View>
       ) : (

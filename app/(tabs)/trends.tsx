@@ -1,20 +1,22 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { type ReactNode, useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ConditionGuideCard } from '@/components/condition-guide-card';
 import { ErrorBanner } from '@/components/error-banner';
-import { KcalCalendar } from '@/components/kcal-calendar';
 import { LoadingState } from '@/components/loading-state';
 import { NutrientTrends } from '@/components/nutrient-trends';
 import { Screen } from '@/components/screen';
 import { Segmented } from '@/components/segmented';
+import { StampCalendar } from '@/components/stamp-calendar';
+import { TabHeader } from '@/components/tab-header';
 import { INTAKE_ESTIMATE_NOTICE } from '@/constants/ai-notice';
 import { MEAL_TYPE_LABELS } from '@/constants/meal';
-import { confirmDialog } from '@/services/dialog';
+import { DISPLAY_FONT } from '@/constants/typography';
 import { formatFoodLabel } from '@/services/food-label';
 import { formatFullDate, formatShortDate } from '@/services/format';
-import { clearNextVisit, daysUntil, getNextVisit, setNextVisit } from '@/services/visit-api';
+import { GuideSummary, listGuides } from '@/services/guide-api';
 import {
   formatDateParam,
   getMeals,
@@ -30,9 +32,11 @@ import {
 type TrendPeriod = 'week' | 'month';
 type ViewMode = 'chart' | 'calendar';
 
+// 도장판이 먼저다(2026-10-05). 그래프는 kcal 막대라 숫자 잔액처럼 읽혀서 두 번째로 내렸다 —
+// 지우지 않는 이유는 '목표 대비 어디쯤'을 보고 싶은 사람도 있어서다.
 const VIEW_OPTIONS: { value: ViewMode; label: string }[] = [
+  { value: 'calendar', label: '도장판' },
   { value: 'chart', label: '그래프' },
-  { value: 'calendar', label: '캘린더' },
 ];
 
 // 기본은 **4주**다(2026-09-16, KCAL-35). 만성질환의 단위는 하루가 아니라 진료와 진료 사이라
@@ -65,9 +69,16 @@ function startOfMonth(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
+// 케어 탭 (2026-10-05 화면 재구성 — 옛 '돌아보기'). 라우트 이름 `trends`는 그대로다: URL 이 바뀌면
+// 저장해 둔 링크가 깨진다.
+//
+// 담는 것: 도장판(남긴 날) → 질환 영양 추이(근거) → 내 질환 도감(가이드) → 몸 기록.
+// '진료 갈 때 가져가기' 묶음은 **진료 탭**으로 독립했다(app/(tabs)/visit.tsx).
+// ⚠️ 이번 주 조언·BMI·주당 권장 운동량은 **여전히 넣지 않는다**(2026-09-16, KCAL-36·37) — 우리가
+// 대신 내리는 판정이라서다(서버 `docs/PRODUCT_STRATEGY.md` §0-1). 컴포넌트·API 는 그대로 있다.
 export default function TrendsScreen() {
   const router = useRouter();
-  const [viewMode, setViewMode] = useState<ViewMode>('chart');
+  const [viewMode, setViewMode] = useState<ViewMode>('calendar');
   const [period, setPeriod] = useState<TrendPeriod>('month');
   // 캘린더가 보고 있는 달 (해당 달 1일). 그래프 모드에서는 쓰지 않는다.
   const [month, setMonth] = useState<Date>(() => startOfMonth(new Date()));
@@ -76,10 +87,8 @@ export default function TrendsScreen() {
   const [isLoadingMeals, setIsLoadingMeals] = useState(false);
   const [trends, setTrends] = useState<TrendsResponse | null>(null);
   const [weights, setWeights] = useState<WeightLog[] | null>(null);
-  // 다음 진료일. 2026-09-16(KCAL-34)부터 **맨 아래** '진료 갈 때 가져가기'에 있다 —
-  // 지난 4주를 먼저 보고, 그 끝에서 진료에 무엇을 가져갈지 정하는 순서다.
-  const [visitDate, setVisitDate] = useState<string | null>(null);
-  const [visitOutcome, setVisitOutcome] = useState<string | null>(null);
+  // 질환 가이드(도감). 콘텐츠는 지침이 바뀔 때만 바뀌므로 마운트 1회만 읽는다.
+  const [guides, setGuides] = useState<GuideSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -124,19 +133,6 @@ export default function TrendsScreen() {
     }
   }, [month, period, viewMode]);
 
-  const loadVisit = useCallback(async () => {
-    try {
-      const { scheduled_on, outcome } = await getNextVisit();
-
-      setVisitDate(scheduled_on);
-      setVisitOutcome(outcome);
-    } catch {
-      // 진료일 조회 실패로 추이 화면을 막지 않는다 — 없는 것과 같이 취급한다.
-      setVisitDate(null);
-      setVisitOutcome(null);
-    }
-  }, []);
-
   const loadMealsFor = useCallback(async (date: string) => {
     const seq = ++mealsSeqRef.current;
 
@@ -159,8 +155,8 @@ export default function TrendsScreen() {
     }
   }, []);
 
-  // 마운트 시 1회가 아니라 탭이 포커스될 때마다 다시 읽는다 (홈 화면 패턴).
-  // 기록 탭에서 끼니를 저장하고 돌아왔을 때 그래프를 갱신하기 위함이다.
+  // 마운트 시 1회가 아니라 탭이 포커스될 때마다 다시 읽는다.
+  // 식단 탭에서 끼니를 저장하고 돌아왔을 때 도장판을 갱신하기 위함이다.
   //
   // **선택한 날짜의 끼니 목록도 함께 다시 읽는다.** 예전에는 `loadData()`(격자·요약)만 갱신해서,
   // 캘린더에서 날짜를 고르고 → 기록관리에서 항목을 추가하고 → 돌아오면 아래 끼니 목록만 옛
@@ -169,13 +165,29 @@ export default function TrendsScreen() {
   useFocusEffect(
     useCallback(() => {
       void loadData();
-      void loadVisit();
 
       if (selectedDate !== null) {
         void loadMealsFor(selectedDate);
       }
-    }, [loadData, loadMealsFor, loadVisit, selectedDate])
+    }, [loadData, loadMealsFor, selectedDate])
   );
+
+  // 가이드 목록은 있으면 좋은 것이다 — 실패해도 조용히 넘어간다(도감이 안 그려질 뿐).
+  useEffect(() => {
+    let isCancelled = false;
+
+    listGuides()
+      .then((result) => {
+        if (!isCancelled) {
+          setGuides(result);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   const selectDate = (date: string) => {
     setSelectedDate(date);
@@ -231,34 +243,36 @@ export default function TrendsScreen() {
       .sort((a, b) => a.measured_at.localeCompare(b.measured_at));
   }, [trends, weights]);
 
+  // 머리 아래 한 줄은 내 질환이다 — 이 탭의 모든 숫자가 그 질환의 눈으로 보는 것이라서다.
+  const myConditions = guides
+    .filter((guide) => guide.is_mine)
+    .map((guide) => guide.label)
+    .join(' · ');
+
   return (
-    <Screen gap={14} contentStyle={styles.content}>
-      <Text style={styles.title}>돌아보기</Text>
+    <Screen gap={16}>
+      <TabHeader caption={myConditions} title="내 몸 케어" />
+
+      <SectionLabel
+        title="돌아보기"
+        right={<Segmented onChange={setViewMode} options={VIEW_OPTIONS} value={viewMode} />}
+      />
 
       {isLoading ? (
         <LoadingState label="기록을 불러오는 중입니다." />
       ) : errorMessage ? (
         <ErrorBanner message={errorMessage} onRetry={() => void loadData()} />
-      ) : (
+      ) : trends === null || summary === null ? null : (
         <>
-          {/* **4주 식탁**(2026-09-16, KCAL-35). 예전 이름은 '식단과 검사 수치'였는데
-              검사 수치 카드를 이 탭에서 뺐다(KCAL-36 — 라우트 `/labs`·서버 API 는 그대로다). */}
-          <SectionLabel
-            first
-            title="4주 식탁"
-            right={<Segmented onChange={setViewMode} options={VIEW_OPTIONS} value={viewMode} />}
-          />
-
-          {trends === null || summary === null ? null : viewMode === 'calendar' ? (
+          {viewMode === 'calendar' ? (
             <>
-              <KcalCalendar
+              <StampCalendar
                 canGoNext={canGoNextMonth}
                 days={trends.days}
                 month={month}
                 onChangeMonth={changeMonth}
                 onSelectDate={selectDate}
                 selectedDate={selectedDate}
-                targetKcal={trends.target_kcal}
                 todayDate={todayDate}
               />
 
@@ -278,349 +292,90 @@ export default function TrendsScreen() {
                 }}
               />
             </>
+          ) : summary.recordedDays === 0 ? (
+            <View style={styles.emptyCard}>
+              {/* 기간 토글은 평소 그래프 카드 안에 있다. 빈 기간에도 주↔월 전환은
+                  할 수 있어야 하므로 여기서도 노출한다. */}
+              <Segmented compact onChange={setPeriod} options={PERIOD_OPTIONS} value={period} />
+              <MaterialIcons color="#5c5b57" name="show-chart" size={32} />
+              <Text style={styles.emptyTitle}>이 기간에 식단 기록이 없어요</Text>
+              <Text style={styles.emptyText}>
+                식단 탭에서 끼니 칸에 사진을 남기면 여기에서 확인할 수 있어요.
+              </Text>
+            </View>
           ) : (
             <>
-              {summary.recordedDays === 0 ? (
-                <View style={styles.emptyCard}>
-                  {/* 기간 토글은 평소 그래프 카드 안에 있다. 빈 기간에도 주↔월 전환은
-                      할 수 있어야 하므로 여기서도 노출한다. */}
-                  <Segmented compact onChange={setPeriod} options={PERIOD_OPTIONS} value={period} />
-                  <MaterialIcons color="#a9a6a1" name="show-chart" size={32} />
-                  <Text style={styles.emptyTitle}>이 기간에 식단 기록이 없어요</Text>
-                  <Text style={styles.emptyText}>
-                    기록 탭에서 사진으로 식사를 남기면 여기에서 확인할 수 있습니다.
-                  </Text>
-                </View>
-              ) : (
-                <>
-                  <KcalBarChart
-                    days={trends.days}
-                    onChangePeriod={setPeriod}
-                    period={period}
-                    targetKcal={trends.target_kcal}
+              <KcalBarChart
+                days={trends.days}
+                onChangePeriod={setPeriod}
+                period={period}
+                targetKcal={trends.target_kcal}
+              />
+
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryRow}>
+                  <SummaryStat
+                    label="총 섭취"
+                    value={`${summary.totalKcal.toLocaleString()} kcal`}
                   />
-
-                  <View style={styles.summaryCard}>
-                    <View style={styles.summaryRow}>
-                      <SummaryStat
-                        label="총 섭취"
-                        value={`${summary.totalKcal.toLocaleString()} kcal`}
-                      />
-                      <SummaryStat
-                        label="일평균 (기록일)"
-                        value={`${summary.avgKcal.toLocaleString()} kcal`}
-                      />
-                    </View>
-                    <View style={styles.summaryRow}>
-                      <SummaryStat
-                        label="기록한 날"
-                        value={`${summary.recordedDays} / ${summary.totalDays}일`}
-                      />
-                      {summary.withinTargetDays !== null ? (
-                        <SummaryStat
-                          label="목표 이내"
-                          value={`${summary.withinTargetDays} / ${summary.recordedDays}일`}
-                        />
-                      ) : (
-                        <SummaryStat label="목표" value="미설정" />
-                      )}
-                    </View>
-                  </View>
-                </>
-              )}
-
-              {/* 질환 축 추이. kcal 그래프 바로 아래에 둔다 — 이 앱의 대상 사용자에게는
-                  칼로리보다 이쪽이 중요하고, 만성질환 관리는 하루가 아니라 추세로 본다.
-                  해당 질환이 없으면 서버가 null 을 주고 컴포넌트가 스스로 사라진다. */}
-              <NutrientTrends trends={trends.nutrients} />
+                  <SummaryStat
+                    label="일평균 (기록일)"
+                    value={`${summary.avgKcal.toLocaleString()} kcal`}
+                  />
+                </View>
+                <View style={styles.summaryRow}>
+                  <SummaryStat
+                    label="기록한 날"
+                    value={`${summary.recordedDays} / ${summary.totalDays}일`}
+                  />
+                  {summary.withinTargetDays !== null ? (
+                    <SummaryStat
+                      label="목표 이내"
+                      value={`${summary.withinTargetDays} / ${summary.recordedDays}일`}
+                    />
+                  ) : (
+                    <SummaryStat label="목표" value="미설정" />
+                  )}
+                </View>
+              </View>
             </>
           )}
 
-          {/* 체중은 그래프·캘린더 두 모드 모두에 보인다 — 한쪽에만 있으면 "있는지 없는지"
-              모르게 된다(캘린더 모드에서는 보고 있는 달의 기록).
-              **기록만 둔다**(2026-09-16, KCAL-36·37): BMI 카드·주당 권장 운동량·이번 주 조언을
-              화면에서 뺐다. 셋 다 우리가 대신 내리는 판정이라 이 탭의 성격과 어긋난다
-              (서버 `docs/PRODUCT_STRATEGY.md` §0-1 — 판단 대행을 하지 않는다).
-              컴포넌트(`components/body-metrics`·`weekly-coaching`)와 서버 API 는 그대로 둔다. */}
-          <SectionLabel title="몸과 활동" />
-
-          <WeightSection logs={periodWeights} onPressManage={() => router.push('/me/weights')} />
-
-          {/* 이 탭의 결론. **맨 아래**다(2026-09-16, KCAL-34·38) — 4주 식탁과 몸·활동을
-              본 다음에야 "그래서 무엇을 가져갈까"가 온다. 2026-08-19~09-15 에는 맨 위였다. */}
-          <SectionLabel title="진료 갈 때 가져가기" />
-
-          <VisitCard
-            scheduledOn={visitDate}
-            outcome={visitOutcome}
-            onChange={(date, note) => {
-              setVisitDate(date);
-              setVisitOutcome(note);
-            }}
-          />
-
-          {/* **검사 수치 진입점**(2026-09-16, KCAL-36). 값이 보이던 카드는 뺐지만 길까지 막으면
-              케어 루프의 결과 축이 화면에서 사라진다(서버 `docs/CARE_LOOP.md` §4) — 여기 한 줄로
-              남긴다. 진료에서 받아 오는 값이고 리포트에 실리므로 이 묶음이 제자리다.
-              수치도 판정도 이 줄에는 없다: 들어가서 보는 것이라 '진료 준비'의 할 일로만 읽힌다. */}
-          <Pressable
-            onPress={() => router.push('/labs')}
-            style={({ pressed }) => [styles.labLinkRow, pressed && styles.pressed]}>
-            <MaterialIcons color="#2a7d76" name="science" size={20} />
-            <View style={styles.labLinkBody}>
-              <Text style={styles.labLinkTitle}>검사 수치</Text>
-              <Text style={styles.labLinkHint}>병원에서 받은 결과를 적어 두면 리포트에 함께 실려요.</Text>
-            </View>
-            <MaterialIcons color="#a9a6a1" name="chevron-right" size={20} />
-          </Pressable>
-
-          <ReportCard
-            startDate={trends?.start_date ?? null}
-            endDate={trends?.end_date ?? null}
-            recordedDays={summary?.recordedDays ?? 0}
-            totalDays={summary?.totalDays ?? 0}
-            onPress={() => {
-              // **보고 있는 기간을 그대로 리포트에 넘긴다.** 리포트 화면은 파라미터가 없으면
-              // 자체 기본 기간을 쓰는데, 그러면 카드에 적힌 '14/30일'과 리포트 안의 기록
-              // 일수가 서로 달라진다. 화면·서버 변경 없이 기존 파라미터를 쓰기만 하면 된다.
-              // 이 카드는 로딩 성공 뒤에만 보이므로(위 게이트) trends 는 항상 값이 있다.
-              router.push({
-                pathname: '/report',
-                params: { start_date: trends?.start_date, end_date: trends?.end_date },
-              });
-            }}
-          />
-
-          {/* 이 탭의 수치는 AI 가 만든 것이 아니다 — 섭취량은 식약처 DB, 체성분·조언은 입력값으로
-              계산한다. 예전 "AI 추정값" 문구는 사실과 달랐다(KCAL-17). */}
-          <Text style={styles.disclaimer}>{INTAKE_ESTIMATE_NOTICE}</Text>
+          {/* 질환 축 추이. 도장판·그래프 두 모드 모두에 둔다 — 이 앱의 대상 사용자에게는
+              칼로리보다 이쪽이 중요하고, 만성질환 관리는 하루가 아니라 추세로 본다.
+              범위는 지금 보고 있는 기간(도장판이면 그 달)이다. 해당 질환이 없으면 서버가 null 을
+              주고 컴포넌트가 스스로 사라진다. */}
+          <NutrientTrends trends={trends.nutrients} />
         </>
       )}
+
+      {/* 수치 **바로 다음**이 "이게 무슨 뜻이지"가 이어지는 자리다 (서버 `docs/CARE_LOOP.md` §5-2). */}
+      <ConditionGuideCard guides={guides} />
+
+      {/* **기록만 둔다**(2026-09-16, KCAL-36·37): BMI 카드·주당 권장 운동량을 빼고 체중 기록만.
+          보고 있는 기간(도장판이면 그 달)의 기록이다. */}
+      {isLoading || errorMessage ? null : (
+        <>
+          <SectionLabel title="몸 기록" />
+          <WeightSection logs={periodWeights} onPressManage={() => router.push('/me/weights')} />
+        </>
+      )}
+
+      {/* 이 탭의 수치는 AI 가 만든 것이 아니다 — 섭취량은 식약처 DB 로 계산한다(KCAL-17). */}
+      <Text style={styles.disclaimer}>{INTAKE_ESTIMATE_NOTICE}</Text>
     </Screen>
   );
 }
 
-// 진료 탭의 묶음 제목. 안쪽 소제목("질환 영양 추이" 등, 잉크 17pt)보다 한 단계 위라 더 크고,
-// 강조색과 위쪽 구분선으로 가른다. 첫 묶음은 페이지 제목 바로 아래라 구분선을 긋지 않는다.
-function SectionLabel({
-  title,
-  right,
-  first = false,
-}: {
-  title: string;
-  right?: ReactNode;
-  first?: boolean;
-}) {
+// 케어 탭의 묶음 제목. 탭 제목(32) 아래 단계라 같은 둥근 글꼴로 한 단계 작게 쓴다.
+function SectionLabel({ title, right }: { title: string; right?: ReactNode }) {
   return (
-    <View style={[styles.sectionLabelRow, first ? null : styles.sectionLabelDivider]}>
-      <Text style={styles.sectionLabel}>{title}</Text>
+    <View style={styles.sectionLabelRow}>
+      <Text accessibilityRole="header" style={styles.sectionLabel}>
+        {title}
+      </Text>
       {right}
     </View>
-  );
-}
-
-// 다음 진료일 — **케어 루프의 시작과 끝**(서버 `docs/CARE_LOOP.md` §1·§9의 열린 결정 4번).
-// 진료일을 모르면 리포트를 언제 뽑아야 하는지도, 오늘 기록해야 할 이유도 말할 수 없다.
-//
-// ⚠️ **예약이 아니다.** 사용자가 적어 두는 메모이고 병원과 아무것도 주고받지 않는다 — 문구가
-// '예약'으로 읽히면 의료법 제27조 제3항(소개·알선)의 경계에 닿는다(§3). 그래서 버튼도
-// '등록'이지 '예약'이 아니다.
-//
-// 날짜 입력은 검사 수치 화면과 같은 방식(YYYY-MM-DD 직접 입력)이다. 날짜 선택 패키지를
-// 새로 들이지 않는 이유는 웹·네이티브 양쪽을 같은 코드로 유지하기 위해서다.
-function VisitCard({
-  scheduledOn,
-  outcome,
-  onChange,
-}: {
-  scheduledOn: string | null;
-  outcome: string | null;
-  onChange: (date: string | null, note: string | null) => void;
-}) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState('');
-  const [noteDraft, setNoteDraft] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const remaining = scheduledOn !== null ? daysUntil(scheduledOn) : null;
-
-  const startEdit = () => {
-    setDraft(scheduledOn ?? formatDateParam(new Date()));
-    setNoteDraft(outcome ?? '');
-    setError(null);
-    setIsEditing(true);
-  };
-
-  const save = async () => {
-    setIsSaving(true);
-    setError(null);
-
-    try {
-      const saved = await setNextVisit(draft.trim(), noteDraft);
-
-      onChange(saved.scheduled_on, saved.outcome);
-      setIsEditing(false);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '저장하지 못했습니다.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const remove = async () => {
-    const confirmed = await confirmDialog({
-      title: '진료 일정 삭제',
-      message: '등록한 다음 진료일을 지울까요?',
-      confirmLabel: '삭제',
-      destructive: true,
-    });
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      await clearNextVisit();
-      onChange(null, null);
-      setIsEditing(false);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '삭제하지 못했습니다.');
-    }
-  };
-
-  if (isEditing) {
-    return (
-      <View style={styles.visitCard}>
-        <Text style={styles.visitTitle}>다음 진료일</Text>
-        <TextInput
-          autoCapitalize="none"
-          keyboardType="numbers-and-punctuation"
-          onChangeText={setDraft}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor="#a9a6a1"
-          style={styles.visitInput}
-          value={draft}
-        />
-        {/* 진료에서 들은 것. **처방을 대신 적는 곳이 아니라 옮겨 적는 곳**이라 서식을 주지
-            않는다 — 사용자가 들은 말 그대로가 가장 정확하다. 미동의(403)면 서버가 막고
-            그 문장을 그대로 보여 준다. */}
-        <TextInput
-          multiline
-          onChangeText={setNoteDraft}
-          placeholder="진료에서 들은 것 (예: 짜게 먹지 말 것, 칼륨 주의)"
-          placeholderTextColor="#a9a6a1"
-          style={[styles.visitInput, styles.visitNoteInput]}
-          value={noteDraft}
-        />
-        {error !== null ? <Text style={styles.visitError}>{error}</Text> : null}
-        <View style={styles.visitActions}>
-          <Pressable
-            disabled={isSaving}
-            onPress={() => void save()}
-            style={({ pressed }) => [styles.visitPrimary, pressed && styles.pressed]}>
-            <Text style={styles.visitPrimaryText}>{isSaving ? '저장 중…' : '저장'}</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setIsEditing(false)}
-            style={({ pressed }) => [styles.visitGhost, pressed && styles.pressed]}>
-            <Text style={styles.visitGhostText}>취소</Text>
-          </Pressable>
-          {scheduledOn !== null ? (
-            <Pressable
-              onPress={() => void remove()}
-              style={({ pressed }) => [styles.visitGhost, pressed && styles.pressed]}>
-              <Text style={styles.visitDangerText}>삭제</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
-    );
-  }
-
-  return (
-    <Pressable
-      onPress={startEdit}
-      style={({ pressed }) => [styles.visitCard, pressed && styles.pressed]}>
-      <View style={styles.visitRow}>
-        <MaterialIcons color="#2a7d76" name="event" size={20} />
-        <View style={styles.visitBody}>
-          <Text style={styles.visitTitle}>다음 진료일</Text>
-          <Text style={styles.visitText}>
-            {scheduledOn === null
-              ? '등록해 두면 남은 날짜를 홈에서도 알려드려요.'
-              : scheduledOn}
-          </Text>
-        </View>
-        {scheduledOn !== null && remaining !== null ? (
-          <Text style={styles.visitDday}>
-            {remaining > 0 ? `D-${remaining}` : remaining === 0 ? '오늘' : '지남'}
-          </Text>
-        ) : (
-          <Text style={styles.visitAdd}>등록</Text>
-        )}
-      </View>
-
-      {outcome !== null && outcome !== '' ? (
-        <View style={styles.visitNote}>
-          <Text style={styles.visitNoteLabel}>진료에서 들은 것</Text>
-          <Text style={styles.visitNoteText}>{outcome}</Text>
-        </View>
-      ) : null}
-    </Pressable>
-  );
-}
-
-// 이 탭이 무엇을 위한 곳인지 맨 위에서 말한다 — 기록을 쌓는 목적은 진료에서 꺼내 보이는
-// 것이다(서버 `PRODUCT_STRATEGY.md` §0-2의 첫 번째 목표 지표). 숫자 두 개를 함께 보여주는
-// 이유는 **리포트의 무게를 미리 알리기 위해서**다: 3일 기록으로 만든 리포트와 30일로 만든
-// 리포트는 같은 문서가 아니다.
-function ReportCard({
-  startDate,
-  endDate,
-  recordedDays,
-  totalDays,
-  onPress,
-}: {
-  startDate: string | null;
-  endDate: string | null;
-  recordedDays: number;
-  totalDays: number;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.reportCard, pressed && styles.pressed]}>
-      <View style={styles.reportCardHead}>
-        <MaterialIcons color="#2a7d76" name="description" size={20} />
-        <View style={styles.reportCardHeadText}>
-          <Text style={styles.reportCardTitle}>진료에 가져갈 기록</Text>
-          {startDate !== null && endDate !== null ? (
-            <Text style={styles.reportCardPeriod}>
-              {`${formatShortDate(startDate)} ~ ${formatShortDate(endDate)}`}
-            </Text>
-          ) : null}
-        </View>
-        <MaterialIcons color="#2a7d76" name="chevron-right" size={20} />
-      </View>
-
-      <View style={styles.reportCardStats}>
-        <View style={styles.reportCardStat}>
-          <Text style={styles.reportCardStatValue}>
-            {recordedDays}
-            <Text style={styles.reportCardStatUnit}>{` / ${totalDays}일`}</Text>
-          </Text>
-          <Text style={styles.reportCardStatLabel}>식단 기록</Text>
-        </View>
-      </View>
-
-      <Text style={styles.reportCardHint}>
-        {recordedDays === 0
-          ? '기록이 쌓이면 진료에 가져갈 수 있게 정리해 드려요.'
-          : '식단 기록을 한 장으로 정리해 인쇄하거나 저장할 수 있어요.'}
-      </Text>
-    </Pressable>
   );
 }
 
@@ -641,8 +396,8 @@ function DayDetail({
   if (date === null) {
     return (
       <View style={styles.dayHintCard}>
-        <MaterialIcons color="#a9a6a1" name="touch-app" size={20} />
-        <Text style={styles.dayHintText}>날짜를 누르면 그날 먹은 음식을 볼 수 있어요.</Text>
+        <MaterialIcons color="#1c5a55" name="touch-app" size={20} />
+        <Text style={styles.dayHintText}>도장판의 날짜를 누르면 그날 먹은 것을 볼 수 있어요.</Text>
       </View>
     );
   }
@@ -684,7 +439,7 @@ function DayDetail({
         <Pressable
           onPress={onPressAdd}
           style={({ pressed }) => [styles.dayAddButton, pressed && styles.pressed]}>
-          <MaterialIcons color="#22211f" name="add" size={18} />
+          <MaterialIcons color="#ffffff" name="add" size={20} />
           <Text style={styles.dayAddButtonText}>이 날짜에 기록 추가</Text>
         </Pressable>
         {hasMeals ? (
@@ -883,7 +638,10 @@ const styles = StyleSheet.create({
   },
   chartCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 8,
+    borderBottomWidth: 5,
+    borderColor: '#e4e2de',
+    borderRadius: 20,
+    borderWidth: 2,
     gap: 12,
     padding: 16,
   },
@@ -905,31 +663,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
-  content: {
-    padding: 16,
-  },
   disclaimer: {
-    color: '#a9a6a1',
-    fontSize: 13,
+    color: '#5c5b57',
+    fontSize: 12,
+    lineHeight: 17,
     textAlign: 'center',
   },
   // 캘린더 모드 — 날짜 선택 안내 / 선택한 날의 끼니 상세
   dayHintCard: {
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
+    backgroundColor: '#eef7f5',
+    borderRadius: 16,
     flexDirection: 'row',
     gap: 8,
-    padding: 16,
+    padding: 14,
   },
   dayHintText: {
-    color: '#a9a6a1',
-    fontSize: 13,
+    color: '#1c5a55',
+    flex: 1,
+    fontSize: 14,
     fontWeight: '700',
   },
   dayCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 8,
+    borderBottomWidth: 5,
+    borderColor: '#e4e2de',
+    borderRadius: 20,
+    borderWidth: 2,
     gap: 10,
     padding: 16,
   },
@@ -952,8 +712,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   dayEmptyText: {
-    color: '#a9a6a1',
-    fontSize: 13,
+    color: '#5c5b57',
+    fontSize: 14,
     paddingVertical: 4,
   },
   mealRow: {
@@ -998,17 +758,19 @@ const styles = StyleSheet.create({
   },
   dayAddButton: {
     alignItems: 'center',
-    backgroundColor: '#60beb8',
-    borderRadius: 8,
+    backgroundColor: '#2a7d76',
+    borderBottomWidth: 4,
+    borderColor: '#1c5a55',
+    borderRadius: 14,
     flexDirection: 'row',
     gap: 4,
     justifyContent: 'center',
+    minHeight: 48,
     paddingHorizontal: 14,
-    paddingVertical: 10,
   },
   dayAddButtonText: {
-    color: '#22211f',
-    fontSize: 14,
+    color: '#ffffff',
+    fontSize: 15,
     fontWeight: '800',
   },
   manageButton: {
@@ -1025,7 +787,10 @@ const styles = StyleSheet.create({
   emptyCard: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderRadius: 8,
+    borderBottomWidth: 5,
+    borderColor: '#e4e2de',
+    borderRadius: 20,
+    borderWidth: 2,
     gap: 8,
     padding: 24,
   },
@@ -1062,175 +827,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginRight: 8,
   },
-  visitCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    gap: 10,
-    padding: 18,
-  },
-  visitRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 10,
-  },
-  visitBody: {
-    flex: 1,
-    gap: 1,
-  },
-  visitTitle: {
-    color: '#22211f',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  visitText: {
-    color: '#5c5b57',
-    fontSize: 13,
-  },
-  visitDday: {
-    color: '#2a7d76',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  visitAdd: {
-    color: '#2a7d76',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  visitInput: {
-    backgroundColor: '#f7f6f4',
-    borderRadius: 8,
-    color: '#22211f',
-    fontSize: 15,
-    padding: 12,
-  },
-  visitNoteInput: {
-    minHeight: 72,
-    textAlignVertical: 'top',
-  },
-  visitNote: {
-    backgroundColor: '#f7f6f4',
-    borderRadius: 8,
-    gap: 3,
-    padding: 12,
-  },
-  visitNoteLabel: {
-    color: '#8b857c',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  visitNoteText: {
-    color: '#22211f',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  visitError: {
-    color: '#b8524e',
-    fontSize: 12.5,
-  },
-  visitActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  visitPrimary: {
-    backgroundColor: '#60beb8',
-    borderRadius: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-  },
-  visitPrimaryText: {
-    color: '#22211f',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  visitGhost: {
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  visitGhostText: {
-    color: '#5c5b57',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  visitDangerText: {
-    color: '#b8524e',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  reportCard: {
-    backgroundColor: '#ffffff',
-    borderColor: '#60beb8',
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 14,
-    padding: 18,
-  },
-  reportCardHead: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  reportCardHeadText: {
-    flex: 1,
-  },
-  reportCardTitle: {
-    color: '#22211f',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  reportCardPeriod: {
-    color: '#a9a6a1',
-    fontSize: 12,
-  },
-  reportCardStats: {
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-  reportCardStat: {
-    flex: 1,
-    gap: 2,
-  },
-  reportCardStatValue: {
-    color: '#2a7d76',
-    fontSize: 22,
-    fontWeight: '900',
-  },
-  reportCardStatUnit: {
-    color: '#5c5b57',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  reportCardStatLabel: {
-    color: '#5c5b57',
-    fontSize: 12,
-  },
-  reportCardHint: {
-    color: '#5c5b57',
-    fontSize: 12.5,
-    lineHeight: 18,
-  },
-  labLinkBody: {
-    flex: 1,
-    gap: 2,
-  },
-  labLinkHint: {
-    color: '#5c5b57',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  labLinkRow: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    flexDirection: 'row',
-    gap: 12,
-    padding: 16,
-  },
-  labLinkTitle: {
-    color: '#22211f',
-    fontSize: 16,
-    fontWeight: '800',
-  },
   pressed: {
     opacity: 0.74,
   },
@@ -1239,25 +835,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionLabel: {
-    color: '#2a7d76',
-    fontSize: 19,
-    fontWeight: '900',
-  },
-  sectionLabelDivider: {
-    borderTopColor: '#e4e2de',
-    borderTopWidth: 1,
-    marginTop: 10,
-    paddingTop: 18,
+    color: '#22211f',
+    fontFamily: DISPLAY_FONT,
+    fontSize: 22,
   },
   sectionLabelRow: {
     alignItems: 'center',
     flexDirection: 'row',
+    gap: 8,
     justifyContent: 'space-between',
-    minHeight: 32,
+    minHeight: 40,
   },
   summaryCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 8,
+    borderBottomWidth: 5,
+    borderColor: '#e4e2de',
+    borderRadius: 20,
+    borderWidth: 2,
     gap: 8,
     padding: 12,
   },
@@ -1288,14 +882,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
   },
-  title: {
-    color: '#22211f',
-    fontSize: 24,
-    fontWeight: '900',
-  },
   weightCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 8,
+    borderBottomWidth: 5,
+    borderColor: '#e4e2de',
+    borderRadius: 20,
+    borderWidth: 2,
     gap: 12,
     padding: 16,
   },

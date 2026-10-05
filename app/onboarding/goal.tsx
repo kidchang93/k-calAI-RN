@@ -54,7 +54,7 @@ export default function GoalScreen() {
       await putGoal(toGoalRequest(goalType, customKcalText));
 
       // 온보딩 완료. 탭 레이아웃이 다시 마운트되며 프로필을 재확인한다.
-      router.replace('/(tabs)');
+      router.replace('/home');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
     } finally {

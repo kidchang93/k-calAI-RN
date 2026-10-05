@@ -21,6 +21,11 @@ const MAPPING = {
   // 가리켜 진료 중개처럼 읽힌다(하지 않기로 한 것). 달력이 '지난 날들'을 가리킨다.
   calendar: 'calendar-month',
   'person.fill': 'person',
+  // 식단·케어·진료 세 탭 (2026-10-05). 진료는 십자가 아니라 **가방**이다 — 병원에 보내는 게
+  // 아니라 진료에 챙겨 갈 것을 담는 곳이다(위 '돌아보기'와 같은 이유).
+  'fork.knife': 'restaurant',
+  'heart.fill': 'favorite',
+  'briefcase.fill': 'work',
 } as IconMapping;
 
 /**

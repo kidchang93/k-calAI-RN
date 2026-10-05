@@ -8,13 +8,15 @@ k-calAI-RN/
 │   ├── _layout.tsx             # 루트 Stack + ThemeProvider + 인증 가드
 │   ├── auth.tsx                # 카카오 로그인 + 신규 회원 동의·요금제 (initialRouteName, 딥링크 kcalairn://auth 목적지)
 │   ├── (tabs)/
-│   │   ├── _layout.tsx         # 하단 탭 (홈 / 기록 / 추이 / 내 정보) + 온보딩 게이트
-│   │   ├── home.tsx            # 홈 탭 - 오늘 요약 (그룹 진입점)
-│   │   ├── index.tsx           # 기록 탭 - '오늘 기록 만들기' 런처 (사진/검색·직접입력 → compose로 진입)
-│   │   ├── trends.tsx          # 진료 탭 - 세 묶음: 진료 준비(진료일·리포트) / 식단과 검사 수치 / 몸과 활동
-│   │   ├── account.tsx         # 내 정보 탭 (프로필·목표 요약, 체중·질병·알러지 진입점, 로그아웃·회원 탈퇴)
+│   │   ├── _layout.tsx         # 하단 탭 (식단 / 케어 / 진료) + 온보딩 게이트. index·record·account 는 href:null 로 숨김 (2026-10-05)
+│   │   ├── home.tsx            # 식단 탭 - 오늘의 퀘스트(끼니 4칸 → 사진·기록) + 소금 항아리
+│   │   ├── trends.tsx          # 케어 탭 - 도장판(달력)·그래프 / 질환 영양 추이 / 내 질환 도감 / 몸 기록 (라우트 이름은 옛 그대로)
+│   │   ├── visit.tsx           # 진료 탭 - D-day·다녀온 날 / 진료까지의 길 / 진료 가방(리포트·검사 결과·들은 것)
+│   │   ├── index.tsx           # `/` → `/home` 리다이렉트 (웹 첫 화면이 식단 탭이 되게)
+│   │   ├── record.tsx          # (숨김) 옛 기록 탭 런처. 식단 탭 끼니 칸이 대신한다 — 지우지 않고 `/record`로 남김
+│   │   ├── account.tsx         # (탭바에서 숨김) 내 정보 — 세 탭 머리의 동그라미로 진입. 프로필·목표·그룹·알러지·동의·로그아웃
 │   ├── onboarding/             # 온보딩 스택 (consent → body → …)
-│   ├── groups/                 # 그룹 스택 (홈에서 진입)
+│   ├── groups/                 # 그룹 스택 (내 정보 '보호자·가족과 함께 보기'에서 진입)
 │   │   ├── _layout.tsx         # 인증 가드 (온보딩 레이아웃과 같은 패턴)
 │   │   ├── index.tsx           # 내 그룹 목록
 │   │   ├── create.tsx          # 그룹 생성
@@ -24,7 +26,7 @@ k-calAI-RN/
 │   ├── me/                     # 내 정보 하위 스택 (내 정보 탭에서 진입)
 │   │   ├── _layout.tsx         # 인증 가드
 │   │   ├── profile.tsx         # 프로필 수정 (GET/PUT /api/me/profile)
-│   │   ├── goal.tsx            # 목표 수정 (GET/PUT /api/me/goal, 홈 목표 CTA에서도 진입)
+│   │   ├── goal.tsx            # 목표 수정 (GET/PUT /api/me/goal, 식단 탭 목표 줄에서도 진입)
 │   │   ├── weights.tsx         # 체중 기록 (POST/GET /api/weights)
 │   │   ├── conditions.tsx      # 질병 정보 수정 (GET/PUT /api/me/conditions, 칩 + 메타 폴백)
 │   │   └── allergies.tsx       # 알러지 정보 수정 (GET/PUT /api/me/allergies, severity 보존)
@@ -37,11 +39,11 @@ k-calAI-RN/
 │   │   ├── _layout.tsx         # 인증 가드 (groups 레이아웃과 같은 패턴)
 │   │   ├── index.tsx           # 결제 내역 목록 (GET /api/payments, 빈 상태·상태 배지)
 │   │   └── [id].tsx            # 영수증 상세 (GET /api/payments/{id}, 404 안내)
-│   ├── meals/                  # 끼니 기록 목록·구성 (홈 끼니 카드·캘린더·기록 탭에서 진입)
+│   ├── meals/                  # 끼니 기록 목록·구성 (식단 탭 끼니 칸·케어 도장판에서 진입)
 │   │   ├── _layout.tsx         # 인증 가드
 │   │   ├── index.tsx           # 날짜별 기록 목록 + 삭제 + 인라인 수정 + '기록 추가'·'끼니에 항목 추가' 진입점
 │   │   └── compose.tsx         # 끼니 구성 — 한 끼니에 다중 항목(사진 foods[]/DB검색/직접입력), 신규·append(meal_id) 저장
-│   └── recommendations/        # 식단 추천 스택 (홈에서 진입)
+│   └── recommendations/        # 식단 추천 스택 (식단 탭 '지금' 칸의 '뭐 먹지?'에서 진입)
 │       ├── _layout.tsx         # 인증 가드
 │       └── index.tsx           # 끼니 선택 + 오늘 추천 목록
 ├── services/                   # 외부 통신 + 앱 전역 상태
@@ -74,7 +76,11 @@ k-calAI-RN/
 │   ├── goal-form.tsx, profile-form.tsx, allergy-form.tsx, condition-form.tsx  # 온보딩(app/onboarding/)·내 정보 수정(app/me/)이 같이 쓰는 폼. 불러오기·API 저장·이동은 라우트에 두고 폼은 값·onChange·onSave만 받는다. 배타 '없음' 토글(toggleExclusive·NONE_VALUE)은 condition-form이 export
 │   ├── error-banner.tsx        # 오류 배너 + 다시 시도 (actionLabel로 문구 교체 — 402는 '요금제 업그레이드')
 │   ├── back-button.tsx         # 탭 밖 스택 화면(그룹·요금제)의 뒤로가기
-│   ├── chip-group.tsx, meal-type-card.tsx, progress-ring.tsx, onboarding-progress.tsx
+│   ├── tab-header.tsx          # 세 탭 공통 머리 — 제목(둥근 글꼴) + 내 정보 동그라미 (2026-10-05)
+│   ├── stamp-calendar.tsx      # 케어 탭 도장판 — 남긴 날에 도장. kcal·목표 색을 칸에 찍지 않는다 (옛 kcal-calendar)
+│   ├── visit-path.tsx          # 진료 탭 '진료까지의 길' — 지난 4주(주별 남긴 날) → 남은 길 → 도착(진료일)
+│   ├── chip-group.tsx, onboarding-progress.tsx
+│   ├── meal-type-card.tsx, progress-ring.tsx, next-meal-card.tsx  # (2026-10-05부터 쓰는 곳 없음 — 옛 홈 링·끼니 카드·추천 카드. 지우지 않고 남김)
 │   ├── haptic-tab.tsx          # 탭 햅틱
 │   └── ui/
 │       └── icon-symbol.tsx / icon-symbol.ios.tsx  # 플랫폼 분기
@@ -107,24 +113,26 @@ expo-router의 파일 기반 라우팅입니다. `app/` 하위 파일이 곧 경
 | 파일 | 경로 | 비고 |
 |------|------|------|
 | `app/auth.tsx` | `/auth` | `unstable_settings.initialRouteName = 'auth'` |
-| `app/(tabs)/home.tsx` | `/home` | 로그인 직후 진입 탭. 그룹 진입점 |
-| `app/(tabs)/index.tsx` | `/` | 그룹 `(tabs)`는 URL에 나타나지 않음 |
-| `app/(tabs)/trends.tsx` | `/trends` | 진료 탭. 세 묶음(2026-09-15): **진료 준비**(다음 진료일 `GET·PUT /api/me/next-visit`·진료에 가져갈 기록 → `/report`) / **식단과 검사 수치**(그래프·캘린더 토글, 일별 섭취 `GET /api/me/trends`·질환 영양 추이·검사 수치 `GET /api/me/labs`) / **몸과 활동**(체중 `GET /api/weights` 기간 필터·체성분·주간 조언) |
-| `app/(tabs)/account.tsx` | `/account` | 프로필·요금제·결제 내역·질병·알러지 진입점 |
+| `app/(tabs)/home.tsx` | `/home` | **식단 탭.** 로그인·온보딩 직후 진입(`auth.tsx`·`onboarding/goal.tsx`가 `/home`으로 보낸다) |
+| `app/(tabs)/index.tsx` | `/` | `/home`으로 리다이렉트만 한다. 그룹 `(tabs)`는 URL에 나타나지 않음 |
+| `app/(tabs)/record.tsx` | `/record` | (숨김) 옛 기록 탭 런처 |
+| `app/(tabs)/visit.tsx` | `/visit` | **진료 탭.** 다음 진료일 `GET·PUT·DELETE /api/me/next-visit` · 지난 28일 `GET /api/me/trends` → 진료까지의 길 · 진료 가방(`/report`·`/labs`·들은 것) |
+| `app/(tabs)/trends.tsx` | `/trends` | **케어 탭**(2026-10-05, 옛 진료 → 돌아보기). 도장판(달 단위 `GET /api/me/trends`)·그래프(최근 7·28일) 토글, 질환 영양 추이, 내 질환 도감(`GET /api/guides`), 몸 기록(체중 `GET /api/weights` 기간 필터). 체성분·주간 조언은 2026-09-16부터 없다 |
+| `app/(tabs)/account.tsx` | `/account` | (탭바에서 숨김) 내 정보. 세 탭 머리의 동그라미로 진입. 프로필·목표·그룹·알러지·동의 관리 |
 | `app/onboarding/*.tsx` | `/onboarding/…` | 인증 가드 레이아웃 |
 | `app/groups/index.tsx` | `/groups` | 내 그룹 목록 |
 | `app/groups/create.tsx` | `/groups/create` | 그룹 생성 |
 | `app/groups/join.tsx` | `/groups/join?code=XXXXXXXX` | 초대코드로 참여. `code`가 있으면 프리필(초대 링크 경유) — **자동 참여는 하지 않는다** |
 | `app/invite.tsx` | `/invite?code=XXXXXXXX` | 초대 링크 착지점. **인증 가드 밖의 단일 라우트**인 것이 존재 이유다 — 초대받는 사람은 대개 미가입자라, 가드가 걸린 `/groups/join`으로 바로 보내면 로그인으로 튕기며 코드가 유실된다. 로그인 상태면 `/groups/join?code=`로 replace, 아니면 코드를 보관(`group-invite.ts`)하고 로그인 유도 |
 | `app/groups/[id].tsx` | `/groups/:id` | 그룹 상세. `router.push({ pathname: '/groups/[id]', params })` |
-| `app/recommendations/index.tsx` | `/recommendations` | 식단 추천 (홈에서 진입, 인증 가드 레이아웃) |
+| `app/recommendations/index.tsx` | `/recommendations` | 식단 추천 (식단 탭 '지금' 칸에서 진입, 인증 가드 레이아웃) |
 | `app/me/profile.tsx` | `/me/profile` | 프로필 수정 (내 정보 탭에서 진입) |
-| `app/me/goal.tsx` | `/me/goal` | 목표 수정 (내 정보 탭·홈 목표 CTA에서 진입) |
+| `app/me/goal.tsx` | `/me/goal` | 목표 수정 (내 정보·식단 탭 목표 줄에서 진입) |
 | `app/me/weights.tsx` | `/me/weights` | 체중 기록 입력 + 최근 목록 |
 | `app/me/conditions.tsx` | `/me/conditions` | 질병 정보 수정 (내 정보 탭에서 진입) |
 | `app/me/allergies.tsx` | `/me/allergies` | 알러지 정보 수정 (내 정보 탭에서 진입, 기존 severity 보존) |
-| `app/meals/index.tsx` | `/meals?date=YYYY-MM-DD` | 날짜별 끼니 기록 목록 + 삭제 + 인라인 수정 (홈 끼니 카드·캘린더에서 진입, 날짜 파라미터 유지) |
-| `app/meals/compose.tsx` | `/meals/compose?date=&meal_type=&meal_id=&photoUri=…` | 끼니 구성(다중 항목). `meal_id` 있으면 append 모드(PUT 전체 교체), 없으면 신규(POST + `logged_at` 앵커). 기록 탭·캘린더·기록 목록에서 진입 |
+| `app/meals/index.tsx` | `/meals?date=YYYY-MM-DD` | 날짜별 끼니 기록 목록 + 삭제 + 인라인 수정 (식단 탭 채운 칸·케어 도장판에서 진입, 날짜 파라미터 유지) |
+| `app/meals/compose.tsx` | `/meals/compose?date=&meal_type=&meal_id=&photoUri=…` | 끼니 구성(다중 항목). `meal_id` 있으면 append 모드(PUT 전체 교체), 없으면 신규(POST + `logged_at` 앵커). 식단 탭 끼니 칸(`meal_type` 지정)·도장판·기록 목록에서 진입 |
 | `app/plan.tsx` | `/plan` | 요금제 (내 정보에서 진입, 402 배너의 업그레이드 버튼 목적지). 레이아웃 없는 단일 라우트라 화면 자신이 `<Stack.Screen options={{ headerShown: false }} />` + `<Redirect>` 가드를 건다. 유료 카드 → `startCheckout` + 토스 결제창(웹), 유료 구독 중 → 화면 내 2단계 확인 후 `cancelBilling()` |
 | `app/billing/success.tsx` | `/billing/success?plan=&authKey=&customerKey=` | 토스 successUrl 착지점. `confirmBilling`을 **마운트 1회**만 호출(ref 가드 — `authKey`는 1회용). `BackButton` 없음, 이동은 전부 `router.replace` (뒤가 토스 결제창이라 되돌아오면 소비된 authKey로 재confirm) |
 | `app/billing/fail.tsx` | `/billing/fail?code=&message=` | 토스 failUrl 착지점. 서버를 부르지 않는다(카드 등록 자체가 없었다). `USER_CANCEL`·`PAY_PROCESS_CANCELED`는 오류가 아니라 취소로 그린다 |
@@ -229,32 +237,48 @@ useAuthSession()      → useSyncExternalStore(subscribe, getSnapshot) → AuthS
 
 **웹:** `platform=web`으로 열면 서버가 같은 오리진의 `/auth?…`로 되돌립니다. 팝업이 결과를 부모 창에 넘기도록 `app/auth.tsx`가 마운트 시 `completeKakaoAuthSession()`(`WebBrowser.maybeCompleteAuthSession()`)을 호출합니다 (네이티브 no-op).
 
-### 홈의 정보 구조 (2026-07-23 개편)
+### 탭 정보 구조 (2026-10-05 화면 재구성)
+
+탭은 **할 일이 있는 곳 셋**만 둔다 — 식단 관리 · 케어 · 진료(병원 연계). 예전 홈은 카드 9장이 같은
+무게로 쌓이고 맨 위가 '남은 kcal' 큰 링이라 잔액을 보여 주는 핀테크 앱처럼 읽혔고, 정작 할 일(사진)은
+다른 탭에 있었다. 탭마다 게임 장치 하나·색 하나다(디자인 원본: 캔버스 '케어테이블 화면 재구성').
 
 ```
-홈 (app/(tabs)/home.tsx)
-  ├─ 칼로리 링                     SummaryRing        — 목표 미설정이면 대신 목표 CTA
-  ├─ 오늘의 영양                   components/day-nutrients-card.tsx
-  │    질환 축(나트륨·칼륨·인) 하루 누적. summary.nutrients 가 null 이면 통째로 사라진다
-  ├─ 다음 끼니 추천                components/next-meal-card.tsx
-  │    GET /api/recommendations 미리보기 2개. 실패해도 카드는 남고 진입은 열려 있다
-  ├─ 끼니 카드 4개                 MealCards          — 기록 현황(조회)
-  └─ 내 그룹 진입 행
+식단 (home.tsx, 주황) — 오늘의 퀘스트                       매일 · 끼니마다
+  ├─ TabHeader  '10월 5일 (월) · 420 / 2,200 kcal'  ← kcal 은 큰 링이 아니라 이 한 줄
+  ├─ VisitStrip 다음 진료까지 N일 → /visit          (등록 안 했거나 지났으면 그리지 않음)
+  ├─ YesterdayCard                                  (CARE_LOOP §6 — 하루 1회, 닫을 수 있음)
+  ├─ 오늘의 퀘스트  아침·점심·저녁 3칸 중 몇 칸         (간식은 퀘스트에 넣지 않는다)
+  │    끼니 4칸(자리 고정) — 채운 칸: 도장 + 음식 + 나트륨 / '지금' 칸: 사진 찍기·앨범·직접 입력·뭐 먹지?
+  │    / 빈 칸: 남기기 → /meals/compose?meal_type=
+  ├─ AI_USE_NOTICE                                  (사진이 이 탭에서 바로 시작되므로 사전고지가 여기)
+  └─ DayNutrientsCard  소금 항아리(상한 있는 축만) + 칼륨·인 숫자
+
+케어 (trends.tsx, 청록) — 내 몸 도감                         일주일에 한두 번
+  ├─ 돌아보기  [도장판 | 그래프]  StampCalendar + DayDetail / KcalBarChart + 요약
+  ├─ NutrientTrends    (두 모드 모두 — 보고 있는 기간)
+  ├─ ConditionGuideCard  '내 질환 도감' 가로 카드 → /guides/[condition]
+  └─ 몸 기록  WeightSection
+
+진료 (visit.tsx, 파랑) — 진료까지의 길                       진료와 진료 사이(약 3개월)
+  ├─ DdayCard          미등록: '언제 가세요? [적기]' / D-N / 오늘: [리포트]
+  │  AfterVisitCard    지났으면: 한 바퀴 완주 → ① 검사 결과 옮겨 적기 ② 들은 말·다음 진료일 적기
+  ├─ VisitPath         지난 4주(주별 남긴 날) → 남은 길 → 도착(진료일)
+  └─ 진료 가방         4주 기록 리포트(/report, 길과 같은 기간) · 검사 결과(/labs) · 진료에서 들은 것
 ```
 
-**순서가 곧 판단입니다.** 만성질환자에게는 kcal 보다 나트륨 누적이 중요하므로 링 바로 아래에 두고
-(`kcalAI-model/docs/PRODUCT_STRATEGY.md` §1), "다음에 뭘 먹지"(추천)를 "끼니별로 뭘 먹었나"(조회)보다
-앞에 둡니다. 예전에는 추천이 그룹 진입과 나란한 **회색 리스트 행**이어서, 질환별 제외·등급·조리 팁까지
-담긴 가장 밀도 높은 화면이 가장 눈에 띄지 않았습니다.
+**게임 장치의 규칙** — 게임처럼 만들면서 기존 원칙을 깨지 않는 선:
+- **도장은 잘 먹어서가 아니라 남겨서** 받는다. 칸에 kcal·목표 색을 찍지 않는다(챌린지를 숨긴 이유와 같다, KCAL-18).
+- **순위·경쟁·연속 끊김 표시 없음.** 빈 칸은 점선일 뿐 코랄이 아니고, '지금 채워도 돼요'라고 쓴다.
+- **채워지는 그릇은 상한이 있는 축만**(나트륨). 칼륨·인은 숫자와 근거 문장만 둔다(KDOQI 2020).
+- **진료는 예약이 아니라 준비.** 아이콘은 가방, 버튼은 '적기'(의료법 제27조 제3항 — 서버 CARE_LOOP §3).
+- 이번 주 조언·BMI·권장 운동량은 **넣지 않는다**(2026-09-16, KCAL-36·37 판정 제거 결정 유지).
 
-**3번 탭은 2026-08-19에 '리포트' → '진료'로 정체를 바꿨습니다** (서버 `docs/CARE_LOOP.md` §7).
-다음 진료일·검사 수치·식단 추이·진료용 리포트가 모두 진료를 향한 행동인데 '리포트'라는 이름은
-그중 하나만 가리켰습니다. 위에서부터 **다음 진료일 → 진료에 가져갈 기록 → 추이(그래프·캘린더) →
-검사 수치 → 체중 → 체성분·권장 활동량 → 주간 조언** 순이고, 뷰 모드와 무관한 섹션은 분기 밖
-공통 블록에 있습니다. BMI·권장 활동량과 주간 조언은 2026-07-25에 내 정보 탭으로 갔다가 이때
-돌아왔습니다 — 내 정보는 계정·설정을 보는 곳이라 판단 자료가 섞여 있었습니다.
+⚠️ **지난 진료일은 서버에 없다.** `next-visit`은 하나만 저장하고 PUT 이 덮어쓴다(DATA_MODEL 31장). 그래서
+길의 출발점은 '지난 진료'가 아니라 **지난 4주**다 — 없는 날짜를 지어내지 않는다.
 
-⚠️ **라우트 이름은 `trends` 그대로입니다.** URL(`/trends`)이 바뀌면 저장해 둔 링크가 깨집니다.
+⚠️ **라우트 이름은 그대로입니다**(`home`·`trends`). URL 이 바뀌면 저장해 둔 링크가 깨집니다. 숨긴 화면
+(`record`·`account`)은 탭바에서만 빠졌고 경로는 살아 있습니다(원칙: KCAL-14 — 지우지 않고 숨긴다).
 
 기록 확정 화면의 경고 배너에는 **'다음 끼니에 맞는 메뉴 보기'** 액션이 붙습니다. 경고를 막다른 길로
 두지 않기 위한 것이고, 기록을 막지 않으므로 이미 먹은 것을 지우라는 뜻이 아닙니다(그래서 '다음 끼니').
@@ -314,15 +338,16 @@ app/plan.tsx  [자동결제 해지] → 화면 내 2단계 확인 → cancelBill
 
 ### 식단 분석 · 끼니 구성 (2026-07-16, 다중 항목)
 
-기록 탭(`app/(tabs)/index.tsx`)은 **런처**다. 사진을 고르거나 '검색·직접 입력'을 누르면 오늘 날짜로
+식단 탭의 끼니 칸이 **런처**다(2026-10-05 — 그 전엔 기록 탭 `app/(tabs)/index.tsx`, 지금은 숨긴
+`record.tsx`). '사진 찍기'는 카메라를 바로 열고, '앨범·직접 입력'·빈 칸은 오늘 날짜·그 끼니로
 **끼니 구성 화면**(`app/meals/compose.tsx`)에 진입한다. 실제 분석·구성·저장은 compose 한 곳에 있다 —
 과거 날짜(캘린더)·기존 끼니에 항목 추가(기록 목록)와 같은 로직을 공유한다.
 
 ```
-기록 탭 (런처)
-  └─ pickFromCamera/Library → router.push('/meals/compose',
-        { date: 오늘, photoUri, photoName?, photoMime? })
-  └─ '검색·직접 입력으로 추가' → router.push('/meals/compose', { date: 오늘 })
+식단 탭 끼니 칸 (런처)
+  └─ '사진 찍기' pickPhoto('camera') → router.push('/meals/compose',
+        { date: 오늘, meal_type, ...photoParams(asset) })      # services/photo-picker.ts
+  └─ '앨범·직접 입력'·빈 칸 → router.push('/meals/compose', { date: 오늘, meal_type })
 
 app/meals/compose.tsx   params: date, meal_type?, meal_id?(=append), photoUri?
   ├─ (append) getMeals(date) → meal_id의 기존 항목 로드 (전체 교체 PUT에 그대로 다시 보냄)
@@ -347,7 +372,7 @@ app/meals/compose.tsx   params: date, meal_type?, meal_id?(=append), photoUri?
   └─ saveMeal()
        신규:  createMeal({ meal_type, logged_at: `${date}T12:00:00Z`, items })  # UTC 정오 앵커
        append: updateMeal(meal_id, { meal_type: 기존, items: [기존…, 신규…] })  # logged_at 생략
-       └─ router.back()   # 이전 화면(캘린더·기록 목록·기록 탭)이 useFocusEffect로 재조회
+       └─ router.back()   # 이전 화면(식단 탭·도장판·기록 목록)이 useFocusEffect로 재조회
 ```
 
 **`logged_at` UTC 앵커:** 서버는 끼니 하루를 **UTC 자정**으로 나눈다(`GET /api/meals?date=`도 UTC 날짜로 필터).

@@ -3,6 +3,7 @@ import { Href, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { BackButton } from '@/components/back-button';
 import { ErrorBanner } from '@/components/error-banner';
 import { ACTIVITY_OPTIONS } from '@/components/profile-form';
 import { LoadingState } from '@/components/loading-state';
@@ -36,7 +37,11 @@ const GOAL_LABELS: Record<GoalType, string> = {
 // - 요금제·결제 내역(`/plan`·`/payments`): 1차 출시는 무료라 팔 것이 없다. 유료 전환 때 되살린다.
 // - 질병 정보(`/me/conditions`): 온보딩의 '어떤 게 궁금하세요?'가 같은 값을 받게 되면 그쪽이
 //   정본이 된다(KCAL-31). 그 화면이 나오기 전까지는 질병을 고칠 곳이 사라지므로 ⚠️ 함께 배포한다.
+//
+// 2026-10-05: 내 정보는 탭에서 빠져 세 탭 머리의 동그라미로 들어온다(components/tab-header.tsx).
+// '함께 보기'(그룹)는 홈에서 여기로 옮겼다 — 탭에는 식단·케어·진료만 남긴다.
 const MENU_ROWS: { href: Href; icon: keyof typeof MaterialIcons.glyphMap; label: string }[] = [
+  { href: '/groups', icon: 'groups', label: '보호자·가족과 함께 보기' },
   { href: '/me/allergies', icon: 'no-food', label: '알러지' },
   // 온보딩이 "내 정보에서 언제든 철회할 수 있어요"라고 약속한 진입점이다
   // (app/onboarding/consent.tsx). 이 행이 없으면 그 고지가 거짓이 된다.
@@ -148,6 +153,7 @@ export default function AccountScreen() {
 
   return (
     <Screen>
+      <BackButton />
       <View style={styles.header}>
         <Text style={styles.title}>내 정보</Text>
         <Text style={styles.subtitle}>내 식습관을 관리해요</Text>
