@@ -27,6 +27,8 @@
 
 ## 빌드 및 실행 명령어
 
+> **운영 배포·스토어 빌드는 `/kcal-release` 스킬로만 한다**(2026-10-05 — `~/.claude/skills/kcal-release`). 웹·서버 배포, iOS 빌드→TestFlight, Android 빌드의 사전 점검(깨끗한 트리·tsc/lint·운영과 같은 3.10 pytest·업데이트 이력)과 확인 스크립트가 거기 있다. App Store Connect 앱 ID `6819191246`(`eas.json` `submit.production.ios.ascAppId`) — API 키 값은 저장소에 두지 않는다.
+
 ```bash
 npm install
 
