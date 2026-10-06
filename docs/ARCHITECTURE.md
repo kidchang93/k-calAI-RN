@@ -549,7 +549,7 @@ readOk(response, fallback, statusErrors?)              # ensureOk + 본문 JSON 
 | 시스템 | 용도 | 접점 |
 |--------|------|------|
 | `kcalAI-model` (FastAPI) | 인증, 이미지 분류, 칼로리 설명 | `services/auth-api.ts`, `services/calorie-api.ts` |
-| OS 카메라 / 사진 라이브러리 | 이미지 입력 | `expo-image-picker` (권한 문구는 `app.json`) |
+| OS 카메라 / 사진 라이브러리 | 이미지 입력 | `expo-image-picker` (권한 문구는 `app.json`). 동영상을 찍지 않으므로 **마이크 권한은 끈다**(`microphonePermission: false` — Android `RECORD_AUDIO` 를 매니페스트에서 제거, iOS `NSMicrophoneUsageDescription` 미삽입. 2026-10-06, Play 데이터 보안 양식·심사 질문을 줄이려고) |
 
 ### 서버 계약
 

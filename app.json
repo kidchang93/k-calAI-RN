@@ -78,10 +78,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false,
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ]
+      "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
@@ -93,7 +90,8 @@
         "expo-image-picker",
         {
           "photosPermission": "음식 사진을 선택해 칼로리를 분석하기 위해 사진 접근 권한이 필요합니다.",
-          "cameraPermission": "음식 사진을 촬영해 칼로리를 분석하기 위해 카메라 권한이 필요합니다."
+          "cameraPermission": "음식 사진을 촬영해 칼로리를 분석하기 위해 카메라 권한이 필요합니다.",
+          "microphonePermission": false
         }
       ],
       [
