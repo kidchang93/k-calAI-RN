@@ -44,6 +44,16 @@ export type MySubscription = {
   // 다음 자동결제 시각(ISO). 해지·무료 회원은 null.
   next_billing_at: string | null;
   cancel_at_period_end: boolean;
+  // ── 2026-10-06 플러스(App Store 인앱 구독, 서버 DATA_MODEL.md 32장) ──
+  // 결제가 어디서 왔나: 'toss' | 'appstore' | null(무료). status 와 같은 이유로 유니온으로 굳히지 않는다.
+  provider: string | null;
+  // App Store 상품 ID(services/iap.ts 의 PLUS_PRODUCT_IDS). 토스·무료는 null.
+  store_product_id: string | null;
+  // Apple 무료 체험 중. 체험이 끝나는 날 = current_period_end.
+  is_trial: boolean;
+  // StoreKit appAccountToken 으로 넘기는 회원 고정 UUID — 다른 회원이 '구매 복원'으로 남의 구독을
+  // 가져가는 것을 서버가 막는 열쇠다(409). 옛 서버는 null → 앱이 구매를 시작하지 않는다.
+  app_account_token: string | null;
 };
 
 const SUBSCRIPTION_API_URL = apiUrl('/api');
@@ -162,13 +172,24 @@ export function parseMySubscription(value: unknown): MySubscription | null {
     vision_usage: value.vision_usage,
     started_at: value.started_at,
     status: typeof value.status === 'string' ? value.status : 'active',
-    current_period_end: toIsoOrNull(value.current_period_end),
-    next_billing_at: toIsoOrNull(value.next_billing_at),
+    current_period_end: toStringOrNull(value.current_period_end),
+    next_billing_at: toStringOrNull(value.next_billing_at),
     cancel_at_period_end: value.cancel_at_period_end === true,
+    // 32장 4필드도 같은 규칙(옛 서버엔 없다). provider 가 없으면 서버 백필 규칙을 그대로 따른다 —
+    // 다음 청구가 잡혀 있으면 토스 구독이다(리비전 0031).
+    provider:
+      typeof value.provider === 'string'
+        ? value.provider
+        : typeof value.next_billing_at === 'string'
+          ? 'toss'
+          : null,
+    store_product_id: toStringOrNull(value.store_product_id),
+    is_trial: value.is_trial === true,
+    app_account_token: toStringOrNull(value.app_account_token),
   };
 }
 
-// 누락·null·타입 불일치를 전부 null로 좁힌다 (nullable ISO 필드 전용).
-function toIsoOrNull(value: unknown): string | null {
+// 누락·null·타입 불일치를 전부 null로 좁힌다 (nullable 문자열 필드 전용).
+function toStringOrNull(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }

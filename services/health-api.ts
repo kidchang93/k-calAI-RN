@@ -302,10 +302,27 @@ export type ReportLabResult = {
   is_before_period: boolean;
 };
 
+// 리포트 기간은 서버가 정한다 (서버 `docs/DATA_MODEL.md` 32-5). 무료는 최근 14일(레거시 회원 30일),
+// 플러스는 최대 365일이고 기본은 지난 진료일부터 오늘이다. 상한보다 긴 요청은 400 이 아니라
+// start_date 를 당겨 자르고 clamped=true 로 알린다 — 앱이 숫자를 하드코딩하지 않고 max_days 를 쓴다.
+const REPORT_PLANS = ['free', 'plus'] as const;
+
+export type ReportPlan = (typeof REPORT_PLANS)[number];
+
+export type ReportRange = {
+  plan: ReportPlan;
+  max_days: number;
+  last_visit_on: string | null;
+  clamped: boolean;
+  default_start_date: string;
+};
+
 export type MedicalReport = {
   start_date: string;
   end_date: string;
   generated_at: string;
+  // 옛 서버(32장 이전)는 주지 않는다 — null 이면 화면이 무료·플러스 구분 없이 예전처럼 그린다.
+  range: ReportRange | null;
   conditions: string[];
   ckd_stage_label: string | null;
   kcal: {
@@ -321,13 +338,15 @@ export type MedicalReport = {
   notice: string;
 };
 
+// period 를 생략하면 서버 기본 기간(무료 = 상한만큼 최근, 플러스 = 지난 진료일부터 오늘)이다.
 export async function getMedicalReport(
-  startDate: string,
-  endDate: string
+  period: { start_date: string; end_date: string } | null = null
 ): Promise<MedicalReport> {
-  const response = await apiFetch(
-    `${HEALTH_API_URL}/me/report?start_date=${startDate}&end_date=${endDate}`
-  );
+  const query =
+    period === null
+      ? ''
+      : `?start_date=${encodeURIComponent(period.start_date)}&end_date=${encodeURIComponent(period.end_date)}`;
+  const response = await apiFetch(`${HEALTH_API_URL}/me/report${query}`);
 
   const data = await readOk(response, '리포트 조회 실패');
 
@@ -337,10 +356,50 @@ export async function getMedicalReport(
 
   return {
     ...data,
+    range: parseReportRange(data.range),
     // 옛 서버(2026-08-03 이전)는 `labs`를 주지 않는다. 그대로 두면 화면이 undefined에
     // .map()을 걸어 리포트 전체가 크래시한다 — 검사 수치는 부가 정보이므로 빈 배열로 흘린다.
     labs: Array.isArray(data.labs) ? data.labs : [],
   } as unknown as MedicalReport;
+}
+
+// 지난 진료 구간과 이번 구간을 같은 모양으로 (32-5, 플러스 전용 — 무료면 402 → apiFetch 가
+// PlanLimitError 로 던진다). **판정하지 않는다** — 좋아졌다·나빠졌다는 서버도 앱도 말하지 않는다.
+export type ReportIntervalNutrient = {
+  nutrient: string;
+  label: string;
+  unit: string;
+  daily_avg: number | null;
+  measured_days: number;
+};
+
+export type ReportInterval = {
+  start_date: string;
+  end_date: string;
+  total_days: number;
+  recorded_days: number;
+  kcal_daily_avg: number | null;
+  nutrients: ReportIntervalNutrient[];
+};
+
+export type ReportCompare = {
+  current: ReportInterval;
+  // 지난 진료가 하나뿐이면 null — 화면이 비교 표를 숨긴다.
+  previous: ReportInterval | null;
+};
+
+export async function getReportCompare(): Promise<ReportCompare> {
+  const response = await apiFetch(`${HEALTH_API_URL}/me/report/compare`);
+  const data = await readOk(response, '구간 비교 조회 실패');
+
+  if (!isRecord(data)) {
+    throw new Error('서버 응답 형식이 올바르지 않습니다.');
+  }
+
+  return {
+    current: ensure(parseReportInterval(data.current)),
+    previous: data.previous === null ? null : ensure(parseReportInterval(data.previous)),
+  };
 }
 
 // 기록 직전 알러지·질병 경고 판정 (DATA_MODEL.md 16장). source는 판별 유니온 —
@@ -557,6 +616,37 @@ export async function getTrends(startDate: string, endDate: string): Promise<Tre
   return ensure(parseTrendsResponse(await readOk(response, '리포트 조회 실패')));
 }
 
+const TRENDS_MAX_DAYS = 92;
+
+// 92일보다 긴 범위의 일별 기록. 무료 리포트의 '지난 진료부터 남긴 날'이 쓴다 — 리포트는 서버가
+// 최근 14일로 자르지만 남긴 날 수는 기록 자체라 막지 않는다(기록은 볼모가 아니다, 32-1).
+export async function getTrendDays(startDate: string, endDate: string): Promise<TrendDay[]> {
+  const windows: { start: string; end: string }[] = [];
+
+  for (let start = startDate; start <= endDate; start = shiftDate(start, TRENDS_MAX_DAYS)) {
+    const end = shiftDate(start, TRENDS_MAX_DAYS - 1);
+
+    windows.push({ start, end: end < endDate ? end : endDate });
+  }
+
+  const results = await Promise.all(windows.map(({ start, end }) => getTrends(start, end)));
+
+  return results.flatMap((result) => result.days);
+}
+
+// 'YYYY-MM-DD' 날짜 산술. UTC 로 계산해 기기 타임존·서머타임에 흔들리지 않는다.
+export function shiftDate(date: string, days: number): string {
+  return new Date(Date.UTC(...dateParts(date)) + days * 86_400_000).toISOString().slice(0, 10);
+}
+
+export function daysBetween(start: string, end: string): number {
+  return Math.round((Date.UTC(...dateParts(end)) - Date.UTC(...dateParts(start))) / 86_400_000);
+}
+
+function dateParts(date: string): [number, number, number] {
+  return [Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10))];
+}
+
 // 기록 확정 직전 경고 판정 (DATA_MODEL.md 16장). Bearer + sensitive_health 동의 필수(401/403).
 // 경고는 부가 기능이라 화면이 실패(401/403/네트워크)를 조용히 스킵한다 — 여기서는 규약대로 던지기만 한다.
 // 라벨은 1~10개. 서버가 중복을 제거하고, 해당 없으면 빈 배열을 준다.
@@ -620,6 +710,80 @@ function toNullableNumber(value: unknown): number | null | undefined {
   }
 
   return toNumber(value) ?? undefined;
+}
+
+function parseReportRange(value: unknown): ReportRange | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const plan = oneOf(REPORT_PLANS, value.plan);
+  const max_days = toNumber(value.max_days);
+
+  if (plan === null || max_days === null || typeof value.default_start_date !== 'string') {
+    return null;
+  }
+
+  return {
+    plan,
+    max_days,
+    last_visit_on: typeof value.last_visit_on === 'string' ? value.last_visit_on : null,
+    clamped: value.clamped === true,
+    default_start_date: value.default_start_date,
+  };
+}
+
+function parseReportInterval(value: unknown): ReportInterval | null {
+  if (!isRecord(value) || !Array.isArray(value.nutrients)) {
+    return null;
+  }
+
+  const total_days = toNumber(value.total_days);
+  const recorded_days = toNumber(value.recorded_days);
+  const kcal_daily_avg = toNullableNumber(value.kcal_daily_avg);
+
+  if (
+    typeof value.start_date !== 'string' ||
+    typeof value.end_date !== 'string' ||
+    total_days === null ||
+    recorded_days === null ||
+    kcal_daily_avg === undefined
+  ) {
+    return null;
+  }
+
+  const nutrients: ReportIntervalNutrient[] = [];
+
+  for (const item of value.nutrients) {
+    const daily_avg = isRecord(item) ? toNullableNumber(item.daily_avg) : undefined;
+
+    if (
+      !isRecord(item) ||
+      typeof item.nutrient !== 'string' ||
+      typeof item.label !== 'string' ||
+      typeof item.unit !== 'string' ||
+      daily_avg === undefined
+    ) {
+      return null;
+    }
+
+    nutrients.push({
+      nutrient: item.nutrient,
+      label: item.label,
+      unit: item.unit,
+      daily_avg,
+      measured_days: toNumber(item.measured_days) ?? 0,
+    });
+  }
+
+  return {
+    start_date: value.start_date,
+    end_date: value.end_date,
+    total_days,
+    recorded_days,
+    kcal_daily_avg,
+    nutrients,
+  };
 }
 
 // 하나라도 어긋나면 통째로 null — 반쪽짜리 권고를 그리느니 카드를 숨기는 편이 낫다.

@@ -1,5 +1,5 @@
 import { apiUrl } from '@/services/api-base';
-import { apiFetch, ensure, isRecord, JSON_HEADERS, readOk } from '@/services/http';
+import { apiFetch, ensure, ensureOk, isRecord, JSON_HEADERS, readOk } from '@/services/http';
 import { MySubscription, parseMySubscription } from '@/services/subscription-api';
 
 // 토스페이먼츠 자동결제(빌링) 계약 (서버 api/billing_api.py, DATA_MODEL.md 24장). 전부 Bearer 필수.
@@ -36,6 +36,12 @@ export class BillingUnavailableError extends Error {
 }
 
 const BILLING_API_URL = apiUrl('/api/billing');
+
+// 503 = 서버가 Apple 에 거래를 묻지 못했다(Apple 장애·인앱 결제 키 미설정). 결제는 Apple 에 남아 있어
+// 나중에 '구매 복원'으로 이어서 확인할 수 있다 — services/iap.ts 가 이 경우에만 그 안내를 붙인다.
+export class AppStoreUnavailableError extends Error {
+  name = 'AppStoreUnavailableError';
+}
 
 // 서버 detail은 이미 사용자용 한국어 문장이다 (토스 원문·fail_code는 서버 로그에만 남는다).
 const BILLING_ERRORS = { 502: BillingChargeError, 503: BillingUnavailableError };
@@ -78,6 +84,22 @@ export async function cancelBilling(): Promise<MySubscription> {
   const response = await apiFetch(`${BILLING_API_URL}/cancel`, { method: 'POST' });
 
   return ensure(parseMySubscription(await readOk(response, '자동결제 해지 실패', BILLING_ERRORS)));
+}
+
+// App Store 구독 확인 (2026-10-06, DATA_MODEL.md 32-3). 앱이 주는 것은 **조회 키**(transaction_id)뿐이고
+// 서버가 App Store Server API 로 직접 확인한다 — 앱이 보낸 결과를 믿지 않는다.
+//   POST /api/billing/appstore/verify { transaction_id } → 200
+//        400(플러스 상품 아님·번들 불일치·거래 없음) · 409(다른 계정에서 산 구독 — 문구 그대로 보인다) · 503
+// 성공 본문은 쓰지 않는다 — 화면이 GET /api/me/subscription 으로 다시 읽는다. 호출부(iap.ts)는
+// **이 함수가 성공한 뒤에만** finishTransaction 한다.
+export async function verifyAppStorePurchase(transactionId: string): Promise<void> {
+  const response = await apiFetch(`${BILLING_API_URL}/appstore/verify`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ transaction_id: transactionId }),
+  });
+
+  await ensureOk(response, '구매 확인 실패', { 503: AppStoreUnavailableError });
 }
 
 // ── 내부 헬퍼 (export 안 함) ────────────────────────────────────────────────

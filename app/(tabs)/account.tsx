@@ -34,13 +34,15 @@ const GOAL_LABELS: Record<GoalType, string> = {
 
 // 2026-09-16(KCAL-41·43·45) 정리. **지우지 않고 숨긴다** — 화면·라우트·서버 API는 그대로 두고
 // 이 목록에서만 뺀다(원칙: KCAL-14).
-// - 요금제·결제 내역(`/plan`·`/payments`): 1차 출시는 무료라 팔 것이 없다. 유료 전환 때 되살린다.
+// - 결제 내역(`/payments`): 토스 원장이라 플러스(App Store)와 무관하다 — Apple 이 영수증을 갖는다(32-3).
+//   (`/plan`은 2026-10-06 플러스 출시로 '이용권'으로 되살렸다 — 무료면 플러스 알아보기, 플러스면 지금 이용권.)
 // - 질병 정보(`/me/conditions`): 온보딩의 '어떤 게 궁금하세요?'가 같은 값을 받게 되면 그쪽이
 //   정본이 된다(KCAL-31). 그 화면이 나오기 전까지는 질병을 고칠 곳이 사라지므로 ⚠️ 함께 배포한다.
 //
 // 2026-10-05: 내 정보는 탭에서 빠져 세 탭 머리의 동그라미로 들어온다(components/tab-header.tsx).
 // '함께 보기'(그룹)는 홈에서 여기로 옮겼다 — 탭에는 식단·케어·진료만 남긴다.
 const MENU_ROWS: { href: Href; icon: keyof typeof MaterialIcons.glyphMap; label: string }[] = [
+  { href: '/plan', icon: 'workspace-premium', label: '이용권' },
   { href: '/groups', icon: 'groups', label: '보호자·가족과 함께 보기' },
   { href: '/me/allergies', icon: 'no-food', label: '알러지' },
   // 온보딩이 "내 정보에서 언제든 철회할 수 있어요"라고 약속한 진입점이다

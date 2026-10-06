@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -208,7 +209,7 @@ export default function MealComposeScreen() {
   const [isSearching, setIsSearching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
+  const [planLimit, setPlanLimit] = useState<PlanLimitError | null>(null);
   const [visionUsage, setVisionUsage] = useState<{ used: number; limit: number } | null>(null);
   const [warnings, setWarnings] = useState<FoodWarning[]>([]);
   // 등급 경고와 함께 내려오는 고지문(서버 단일 진실). 등급 근거가 정책값이라는 사실을 숨기지 않는다.
@@ -388,7 +389,7 @@ export default function MealComposeScreen() {
     async (asset: PhotoAsset) => {
       setIsAnalyzing(true);
       setErrorMessage(null);
-      setPlanLimitMessage(null);
+      setPlanLimit(null);
       setPreviewUri(asset.uri);
 
       try {
@@ -416,7 +417,7 @@ export default function MealComposeScreen() {
         appendDrafts(added);
       } catch (error) {
         if (error instanceof PlanLimitError) {
-          setPlanLimitMessage(error.message);
+          setPlanLimit(error);
         } else {
           setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
         }
@@ -456,7 +457,7 @@ export default function MealComposeScreen() {
     setPreviewUri(asset.uri);
     setPendingAsset(asset);
     setErrorMessage(null);
-    setPlanLimitMessage(null);
+    setPlanLimit(null);
   }, []);
 
   const runAnalyze = () => {
@@ -917,12 +918,22 @@ export default function MealComposeScreen() {
         </Pressable>
       </View>
 
-      {planLimitMessage ? (
-        <ErrorBanner
-          actionLabel="확인"
-          message={planLimitMessage}
-          onRetry={() => setPlanLimitMessage(null)}
-        />
+      {/* 402 사진 인식 한도. 2026-09-29 에는 판매 경로가 없어 '확인'(닫기)만 두었다 — 2026-10-06 플러스
+          (App Store 인앱 구독)가 생겨 그 이유가 사라졌다. 단 파는 곳이 iOS 뿐이라 iOS 에서만 /plus 로 잇는다
+          (웹·Android 에서 결제를 권하면 심사 3.1.1·Play 정책). 이미 플러스면 더 팔 것이 없다. */}
+      {planLimit ? (
+        Platform.OS === 'ios' && planLimit.resource === 'vision_daily' && planLimit.plan !== 'plus' ? (
+          <ErrorBanner
+            actionLabel="플러스 알아보기"
+            message={planLimit.message}
+            onRetry={() => {
+              setPlanLimit(null);
+              router.push('/plus');
+            }}
+          />
+        ) : (
+          <ErrorBanner actionLabel="확인" message={planLimit.message} onRetry={() => setPlanLimit(null)} />
+        )
       ) : null}
 
       {errorMessage ? (

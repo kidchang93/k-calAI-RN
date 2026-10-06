@@ -1,17 +1,29 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Redirect, Stack, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { Redirect, Stack, useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
+import { ChunkyButton } from '@/components/chunky-button';
 import { ErrorBanner } from '@/components/error-banner';
 import { LoadingState } from '@/components/loading-state';
 import { Screen } from '@/components/screen';
 import { SessionLoading } from '@/components/session-loading';
+import { DISPLAY_FONT } from '@/constants/typography';
 import { useAuthSession } from '@/services/auth-session';
 import { cancelBilling, startCheckout } from '@/services/billing-api';
 import { confirmDialog } from '@/services/dialog';
 import { formatIsoMonthDay, formatPlanPrice, formatResetAt } from '@/services/format';
+import {
+  fetchPlusProducts,
+  isIapSupported,
+  openSubscriptionManagement,
+  PLUS_PERIOD_TEXT,
+  plusPeriodOf,
+  PlusProduct,
+  PurchaseCancelledError,
+  restorePlus,
+} from '@/services/iap';
 import {
   FALLBACK_PLANS,
   fetchMySubscription,
@@ -21,20 +33,28 @@ import {
 } from '@/services/subscription-api';
 import { billingReturnUrl, isBillingSupported, requestBillingAuth } from '@/services/toss-sdk';
 
-// 유료 전환은 **오직 결제 흐름**이다. changePlan(PUT /api/me/subscription)은 유료 플랜을 400으로
-// 막고(24장), 무료 전환은 남은 유료 기간을 포기시킨다 — 그래서 이 화면은 PUT을 쓰지 않는다.
-// 유료 구독자가 그만두는 길은 '자동결제 해지'(기간은 지키고 갱신만 끈다)뿐이다.
+// 이용권 (P-04, 2026-10-06 — 서버 DATA_MODEL.md 32-7). 내 정보 › 이용권 · 플러스 알아보기에서 온다.
+// - 플러스: 지금 이용권(상품·체험 종료일·다음 결제일 또는 끝나는 날·갱신 꺼짐)·구독 해지·변경·구매 복원·'끝나면'.
+//   **해지는 앱 안에서 하지 않는다** — App Store 구독 화면을 연다(Apple 이 대금·해지·환불을 갖는다).
+// - 무료: 플러스 알아보기(P-02)로 잇는 카드.
+// - 토스 구독(provider='toss', 2026-09-29 판매 중단 · 구독자 0명): 옛 요금제 화면을 **지우지 않고**
+//   LegacyTossPlan 으로 그대로 둔다(KCAL-14). 그 사람만 보는 이유는 '자동결제 해지'가 거기에만 있어서다 —
+//   숨겨 버리면 토스 카드가 계속 긁히는데 멈출 곳이 없다.
+
+const PLUS_PLAN_CODE = 'plus';
 
 export default function PlanScreen() {
   const authState = useAuthSession();
+  const router = useRouter();
   const [subscription, setSubscription] = useState<MySubscription | null>(null);
-  const [plans, setPlans] = useState<Plan[]>(FALLBACK_PLANS);
+  const [plusProducts, setPlusProducts] = useState<PlusProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [checkoutPlanCode, setCheckoutPlanCode] = useState<string | null>(null);
-  const [isCanceling, setIsCanceling] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
 
   const isAuthenticated = authState.status === 'authenticated';
+  const canBuy = isIapSupported();
 
   const loadPlan = useCallback(async () => {
     if (!isAuthenticated) {
@@ -45,23 +65,21 @@ export default function PlanScreen() {
     setErrorMessage(null);
 
     try {
-      // 가격표 조회가 실패해도 내 요금제는 보여준다 — 폴백 상수로 비교표를 그린다.
-      const [mine, available] = await Promise.all([
-        fetchMySubscription(),
-        fetchPlans().catch(() => FALLBACK_PLANS),
-      ]);
+      const mine = await fetchMySubscription();
 
       setSubscription(mine);
-      setPlans(available.length > 0 ? available : FALLBACK_PLANS);
+      // 가격 표시용일 뿐이다 — 스토어 조회가 실패해도 이용권은 그린다.
+      setPlusProducts(
+        canBuy && mine.provider === 'appstore' ? await fetchPlusProducts().catch(() => []) : []
+      );
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, canBuy]);
 
-  // 사진 인식 사용량은 기록 탭을 다녀오면 늘어난다. 결제 성공 화면에서 돌아왔을 때 새 구독 상태를
-  // 집는 것도 이 재조회다 — 포커스마다 다시 읽는다 (목록 화면 패턴).
+  // App Store 구독 화면에서 해지하고 돌아오면 서버(Apple 알림)가 바뀐 상태를 준다 — 포커스마다 다시 읽는다.
   useFocusEffect(
     useCallback(() => {
       void loadPlan();
@@ -80,6 +98,236 @@ export default function PlanScreen() {
   if (authState.status === 'unauthenticated') {
     return <Redirect href="/auth" />;
   }
+
+  const restore = async () => {
+    setIsRestoring(true);
+    setErrorMessage(null);
+    setNoticeMessage(null);
+
+    try {
+      if (await restorePlus()) {
+        await loadPlan();
+      } else {
+        setNoticeMessage('이 Apple ID에 복원할 플러스 구독이 없어요.');
+      }
+    } catch (error) {
+      if (error instanceof PurchaseCancelledError) {
+        return;
+      }
+
+      setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  const openManage = async () => {
+    setErrorMessage(null);
+
+    try {
+      await openSubscriptionManagement();
+    } catch {
+      setErrorMessage('App Store 구독 화면을 열지 못했어요. iPhone 설정 › Apple ID › 구독에서 바꿀 수 있어요.');
+    }
+  };
+
+  const isPlus = subscription?.plan.code === PLUS_PLAN_CODE;
+  // 토스 화면은 아직 긁힐 수 있는 사람(유료가 살아 있거나 청구 예정이 남은 사람)에게만 — 끝난 토스 구독자는
+  // 무료 회원이라 플러스 알아보기로 간다.
+  const isToss =
+    subscription?.provider === 'toss' &&
+    (subscription.plan.price_krw > 0 || subscription.next_billing_at !== null);
+
+  return (
+    <Screen gap={16}>
+      {/* 루트 Stack의 'plan' 엔트리 헤더를 숨긴다. 뒤로가기는 BackButton (탭 밖 스택 공통 규칙). */}
+      <Stack.Screen options={{ headerShown: false }} />
+      <BackButton />
+
+      <Text accessibilityRole="header" style={styles.title}>
+        이용권
+      </Text>
+
+      {errorMessage ? <ErrorBanner message={errorMessage} onRetry={() => void loadPlan()} /> : null}
+
+      {noticeMessage ? (
+        <View style={styles.noticeBox}>
+          <MaterialIcons color="#5c5b57" name="info-outline" size={16} />
+          <Text style={styles.noticeText}>{noticeMessage}</Text>
+        </View>
+      ) : null}
+
+      {isLoading ? (
+        <LoadingState label="이용권을 불러오는 중입니다." />
+      ) : subscription === null ? null : isToss ? (
+        <LegacyTossPlan onSubscriptionChange={setSubscription} subscription={subscription} />
+      ) : (
+        <>
+          {isPlus ? (
+            <PlusPass products={plusProducts} subscription={subscription} />
+          ) : (
+            <View style={styles.freePass}>
+              <Text style={styles.passCaption}>지금 쓰는 이용권</Text>
+              <Text style={styles.freePassTitle}>무료</Text>
+              <Text style={styles.freePassText}>
+                기록과 경고, 오늘 영양, 진료 준비, 최근 2주 리포트를 그대로 써요.
+              </Text>
+              <ChunkyButton label="플러스 알아보기" onPress={() => router.push('/plus')} tone="visit" />
+            </View>
+          )}
+
+          <View style={styles.actions}>
+            {subscription.provider === 'appstore' ? (
+              <ActionRow
+                caption="App Store의 구독 화면이 열려요"
+                icon="chevron-right"
+                label="구독 해지·변경"
+                onPress={() => void openManage()}
+              />
+            ) : null}
+            {canBuy ? (
+              <ActionRow
+                caption={isRestoring ? '복원 중…' : '기기를 바꿨거나 앱을 다시 설치했을 때'}
+                disabled={isRestoring}
+                icon="restore"
+                label="구매 복원"
+                onPress={() => void restore()}
+              />
+            ) : null}
+          </View>
+
+          {isPlus ? (
+            <View style={styles.afterCard}>
+              <Text style={styles.afterTitle}>플러스가 끝나면</Text>
+              <Text style={styles.afterText}>
+                기록은 하나도 지워지지 않아요. 진료 리포트가 최근 2주로 돌아가고, 사진 인식이 하루 5회가 될 뿐이에요.
+              </Text>
+              <Text style={styles.afterSubText}>같은 계정이면 웹에서도 플러스가 열려요.</Text>
+            </View>
+          ) : null}
+        </>
+      )}
+    </Screen>
+  );
+}
+
+function PlusPass({
+  products,
+  subscription,
+}: {
+  products: PlusProduct[];
+  subscription: MySubscription;
+}) {
+  return (
+    <View style={styles.pass}>
+      <Text style={styles.passCaption}>지금 쓰는 이용권</Text>
+      <Text style={styles.passTitle}>케어테이블 플러스</Text>
+      <View style={styles.passRows}>
+        {passRows(subscription, products).map((row) => (
+          <View key={row.label} style={styles.passRow}>
+            <Text style={styles.passRowLabel}>{row.label}</Text>
+            <Text style={styles.passRowValue}>{row.value}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function ActionRow({
+  caption,
+  disabled = false,
+  icon,
+  label,
+  onPress,
+}: {
+  caption: string;
+  disabled?: boolean;
+  icon: keyof typeof MaterialIcons.glyphMap;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [styles.actionRow, pressed && styles.pressed]}>
+      <View style={styles.actionBody}>
+        <Text style={styles.actionLabel}>{label}</Text>
+        <Text style={styles.actionCaption}>{caption}</Text>
+      </View>
+      <MaterialIcons color="#5c5b57" name={icon} size={20} />
+    </Pressable>
+  );
+}
+
+// 지금 이용권의 줄들. IAP 는 우리가 청구하지 않으므로 next_billing_at 이 늘 null 이다(32-2) —
+// 체험 종료일·다음 갱신일·끝나는 날은 모두 current_period_end(Apple expiresDate)다.
+function passRows(
+  subscription: MySubscription,
+  products: PlusProduct[]
+): { label: string; value: string }[] {
+  const period = plusPeriodOf(subscription.store_product_id);
+  const text = period === null ? null : PLUS_PERIOD_TEXT[period];
+  const price = products.find((product) => product.period === period)?.displayPrice ?? null;
+  const periodEnd = formatIsoMonthDay(subscription.current_period_end);
+  const isStore = subscription.provider === 'appstore';
+  const renews = isStore && !subscription.cancel_at_period_end;
+  const cycle = text === null ? '' : ` · 이후 ${text.cycle}마다`;
+  const rows: { label: string; value: string }[] = [];
+
+  if (text !== null) {
+    rows.push({ label: '구독', value: price === null ? text.name : `${text.name} · ${price}` });
+  }
+
+  if (periodEnd === null) {
+    return rows;
+  }
+
+  if (subscription.is_trial) {
+    rows.push({ label: '무료 체험', value: `${periodEnd}까지` });
+  }
+
+  if (renews) {
+    rows.push({ label: subscription.is_trial ? '첫 결제' : '다음 결제', value: `${periodEnd}${cycle}` });
+  } else if (!subscription.is_trial) {
+    rows.push({ label: '끝나는 날', value: periodEnd });
+  }
+
+  if (isStore && !renews) {
+    rows.push({
+      label: '자동 갱신',
+      value: subscription.is_trial ? '꺼짐 — 체험이 끝나도 결제되지 않아요' : '꺼짐',
+    });
+  }
+
+  return rows;
+}
+
+// ── 옛 요금제 화면 (토스 자동결제 — 2026-09-29 판매 중단, 지우지 않고 숨김) ────────────────
+//
+// 유료 전환은 **오직 결제 흐름**이다. changePlan(PUT /api/me/subscription)은 유료 플랜을 400으로
+// 막고(24장), 무료 전환은 남은 유료 기간을 포기시킨다 — 그래서 이 화면은 PUT을 쓰지 않는다.
+// 유료 구독자가 그만두는 길은 '자동결제 해지'(기간은 지키고 갱신만 끈다)뿐이다.
+function LegacyTossPlan({
+  onSubscriptionChange,
+  subscription,
+}: {
+  onSubscriptionChange: (subscription: MySubscription) => void;
+  subscription: MySubscription;
+}) {
+  const [plans, setPlans] = useState<Plan[]>(FALLBACK_PLANS);
+  const [checkoutPlanCode, setCheckoutPlanCode] = useState<string | null>(null);
+  const [isCanceling, setIsCanceling] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // 가격표 조회가 실패해도 내 요금제는 보여준다 — 폴백 상수로 비교표를 그린다.
+  useEffect(() => {
+    void fetchPlans()
+      .then((available) => setPlans(available.length > 0 ? available : FALLBACK_PLANS))
+      .catch(() => setPlans(FALLBACK_PLANS));
+  }, []);
 
   // 결제창을 띄운다. 성공하면 브라우저가 successUrl로 통째로 이동하므로 이 함수 뒤에
   // '성공 처리'를 붙이지 않는다 — 청구는 /billing/success가 confirm으로 마무리한다.
@@ -134,7 +382,7 @@ export default function PlanScreen() {
     setErrorMessage(null);
 
     try {
-      setSubscription(await cancelBilling());
+      onSubscriptionChange(await cancelBilling());
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
     } finally {
@@ -159,12 +407,10 @@ export default function PlanScreen() {
     }
   };
 
-  const usage = subscription?.vision_usage ?? null;
+  const usage = subscription.vision_usage;
   const usagePercent =
-    usage === null || usage.limit <= 0
-      ? 0
-      : Math.max(0, Math.min(100, (usage.used / usage.limit) * 100));
-  const isPaidSubscriber = subscription !== null && subscription.plan.price_krw > 0;
+    usage.limit <= 0 ? 0 : Math.max(0, Math.min(100, (usage.used / usage.limit) * 100));
+  const isPaidSubscriber = subscription.plan.price_krw > 0;
   // 해지할 것이 있는가 = **다음 청구가 예정돼 있는가**. 실효 플랜(plan.price_krw)으로 판정하면
   // 안 된다 — 갱신에 실패하면 서버는 기간을 줄이지 않은 채 past_due로 두고 next_billing_at으로
   // 최대 3일 재청구하는데(billing_service._mark_past_due), 그 사이 기간이 지나면 plan은 lite로
@@ -172,87 +418,73 @@ export default function PlanScreen() {
   // 사라진다**. 서버 cancel_billing은 저장된 plan_code로 판정하므로 이때도 정상 동작한다.
   // 이미 해지 예약된 구독은 다시 해지할 것이 없다.
   const canCancel =
-    subscription !== null &&
     subscription.next_billing_at !== null &&
     !subscription.cancel_at_period_end &&
     subscription.status !== 'canceled';
-  const status = subscription === null ? null : subscriptionStatus(subscription);
-  const isBusy = checkoutPlanCode !== null || isCanceling || isLoading;
+  const status = subscriptionStatus(subscription);
+  const isBusy = checkoutPlanCode !== null || isCanceling;
 
   return (
-    <Screen>
-      {/* 루트 Stack의 'plan' 엔트리 헤더를 숨긴다. 뒤로가기는 BackButton (탭 밖 스택 공통 규칙). */}
-      <Stack.Screen options={{ headerShown: false }} />
-      <BackButton />
+    <>
+      {errorMessage ? (
+        <ErrorBanner message={errorMessage} onRetry={() => setErrorMessage(null)} />
+      ) : null}
 
-      <View style={styles.header}>
-        <Text style={styles.title}>요금제</Text>
-        <Text style={styles.subtitle}>사진 인식 건수와 함께 보기 인원이 달라져요.</Text>
-      </View>
-
-      {errorMessage ? <ErrorBanner message={errorMessage} onRetry={() => void loadPlan()} /> : null}
-
-      {isLoading ? (
-        <LoadingState label="요금제를 불러오는 중입니다." />
-      ) : subscription === null ? null : (
-        <View style={styles.currentCard}>
-          <View style={styles.currentHeader}>
-            <View style={styles.currentIconWrap}>
-              <MaterialIcons color="#2a7d76" name="workspace-premium" size={22} />
-            </View>
-            <View style={styles.currentBody}>
-              <Text style={styles.currentLabel}>현재 요금제</Text>
-              <Text style={styles.currentValue}>
-                {`${subscription.plan.label} · ${formatPlanPrice(subscription.plan.price_krw)}`}
-              </Text>
-            </View>
+      <View style={styles.currentCard}>
+        <View style={styles.currentHeader}>
+          <View style={styles.currentIconWrap}>
+            <MaterialIcons color="#2a7d76" name="workspace-premium" size={22} />
           </View>
-
-          {status === null ? null : (
-            <View style={styles.statusRow}>
-              <MaterialIcons
-                color={status.tone === 'alert' ? '#b8524e' : '#5c5b57'}
-                name={status.icon}
-                size={16}
-              />
-              <Text style={[styles.statusText, status.tone === 'alert' && styles.statusTextAlert]}>
-                {status.text}
-              </Text>
-            </View>
-          )}
-
-          {usage === null ? null : (
-            <View style={styles.usageBox}>
-              <View style={styles.usageTopLine}>
-                <Text style={styles.usageLabel}>오늘 사진 인식</Text>
-                <Text style={styles.usageValue}>{`${usage.used} / ${usage.limit}건`}</Text>
-              </View>
-              <View style={styles.usageTrack}>
-                <View style={[styles.usageFill, { width: `${usagePercent}%` }]} />
-              </View>
-              <Text style={styles.usageCaption}>
-                {formatUsageCaption(usage.remaining, usage.resets_at)}
-              </Text>
-            </View>
-          )}
-
-          {canCancel ? (
-            <Pressable
-              disabled={isBusy}
-              onPress={() => void requestCancel(subscription)}
-              style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
-              <Text style={styles.cancelButtonText}>자동결제 해지</Text>
-            </Pressable>
-          ) : null}
+          <View style={styles.currentBody}>
+            <Text style={styles.currentLabel}>현재 요금제</Text>
+            <Text style={styles.currentValue}>
+              {`${subscription.plan.label} · ${formatPlanPrice(subscription.plan.price_krw)}`}
+            </Text>
+          </View>
         </View>
-      )}
+
+        {status === null ? null : (
+          <View style={styles.statusRow}>
+            <MaterialIcons
+              color={status.tone === 'alert' ? '#b8524e' : '#5c5b57'}
+              name={status.icon}
+              size={16}
+            />
+            <Text style={[styles.statusText, status.tone === 'alert' && styles.statusTextAlert]}>
+              {status.text}
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.usageBox}>
+          <View style={styles.usageTopLine}>
+            <Text style={styles.usageLabel}>오늘 사진 인식</Text>
+            <Text style={styles.usageValue}>{`${usage.used} / ${usage.limit}건`}</Text>
+          </View>
+          <View style={styles.usageTrack}>
+            <View style={[styles.usageFill, { width: `${usagePercent}%` }]} />
+          </View>
+          <Text style={styles.usageCaption}>
+            {formatUsageCaption(usage.remaining, usage.resets_at)}
+          </Text>
+        </View>
+
+        {canCancel ? (
+          <Pressable
+            disabled={isBusy}
+            onPress={() => void requestCancel(subscription)}
+            style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
+            <Text style={styles.cancelButtonText}>자동결제 해지</Text>
+          </Pressable>
+        ) : null}
+      </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>요금제 비교</Text>
         {plans.map((plan) => (
           <PlanCompareCard
             changeNotice={changeCostNotice(subscription, plan)}
-            isCurrent={subscription?.plan.code === plan.code}
+            isCurrent={subscription.plan.code === plan.code}
             isDisabled={isBusy}
             isPaidSubscriber={isPaidSubscriber}
             isSubscribing={checkoutPlanCode === plan.code}
@@ -262,7 +494,7 @@ export default function PlanScreen() {
           />
         ))}
       </View>
-    </Screen>
+    </>
   );
 }
 
@@ -507,6 +739,56 @@ function formatUsageCaption(remaining: number, resetsAt: string): string {
 }
 
 const styles = StyleSheet.create({
+  actionBody: {
+    flex: 1,
+    gap: 2,
+  },
+  actionCaption: {
+    color: '#5c5b57',
+    fontSize: 13,
+  },
+  actionLabel: {
+    color: '#22211f',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  actionRow: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 4,
+    borderColor: '#e4e2de',
+    borderRadius: 16,
+    borderWidth: 2,
+    flexDirection: 'row',
+    gap: 12,
+    minHeight: 64,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  actions: {
+    gap: 10,
+  },
+  afterCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    gap: 8,
+    padding: 16,
+  },
+  afterSubText: {
+    color: '#5c5b57',
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  afterText: {
+    color: '#22211f',
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  afterTitle: {
+    color: '#22211f',
+    fontFamily: DISPLAY_FONT,
+    fontSize: 19,
+  },
   cancelButton: {
     alignItems: 'center',
     alignSelf: 'flex-start',
@@ -566,8 +848,25 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
   },
-  header: {
-    gap: 4,
+  freePass: {
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 5,
+    borderColor: '#e4e2de',
+    borderRadius: 22,
+    borderWidth: 2,
+    gap: 10,
+    padding: 18,
+  },
+  freePassText: {
+    color: '#5c5b57',
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  freePassTitle: {
+    color: '#22211f',
+    fontFamily: DISPLAY_FONT,
+    fontSize: 28,
+    lineHeight: 34,
   },
   noticeBox: {
     alignItems: 'center',
@@ -582,6 +881,47 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 18,
+  },
+  pass: {
+    backgroundColor: '#e3ebfb',
+    borderBottomWidth: 5,
+    borderColor: '#c9d6f2',
+    borderRadius: 22,
+    borderWidth: 2,
+    gap: 10,
+    padding: 18,
+  },
+  passCaption: {
+    color: '#1e4290',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  passRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  passRowLabel: {
+    color: '#5c5b57',
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 21,
+    width: 92,
+  },
+  passRowValue: {
+    color: '#22211f',
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 21,
+  },
+  passRows: {
+    gap: 4,
+  },
+  passTitle: {
+    color: '#22211f',
+    fontFamily: DISPLAY_FONT,
+    fontSize: 28,
+    lineHeight: 34,
   },
   paymentNote: {
     color: '#a9a6a1',
@@ -674,14 +1014,11 @@ const styles = StyleSheet.create({
   statusTextAlert: {
     color: '#b8524e',
   },
-  subtitle: {
-    color: '#5c5b57',
-    fontSize: 14,
-  },
   title: {
     color: '#22211f',
-    fontSize: 30,
-    fontWeight: '900',
+    fontFamily: DISPLAY_FONT,
+    fontSize: 29,
+    lineHeight: 36,
   },
   usageBox: {
     backgroundColor: '#e4e2de',

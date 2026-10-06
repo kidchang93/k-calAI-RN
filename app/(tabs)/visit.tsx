@@ -84,14 +84,9 @@ export default function VisitScreen() {
   const remaining = visitDate === null ? null : daysUntil(visitDate);
   const questions = splitQuestions(visitQuestions);
 
-  const openReport = () => {
-    // **길에 적힌 기간을 그대로 리포트에 넘긴다.** 리포트 화면은 파라미터가 없으면 자체 기본 기간을
-    // 쓰는데, 그러면 가방에 적힌 '22/28일'과 리포트 안의 기록 일수가 서로 달라진다.
-    router.push({
-      pathname: '/report',
-      params: trends === null ? {} : { start_date: trends.start_date, end_date: trends.end_date },
-    });
-  };
+  // 리포트 기간은 서버가 이용권으로 정한다(무료 최근 14일, 플러스 지난 진료부터 — 서버
+  // DATA_MODEL 32-5). 길의 28일을 넘기면 플러스의 기본 기간을 덮으므로 아무것도 넘기지 않는다.
+  const openReport = () => router.push('/report');
 
   return (
     <Screen gap={16} keyboard="avoid">
@@ -160,11 +155,11 @@ export default function VisitScreen() {
 
         <BagRow
           icon="description"
-          title="4주 기록 리포트"
+          title="진료 리포트"
           hint={
             recordedDays === 0
               ? '기록이 쌓이면 진료에 가져갈 수 있게 정리해 드려요'
-              : `${PATH_DAYS}일 중 ${recordedDays}일 · 진료실에서 바로 보여 줄 수 있어요`
+              : '진료실에서 바로 보여 줄 수 있어요'
           }
           onPress={openReport}
         />

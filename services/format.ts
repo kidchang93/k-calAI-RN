@@ -12,6 +12,11 @@ export function formatPlanPrice(priceKrw: number): string {
   return priceKrw === 0 ? '무료' : `월 ${priceKrw.toLocaleString()}원`;
 }
 
+// 14 → '2주', 30 → '30일'. 7의 배수만 주로 적는다.
+export function formatDaySpan(days: number): string {
+  return days > 0 && days % 7 === 0 ? `${days / 7}주` : `${days}일`;
+}
+
 // ---- 'YYYY-MM-DD'
 
 // '7.16'
