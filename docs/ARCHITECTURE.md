@@ -6,7 +6,7 @@
 k-calAI-RN/
 ├── app/                        # expo-router 파일 기반 라우트 (이 안의 파일 = 화면)
 │   ├── _layout.tsx             # 루트 Stack(헤더 전부 끔 — 화면마다 BackButton) + ThemeProvider + 인증 가드
-│   ├── auth.tsx                # 카카오·Apple(iOS) 로그인 + 신규 회원 동의 (initialRouteName, 딥링크 kcalairn://auth 목적지)
+│   ├── auth.tsx                # 카카오·Apple(iOS)·이메일 로그인 + 신규 회원 동의 (initialRouteName, 딥링크 kcalairn://auth 목적지). 첫 화면 맨 위가 이메일 로그인 폼(components/email-auth.tsx), 그 아래 '또는' + 카카오·Apple
 │   ├── (tabs)/
 │   │   ├── _layout.tsx         # 하단 탭 (식단 / 케어 / 진료) + 온보딩 게이트. index·record·account 는 href:null 로 숨김 (2026-10-05)
 │   │   ├── home.tsx            # 식단 탭 - 오늘의 퀘스트(끼니 4칸 → 사진·기록) + 소금 항아리
@@ -47,7 +47,7 @@ k-calAI-RN/
 │       ├── _layout.tsx         # 인증 가드
 │       └── index.tsx           # 끼니 선택 + 오늘 추천 목록
 ├── services/                   # 외부 통신 + 앱 전역 상태
-│   ├── auth-api.ts             # 카카오·Apple 로그인 API 클라이언트 (카카오: expo-web-browser로 서버 start URL 오픈 → 딥링크 파싱. Apple: 네이티브 시트 토큰을 서버로. 발급 전 순수 fetch, logout만 apiFetch로 Bearer 첨부)
+│   ├── auth-api.ts             # 카카오·Apple·이메일 로그인 API 클라이언트 (카카오: expo-web-browser로 서버 start URL 오픈 → 딥링크 파싱. Apple: 네이티브 시트 토큰을 서버로. 이메일: 코드 요청·확인·가입·로그인·비밀번호 재설정. 발급 전 순수 fetch, logout만 apiFetch로 Bearer 첨부)
 │   ├── auth-session.ts         # 세션 싱글톤 + 영속화(SecureStore) + useAuthSession 훅 + parseAuthTokenResponse(auth-api 공유) + getWebStorage(웹 localStorage, group-invite·yesterday-summary 공유)
 │   ├── calorie-api.ts          # 추론/칼로리 API 클라이언트
 │   ├── photo-picker.ts         # pickPhoto('camera'|'library') — 권한 요청·거부 안내·촬영/앨범 옵션(앨범만 exif). 취소·거부는 null
@@ -69,6 +69,8 @@ k-calAI-RN/
 │   └── api-base.ts             # API 오리진 결정(EXPO_PUBLIC_API_ORIGIN 우선, 없으면 Expo hostUri→LAN IP 자동). apiUrl(path) — 서비스별 URL 오버라이드 없음
 ├── components/                 # 재사용 UI
 │   ├── session-loading.tsx     # 세션 복원 대기 화면 (인증 가드 깜빡임 방지)
+│   ├── signup-consents.tsx     # 가입 필수 동의 2종(모두 동의 + 이용약관·처리방침, '보기'는 체크 영역 밖). 카카오·Apple 가입 단계와 이메일 가입이 함께 쓴다
+│   ├── email-auth.tsx          # 이메일 로그인·가입·비밀번호 재설정 (모드 login|signup|reset 을 안에서 전환). auth-api 를 직접 부르고 성공 시 setAuthSession
 │   ├── auth-guard-stack.tsx    # 탭 밖 스택 _layout.tsx 공통 인증 가드 (loading → SessionLoading, 미인증 → <Redirect href="/auth" />)
 │   ├── screen.tsx              # 화면 틀 SafeAreaView → ScrollView → 가운데 컨테이너(최대 720). keyboard·gap·contentStyle 변형만
 │   ├── loading-state.tsx       # 본문 불러오는 중 카드 (스피너 + 문구)
@@ -101,7 +103,7 @@ app/  ──→  components/  ──→  hooks/  ──→  constants/
 | 레이어 | 책임 | 의존해도 되는 것 | 의존하면 안 되는 것 |
 |--------|------|------------------|---------------------|
 | `app/` | 화면, 라우팅, 로컬 UI 상태 | 전부 | — |
-| `components/` | 표시 전용 UI | `hooks/`, `constants/`. **예외로 `services/`의 타입·순수 함수·세션 훅**(`health-api` 타입, `food-label`, `format`, `auth-guard-stack`→`useAuthSession`)과 자기 데이터를 스스로 읽는 카드(`group-challenges`, `next-meal-card`, `weekly-coaching`, `condition-guide-card`) | `app/`. 그 외 `services/` 호출은 props로 주입 |
+| `components/` | 표시 전용 UI | `hooks/`, `constants/`. **예외로 `services/`의 타입·순수 함수·세션 훅**(`health-api` 타입, `food-label`, `format`, `auth-guard-stack`→`useAuthSession`)과 자기 데이터를 스스로 읽는 카드(`group-challenges`, `next-meal-card`, `weekly-coaching`, `condition-guide-card`), 그리고 `email-auth`(이메일 인증 API·`setAuthSession` — 단계가 많아 `app/auth.tsx`에 콜백 여섯 개를 늘어놓지 않으려고 직접 부른다) | `app/`. 그 외 `services/` 호출은 props로 주입 |
 | `services/` | HTTP, 응답 검증, 세션 | 없음 (RN `Platform`만) | `app/`, `components/` |
 | `hooks/` | (현재 비어 있음 — 라이트 전용 확정으로 `use-color-scheme` 제거, 2026-09-14) | `constants/` | `app/`, `services/` |
 | `constants/` | 정적 데이터·토큰 (`changelog.ts` 업데이트 이력) | 없음 | 전부 |
@@ -258,6 +260,30 @@ useAuthSession()      → useSyncExternalStore(subscribe, getSnapshot) → AuthS
 
 `authorization_code`는 서버가 Apple과 교환해 refresh token으로 보관하고(암호화), **탈퇴 때 Apple에 철회를 요청**합니다(심사 5.1.1(v)). 만료 판정은 400 본문의 문구로 가르므로(`APPLE_EXPIRED_DETAIL`) 서버 문구와 문자 단위로 같아야 합니다.
 
+### 인증 — 이메일 (`components/email-auth.tsx`, 2026-10-06)
+
+카카오·Apple 옆 세 번째 수단이고 **플랫폼 제한이 없습니다**. 브라우저·딥링크 없이 화면 안에서 끝납니다. 카카오와 달리 **로그인/가입을 사용자가 고릅니다** — 서버가 가입 여부를 숨기므로(코드 요청은 가입 여부와 무관하게 같은 문구, 로그인 실패도 한 문구) 앱이 알아낼 길이 없습니다. 기본은 로그인이고 가입·재설정은 아래 링크입니다.
+
+```
+첫 화면 맨 위  (app/auth.tsx 'kakao' 단계 → <EmailAuth onModeChange />, 가입·재설정 중에는 카카오·Apple 버튼을 숨긴다)
+  login   이메일·비밀번호 → loginWithEmail → POST /api/auth/email/login → setAuthSession
+  signup  ① 이메일 → requestEmailSignupCode → POST /email/signup/code   (60초 동안 다시 받기 비활성)
+          ② 코드 6자리 → verifyEmailSignupCode → POST /email/signup/verify   (확인만, 소비 안 함)
+             ↳ 확인돼야 ③④가 열린다. 이메일 칸을 바꾸면 코드·확인 상태를 버리고 ①부터
+          ③ 닉네임(1~20) + [중복확인] → checkEmailNickname → POST /email/signup/nickname (코드 필요, 결과는 칸 아래)
+             비밀번호(영문+숫자 8~64)·확인  ④ SignupConsents   (중복확인을 통과한 닉네임이어야 가입 버튼이 켜진다)
+          ⑤ signupWithEmail → POST /email/signup (약관 버전은 auth-api 가 legal.ts 에서 읽는다) → setAuthSession
+  reset   이메일 → requestPasswordResetCode → POST /email/password-reset/code
+          코드·새 비밀번호·확인 → resetPassword → POST /email/password-reset
+          → 서버가 그 계정의 세션을 모두 끊는다 → 성공 문구와 함께 login 모드로(이메일은 채운 채)
+
+  setAuthSession(result) → auth.tsx 리렌더 → <Redirect href="/home" />   (카카오·Apple 과 같다)
+```
+
+- 실패는 전부 서버의 한국어 `detail`을 그대로 보입니다(429 재요청 제한·503 메일 발송 불가 포함). 상태코드별 예외 클래스를 두지 않습니다.
+- 비밀번호는 컴포넌트 상태에만 있고 저장·로그하지 않습니다. 모드를 바꾸면 비웁니다.
+- iOS 자동완성·비밀번호 저장을 위해 이메일 칸은 `textContentType="username"`, 비밀번호는 `password`/`newPassword`, 코드는 `oneTimeCode`입니다.
+
 ### 탭 정보 구조 (2026-10-05 화면 재구성)
 
 탭은 **할 일이 있는 곳 셋**만 둔다 — 식단 관리 · 케어 · 진료(병원 연계). 예전 홈은 카드 9장이 같은
@@ -339,7 +365,7 @@ useAuthSession()      → useSyncExternalStore(subscribe, getSnapshot) → AuthS
   └─ app/invite.tsx  (인증 가드 밖)
        로그인됨   → router.replace('/groups/join?code=…')  → 코드 프리필, 사람이 [참여하기]
        미로그인   → rememberPendingInvite(code) → /auth
-                    카카오 로그인 (+ 신규면 온보딩) → /(tabs)
+                    로그인(카카오·Apple·이메일) (+ 신규면 온보딩) → /(tabs)
                     app/(tabs)/home.tsx 가 consumePendingInvite() → /groups/join?code=…
 ```
 
@@ -479,6 +505,12 @@ readOk(response, fallback, statusErrors?)              # ensureOk + 본문 JSON 
 | `startKakaoLogin` | `GET /api/auth/kakao/start?platform=native\|web` | — (브라우저가 연다) | 302 → 카카오 → 서버 콜백 → 딥링크 `kcalairn://auth?code=…&is_new=…` 또는 `?error=…`. 앱은 `expo-web-browser`만 쓴다 (네이티브 카카오 SDK 없음) |
 | `loginWithKakao` | `POST /api/auth/kakao/login` | `{ link_code }` | `{ access_token, token_type, expires_at, user }`. **404 = 미가입**(`KakaoNotRegisteredError`), **400 = 연동 코드 만료·소비**(`KakaoLinkExpiredError`) |
 | `signupWithKakao` | `POST /api/auth/kakao/signup` | `{ link_code, agreed_terms, agreed_privacy, plan_code \| null }` | 같은 `AuthTokenResponse`. 동의 누락 422, `false` 400. `plan_code` 생략 시 서버가 무료(lite) 부여. 연동 코드 TTL 10분 초과 시 400 |
+| `requestEmailSignupCode` / `requestPasswordResetCode` | `POST /api/auth/email/signup/code`, `POST /api/auth/email/password-reset/code` | `{ email }` | `{ message }` — 가입 여부와 무관하게 같은 문구. 400 형식 오류 · **429** 재요청 1분·하루 10회 · **503** 메일 발송 불가 |
+| `checkEmailNickname` | `POST /api/auth/email/signup/nickname` | `{ email, code, nickname }` | `{ message }`. 400 = 이미 쓰는 닉네임(코드 시도 횟수 1 소모)·코드 틀림·만료. 확인된 가입 코드가 있어야 묻는다(가입 여부 노출 방지) |
+| `verifyEmailSignupCode` | `POST /api/auth/email/signup/verify` | `{ email, code }` | `{ message }`. 확인만 하고 소비하지 않는다. 400 = 코드 틀림·만료 |
+| `signupWithEmail` | `POST /api/auth/email/signup` | `{ email, code, password, nickname, agreed_terms, agreed_privacy, terms_version, privacy_version }` | `AuthTokenResponse`. `plan_code` 안 보냄 → lite. 400 = 코드·비밀번호 규칙·닉네임·동의·약관 버전 |
+| `loginWithEmail` | `POST /api/auth/email/login` | `{ email, password }` | `AuthTokenResponse`. 400 하나의 문구(없는 이메일·틀린 비번·잠김) |
+| `resetPassword` | `POST /api/auth/email/password-reset` | `{ email, code, new_password }` | `{ message }`. 서버가 그 계정의 모든 세션을 끊는다 |
 | `fetchPlans` | `GET /api/plans` | — | `{ plans: [{ code, label, price_krw, daily_vision_quota, max_group_members, max_pets, max_owned_groups }] }`. `max_pets`는 서버가 계속 주지만 **화면에 그리지 않는다**(2026-08-18). **무인증**(가입 화면이 로그인 전에 호출) — 실패 시 `FALLBACK_PLANS`(번들 폴백)로 그린다 |
 | `fetchMySubscription` / `changePlan` | `GET·PUT /api/me/subscription` | PUT: `{ plan_code }` | `{ plan, vision_usage: { used, limit, remaining, resets_at }, started_at, status, current_period_end, next_billing_at, cancel_at_period_end }`. 뒤 4필드는 2026-07-16 **추가**(기존 3필드 불변)라 `parseMySubscription`이 누락 시 무료 회원 기본값(`'active'`/null/false)으로 흘린다 — 신규 필드 때문에 화면 전체가 막히면 안 된다. `plan`은 **실효 플랜**(만료된 유료 구독은 lite). **PUT은 무료 전환 전용** — 유료 플랜은 400이고, 무료 전환은 남은 유료 기간을 포기시키므로 화면은 대신 `cancelBilling`을 쓴다 |
 | `startCheckout` | `POST /api/billing/checkout` | `{ plan_code }` | `{ customer_key, client_key, plan_code, amount, order_name }`. `client_key`는 공개값이고 **이 응답으로만** 받는다(번들에 두지 않는다). `amount`는 표시 전용 — 실제 청구액은 confirm에서 서버가 다시 정한다. **503** = 결제 키 미설정 → `BillingUnavailableError` |

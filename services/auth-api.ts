@@ -6,7 +6,7 @@ import { Platform } from 'react-native';
 import { PRIVACY_POLICY, TERMS } from '@/constants/legal';
 import { apiUrl } from '@/services/api-base';
 import { parseAuthTokenResponse } from '@/services/auth-session';
-import { apiFetch, ensure, ensureOk, JSON_HEADERS, readOk } from '@/services/http';
+import { apiFetch, ensure, ensureOk, isRecord, JSON_HEADERS, readOk } from '@/services/http';
 
 // 카카오 로그인 (2026-07-14 휴대폰 OTP 전면 교체).
 //
@@ -299,6 +299,77 @@ export async function signupWithApple(
   return ensure(parseAuthTokenResponse(data));
 }
 
+// 이메일 가입·로그인·비밀번호 재설정 (2026-10-06, 카카오·Apple 옆 세 번째 수단). 세션 발급 전이라
+// 카카오·Apple 처럼 순수 fetch 다. 실패 본문은 전부 한국어 detail 이라(429 재요청 제한·503 메일 발송
+// 불가 포함) readOk 가 던지는 문구를 화면이 그대로 보여준다. 코드 요청은 가입 여부와 무관하게 같은
+// 문구가 온다 — 서버가 가입 여부를 숨긴다.
+export type EmailSignupInput = {
+  email: string;
+  code: string;
+  password: string;
+  nickname: string;
+};
+
+export async function requestEmailSignupCode(email: string): Promise<string> {
+  return toMessage(await postAuth('/email/signup/code', { email }, '인증 메일 발송 실패'));
+}
+
+// 코드가 맞는지만 본다(소비하지 않는다). 같은 코드를 signupWithEmail 에 다시 보낸다.
+export async function verifyEmailSignupCode(email: string, code: string): Promise<string> {
+  return toMessage(await postAuth('/email/signup/verify', { email, code }, '인증 코드 확인 실패'));
+}
+
+// 닉네임 중복확인. 서버가 **확인된 가입 코드**를 함께 요구한다 — 아무나 닉네임 주인의 가입 여부를 묻지
+// 못하게 하려고다. '이미 쓰는 닉네임'은 코드 시도 횟수를 하나 쓴다(코드당 5번).
+export async function checkEmailNickname(email: string, code: string, nickname: string): Promise<string> {
+  return toMessage(
+    await postAuth('/email/signup/nickname', { email, code, nickname }, '닉네임 확인 실패'),
+  );
+}
+
+// 약관 버전은 signupWithKakao 와 같은 이유로 여기서 legal.ts 를 읽는다. plan_code 는 보내지 않는다 → lite.
+export async function signupWithEmail(
+  input: EmailSignupInput,
+  terms: Omit<SignupTerms, 'plan_code'>,
+): Promise<AuthTokenResponse> {
+  const data = await postAuth(
+    '/email/signup',
+    {
+      email: input.email,
+      code: input.code,
+      password: input.password,
+      nickname: input.nickname,
+      agreed_terms: terms.agreed_terms,
+      agreed_privacy: terms.agreed_privacy,
+      terms_version: TERMS.version,
+      privacy_version: PRIVACY_POLICY.version,
+    },
+    '회원가입 실패',
+  );
+
+  return ensure(parseAuthTokenResponse(data));
+}
+
+// 없는 이메일·틀린 비밀번호·잠김이 모두 같은 400 문구다(서버가 가입 여부를 숨긴다).
+export async function loginWithEmail(email: string, password: string): Promise<AuthTokenResponse> {
+  return ensure(parseAuthTokenResponse(await postAuth('/email/login', { email, password }, '로그인 실패')));
+}
+
+export async function requestPasswordResetCode(email: string): Promise<string> {
+  return toMessage(await postAuth('/email/password-reset/code', { email }, '인증 메일 발송 실패'));
+}
+
+// 성공하면 서버가 그 계정의 모든 세션을 끊는다 — 새 비밀번호로 다시 로그인해야 한다.
+export async function resetPassword(email: string, code: string, newPassword: string): Promise<string> {
+  return toMessage(
+    await postAuth(
+      '/email/password-reset',
+      { email, code, new_password: newPassword },
+      '비밀번호 변경 실패',
+    ),
+  );
+}
+
 // 로그아웃은 발급된 세션을 폐기하는 요청이라 예외적으로 apiFetch로 Bearer를 첨부한다.
 // 서버 폐기 실패(오프라인 등)와 무관하게 로컬 세션 삭제는 호출부(clearAuthSession)가 책임진다.
 export async function logout(): Promise<void> {
@@ -308,6 +379,26 @@ export async function logout(): Promise<void> {
 }
 
 // ── 내부 헬퍼 (export 안 함) ────────────────────────────────────────────────
+
+// 이메일 인증 API 공통 — 무인증 POST + readOk. 비밀번호가 바디에 실리므로 로그를 남기지 않는다.
+async function postAuth(
+  path: string,
+  body: Record<string, string | boolean>,
+  fallback: string,
+): Promise<unknown> {
+  const response = await fetch(`${AUTH_API_URL}${path}`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify(body),
+  });
+
+  return readOk(response, fallback);
+}
+
+// { message } 응답 → 화면에 그대로 보여줄 문구.
+function toMessage(data: unknown): string {
+  return ensure(isRecord(data) && typeof data.message === 'string' ? data.message : null);
+}
 
 // 서버가 돌아올 목적지. 네이티브는 딥링크(app.json의 scheme = kcalairn), 웹은 같은 오리진의
 // /auth 경로다 — 서버(APP_DEEPLINK_SCHEME · WEB_CALLBACK_PATH)와 문자열이 맞아야 한다.

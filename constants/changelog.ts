@@ -25,6 +25,28 @@ export const CHANGE_TYPE_LABELS: Record<ChangeType, string> = {
 // 최신순(위가 최신). 새 릴리즈는 이 배열 맨 앞에 추가한다.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-10-06',
+    title: '이메일로도 가입할 수 있어요',
+    items: [
+      {
+        type: 'new',
+        text: '카카오나 Apple 계정이 없어도 이메일과 비밀번호로 가입할 수 있어요. 메일로 받은 6자리 코드로 내 이메일인지 확인해요.',
+      },
+      {
+        type: 'new',
+        text: '첫 화면에서 바로 이메일·비밀번호로 로그인할 수 있어요. 비밀번호를 잊었다면 이메일로 다시 정할 수 있어요.',
+      },
+      {
+        type: 'improved',
+        text: '이메일로 가입할 때 정한 닉네임은 다른 사람과 겹치지 않는지 미리 확인해요.',
+      },
+      {
+        type: 'improved',
+        text: '이메일 가입을 더하면서 이용약관과 개인정보 처리방침을 1.3으로 고쳤어요(이메일 주소 수집, 인증 메일 발송 위탁). 기존에 카카오·Apple로 가입한 분이 맡긴 정보와 권리는 그대로예요.',
+      },
+    ],
+  },
+  {
     date: '2026-10-05',
     title: 'Apple로 시작하고, 사진은 동의를 받고 보내요',
     items: [

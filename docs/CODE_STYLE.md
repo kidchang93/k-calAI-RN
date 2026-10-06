@@ -224,7 +224,7 @@ export async function uploadFoodPhoto(asset: PhotoAsset): Promise<FoodDetection[
 - `readErrorMessage(response)` — 서버 오류 메시지 추출. 배열 `detail`(Pydantic 422)을 `\n`으로 join 합니다. `readOk`/`ensureOk`가 내부에서 씁니다. **재정의하지 마세요.**
 - `isRecord`·`toNumber`·`oneOf`·`ensure`·`ensureList` — 응답 런타임 검증 헬퍼.
 
-인증 API(`kakao/login`, `kakao/signup`)는 세션 발급 전 단계라 **순수 `fetch`**를 씁니다 (헤더 미첨부). `logout`만 `apiFetch`로 Bearer를 붙입니다.
+인증 API(`kakao/*`, `apple/*`, `email/*`)는 세션 발급 전 단계라 **순수 `fetch`**를 씁니다 (헤더 미첨부). `logout`만 `apiFetch`로 Bearer를 붙입니다.
 
 ## 테스트 스타일
 

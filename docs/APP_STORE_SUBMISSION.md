@@ -8,10 +8,10 @@
 
 | 조항 | 내용 | 상태 |
 |---|---|---|
-| 4.8 | 소셜 로그인만 있으면 대안 로그인 필수 | ✅ Sign in with Apple 구현 · 운영 키 등록(2026-10-05). **배포·빌드 대기** |
-| 5.1.2(i) | 제3자 AI로 개인정보를 보내기 **전** 명시적 동의 (2025-11 개정) | ✅ 사진 분석 전 동의 · 거절 시 직접 입력 · 동의 관리에서 거두기 · 서버가 EXIF 제거. **배포·빌드 대기** |
-| 2.1 / 2.3 | 자리표시자·미완성 화면 | ⏳ 약관·처리방침의 사업자 정보(`EXPO_PUBLIC_BUSINESS_*`)와 시행일(`constants/legal.ts`의 `EFFECTIVE_DATE`)이 비어 `[[...]]`와 '초안' 경고가 보인다. **값을 받아 채우고 다시 빌드해야 한다** |
-| 2.1 | 로그인이 필요한 앱은 데모 계정 | ✅ 심사관이 Apple로 직접 가입할 수 있다 — 아래 심사 메모로 안내 |
+| 4.8 | 소셜 로그인만 있으면 대안 로그인 필수 | ✅ Sign in with Apple 구현 · 운영 키 등록(2026-10-05). 빌드 6 TestFlight 실기기 확인(2026-10-06) — 버튼의 'Apple'만 로마자(상표라 정상) |
+| 5.1.2(i) | 제3자 AI로 개인정보를 보내기 **전** 명시적 동의 (2025-11 개정) | ✅ 사진 분석 전 동의 · 거절 시 직접 입력 · 동의 관리에서 거두기 · 서버가 EXIF 제거. 빌드 6 TestFlight 실기기 확인(2026-10-06) |
+| 2.1 / 2.3 | 자리표시자·미완성 화면 | ✅ 사업자 정보(`EXPO_PUBLIC_BUSINESS_*`)를 앱 `.env`·`eas env` production 에 등록, 시행일 2026-10-05. 빌드 6 번들에 `[[` 0건(2026-10-05) |
+| 2.1(a) | 로그인이 필요한 앱은 **내용이 든** 데모 계정(아이디·비밀번호) | ⏳ 2026-10-06 베타 심사에서 반려(빌드 6) — 베타 심사 정보에 메모가 비어 있었고, Apple 로 새로 가입하면 빈 계정이라 요건을 못 채운다. **이메일 가입(2026-10-06)으로 데모 계정을 만든다** — 운영 배포 후 심사용 계정을 만들어 기록·검사 수치·진료 일정을 채우고, TestFlight › 테스트 정보와 버전 › 앱 심사 정보 **두 곳 모두**에 '로그인 필요' + 아이디·비밀번호를 넣는다 |
 | 5.1.1(v) | 앱 안에서 계정 삭제 | ✅ 내 정보 › 회원 탈퇴 (Apple 토큰 폐기 포함) |
 | 5.1.1(ix) | 규제 분야(의료)는 법인이 제출 | ⚠️ 개인 개발자 계정이다. 의료 서비스를 제공하지 않는 식단 기록 도구라는 점을 심사 메모에 밝힌다. 거부되면 §6 |
 | 1.4.1 | 의료 앱 — 근거 공개·의사 상담 상기 | ✅ 학회 지침 출처 표시, 수치 화면마다 의료 고지 |
@@ -27,12 +27,14 @@
 
 ## 2. 심사 메모 (App Review Information)
 
-- **로그인 필요(Sign-in required)는 끈다.** 데모 계정 아이디·비밀번호가 없다 — 비밀번호 로그인이 없고, 심사관은 자기 Apple ID로 가입할 수 있다.
+- **로그인 필요(Sign-in required)를 켜고** 데모 계정(이메일 가입 계정)의 아이디·비밀번호를 넣는다. ⚠️ **TestFlight › 테스트 정보 › 베타 앱 심사 정보**와 **버전 › 앱 심사 정보**는 서로 다른 칸이다 — 2026-10-06 반려는 베타 쪽 메모가 비어 있어서였다. 두 곳에 같은 값을 넣는다.
+- 데모 계정에는 심사관이 기능을 다 볼 수 있게 내용을 채워 둔다: 민감정보 동의 + 질환(만성신장병), 최근 며칠 끼니(사진 분석 1건 포함), 검사 수치 2개 이상, 다음 진료일·물어볼 것, 진료 리포트가 비지 않을 만큼. 심사관이 탈퇴를 시험하면 계정이 사라지므로 **제출 전에 로그인되는지 다시 확인**한다.
 - Notes 칸에 아래를 붙인다.
 
 ```
 Sign-in
-The app offers Kakao Login and Sign in with Apple. Please create an account with Sign in with Apple — no demo credentials are needed. After signing in: confirm you are 14 or older, agree to the Terms and Privacy Policy, then complete a short onboarding (height/weight, goal). To see condition-specific features, consent to health information processing and choose a condition such as "Chronic kidney disease".
+Please use the demo account in the Sign-in fields: enter that email and password in the login form at the top of the first screen and tap "로그인" (Log in). The account already has a condition (chronic kidney disease), consent to health information processing, several days of meals, lab results and a next visit, so every feature can be reviewed.
+The app also offers Kakao Login, Sign in with Apple and email sign-up (a 6-digit code is emailed to confirm the address). New accounts confirm they are 14 or older, agree to the Terms and Privacy Policy, then complete a short onboarding.
 
 What the app does
 CareTable is a food diary for people who manage a chronic disease through diet (kidney disease, diabetes, hypertension, dyslipidemia). Users log meals by photo or by typing, see sodium/potassium/phosphorus totals calculated from the Korean MFDS food composition database, and prepare a summary report to show their doctor at their next visit.
@@ -59,9 +61,10 @@ Registered business in Korea: 호시이 스토어 (Business Registration No. 850
 |---|---|---|---|---|
 | 연락처 정보 › 이름 | 예 | 예 | 앱 기능 | 카카오 닉네임 · Apple이 준 이름 |
 | 건강 및 피트니스 › 건강 | 예 | 예 | 앱 기능 | 식단 기록·키·몸무게, 질병·병기·알러지·혈액형, 검사 수치, 진료 메모 |
+| 연락처 정보 › 이메일 주소 | 예 | 예 | 앱 기능 | **이메일로 가입한 회원만**(2026-10-06) — 로그인 식별자·인증 코드 메일. 카카오·Apple 회원에게는 받지 않는다 |
 | 식별자 › 사용자 ID | 예 | 예 | 앱 기능 | 회원번호 · 카카오 회원번호 · Apple 사용자 식별자 |
 | 사용자 콘텐츠 › 사진 또는 비디오 | 예 | 아니요 | 앱 기능 | 음식 사진 — 저장하지 않지만 Google이 남용 탐지 목적으로 제한된 기간 기록할 수 있어 보수적으로 신고한다 |
-| 이메일·전화·위치·연락처·검색·구매·진단 | 아니요 | — | — | 받지 않는다(Apple·카카오 모두 이메일 요청 안 함) |
+| 전화·위치·연락처·검색·구매·진단 | 아니요 | — | — | 받지 않는다(Apple·카카오는 이메일도 요청 안 함). ⚠️ 플러스(인앱 구독)를 넣으면 **구매 내역**을 추가한다 |
 
 운동 기록(피트니스)은 진입점이 숨겨져 있어 지금은 수집하지 않는다 — 다시 열면 '피트니스'를 추가한다.
 

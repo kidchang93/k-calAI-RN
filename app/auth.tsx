@@ -1,11 +1,13 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { EmailAuth, type EmailAuthMode } from '@/components/email-auth';
 import { Screen } from '@/components/screen';
 import { SessionLoading } from '@/components/session-loading';
+import { NO_AGREEMENTS, SignupAgreements, SignupConsents } from '@/components/signup-consents';
 import {
   AppleCancelledError,
   AppleCredential,
@@ -36,11 +38,14 @@ const APPLE_RESTART_GUIDE = 'Apple 로그인부터 다시 진행해주세요.';
 // 'signup' = 신규 회원(카카오 is_new=true · Apple 로그인 404) — 동의 2종을 받는 상태
 //   (요금제 선택은 2026-09-29 뺐다 — 무료 출시라 plan_code 를 보내지 않고 서버가 lite 를 준다.
 //    판매 경로 없이 유료 요금제를 고르게 하면 스토어 심사 3.1.1 에 걸린다.)
+// 이메일 로그인 폼은 'kakao' 단계의 맨 위에 늘 있다(2026-10-06) — 가입·재설정 단계는 EmailAuth 가 갖는다.
 type AuthStage = 'kakao' | 'signup';
 
 export default function AuthScreen() {
   const authState = useAuthSession();
   const [stage, setStage] = useState<AuthStage>('kakao');
+  // 이메일 폼이 가입·재설정으로 넘어가면 카카오·Apple 버튼을 숨긴다 — 한 화면에 할 일을 하나만 둔다.
+  const [emailMode, setEmailMode] = useState<EmailAuthMode>('login');
   const [linkCode, setLinkCode] = useState<string | null>(null);
   // 값이 있으면 지금 가입 단계는 Apple 가입이다(카카오는 linkCode).
   const [appleCredential, setAppleCredential] = useState<AppleCredential | null>(null);
@@ -50,8 +55,7 @@ export default function AuthScreen() {
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // 가입 전용 상태 — 기존 회원은 화면에 그리지도, 서버로 보내지도 않는다.
-  const [agreedTerms, setAgreedTerms] = useState(false);
-  const [agreedPrivacy, setAgreedPrivacy] = useState(false);
+  const [agreements, setAgreements] = useState<SignupAgreements>(NO_AGREEMENTS);
 
   // 카카오 콜백 결과를 로그인/가입 분기로 잇는다. 최초 시작(startKakao)과 웹 페이지 복귀
   // (아래 useEffect) 양쪽이 같은 분기를 탄다 — 신규 회원이면 가입 단계로, 아니면 로그인까지
@@ -160,7 +164,7 @@ export default function AuthScreen() {
   }
 
   const isSignup = stage === 'signup';
-  const hasAgreedAll = agreedTerms && agreedPrivacy;
+  const hasAgreedAll = agreements.agreed_terms && agreements.agreed_privacy;
   // 가입은 필수 동의 2종을 모두 체크해야 완료할 수 있다 (서버도 false면 400으로 막는다).
   const canSignup = !isSigningUp && (linkCode !== null || appleCredential !== null) && hasAgreedAll;
   const isBusy = isStarting || isAppleStarting;
@@ -169,16 +173,8 @@ export default function AuthScreen() {
     setStage('kakao');
     setLinkCode(null);
     setAppleCredential(null);
-    setAgreedTerms(false);
-    setAgreedPrivacy(false);
+    setAgreements(NO_AGREEMENTS);
     setErrorMessage(message);
-  };
-
-  const toggleAgreeAll = () => {
-    const next = !hasAgreedAll;
-
-    setAgreedTerms(next);
-    setAgreedPrivacy(next);
   };
 
   // 계정 전환 = 진행 중이던 가입 상태를 버리고, 카카오에 **로그인 화면을 다시 띄우라고** 요청한다.
@@ -258,13 +254,11 @@ export default function AuthScreen() {
   };
 
   const completeAppleSignup = async (credential: AppleCredential) => {
-    const terms = { agreed_terms: agreedTerms, agreed_privacy: agreedPrivacy };
-
     setIsSigningUp(true);
     setErrorMessage(null);
 
     try {
-      setAuthSession(await signupWithApple(credential, terms));
+      setAuthSession(await signupWithApple(credential, agreements));
     } catch (error) {
       if (!(error instanceof AppleLoginExpiredError)) {
         setErrorMessage(error instanceof Error ? error.message : '회원가입 중 오류가 발생했습니다.');
@@ -280,7 +274,7 @@ export default function AuthScreen() {
         setAuthSession(
           await signupWithApple(
             { ...renewed, nickname: credential.nickname ?? renewed.nickname },
-            terms,
+            agreements,
           ),
         );
       } catch (retryError) {
@@ -313,12 +307,7 @@ export default function AuthScreen() {
     setErrorMessage(null);
 
     try {
-      setAuthSession(
-        await signupWithKakao(linkCode, {
-          agreed_terms: agreedTerms,
-          agreed_privacy: agreedPrivacy,
-        }),
-      );
+      setAuthSession(await signupWithKakao(linkCode, agreements));
     } catch (error) {
       // 연동 코드가 만료·소비됐다(동의 화면에 10분 이상 머문 경우). 그 코드로는 못 고치니
       // 처음부터 다시 시작시킨다.
@@ -334,7 +323,7 @@ export default function AuthScreen() {
   };
 
   return (
-    <Screen gap={18} contentStyle={styles.content}>
+    <Screen gap={18} contentStyle={styles.content} keyboard="avoid">
       <View style={styles.header}>
         <Image
           accessibilityIgnoresInvertColors
@@ -353,31 +342,9 @@ export default function AuthScreen() {
       </View>
 
       <View style={styles.form}>
-        {isSignup ? (
-          <>
-            <View style={styles.consentSection}>
-              <Text style={styles.label}>약관 동의</Text>
-              <Pressable
-                onPress={toggleAgreeAll}
-                style={({ pressed }) => [styles.agreeAllRow, pressed && styles.pressed]}>
-                <CheckBox isChecked={hasAgreedAll} />
-                <Text style={styles.agreeAllText}>모두 동의</Text>
-              </Pressable>
-              <ConsentRow
-                href="/legal/terms"
-                isChecked={agreedTerms}
-                label="[필수] 서비스 이용약관"
-                onToggle={() => setAgreedTerms((prev) => !prev)}
-              />
-              <ConsentRow
-                href="/legal/privacy"
-                isChecked={agreedPrivacy}
-                label="[필수] 개인정보 처리방침"
-                onToggle={() => setAgreedPrivacy((prev) => !prev)}
-              />
-            </View>
-          </>
-        ) : null}
+        {isSignup ? null : <EmailAuth mode={emailMode} onModeChange={setEmailMode} />}
+
+        {isSignup ? <SignupConsents onChange={setAgreements} value={agreements} /> : null}
 
         {errorMessage ? (
           <View style={styles.errorBox}>
@@ -422,8 +389,14 @@ export default function AuthScreen() {
               </Pressable>
             )}
           </>
-        ) : (
+        ) : emailMode !== 'login' ? null : (
           <>
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>또는</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
             <Pressable
               disabled={isBusy}
               onPress={() => void startKakao()}
@@ -468,49 +441,6 @@ export default function AuthScreen() {
   );
 }
 
-function CheckBox({ isChecked }: { isChecked: boolean }) {
-  return (
-    <View style={[styles.checkBox, isChecked && styles.checkBoxChecked]}>
-      <MaterialIcons color={isChecked ? '#22211f' : '#a9a6a1'} name="check" size={16} />
-    </View>
-  );
-}
-
-// 동의 체크박스 + 전문 '보기'. 링크를 체크박스 **밖**에 둔다 — 안에 두면 문서를 열려다
-// 동의가 토글된다. 2026-07-16 이전에는 이 링크가 없어, 읽을 수 없는 문서에 동의를 받고 있었다.
-function ConsentRow({
-  href,
-  isChecked,
-  label,
-  onToggle,
-}: {
-  href: '/legal/terms' | '/legal/privacy';
-  isChecked: boolean;
-  label: string;
-  onToggle: () => void;
-}) {
-  const router = useRouter();
-
-  return (
-    <View style={styles.consentRow}>
-      <Pressable
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: isChecked }}
-        onPress={onToggle}
-        style={({ pressed }) => [styles.consentToggle, pressed && styles.pressed]}>
-        <CheckBox isChecked={isChecked} />
-        <Text style={styles.consentText}>{label}</Text>
-      </Pressable>
-      <Pressable
-        accessibilityRole="link"
-        onPress={() => router.push(href)}
-        style={({ pressed }) => [styles.consentViewButton, pressed && styles.pressed]}>
-        <Text style={styles.consentViewText}>보기</Text>
-      </Pressable>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
@@ -547,11 +477,6 @@ const styles = StyleSheet.create({
     gap: 14,
     padding: 18,
   },
-  label: {
-    color: '#22211f',
-    fontSize: 14,
-    fontWeight: '900',
-  },
   kakaoButton: {
     alignItems: 'center',
     backgroundColor: '#fee500',
@@ -564,6 +489,21 @@ const styles = StyleSheet.create({
   appleButton: {
     height: 54,
     width: '100%',
+  },
+  divider: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  dividerLine: {
+    backgroundColor: '#e4e2de',
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    color: '#a9a6a1',
+    fontSize: 13,
+    fontWeight: '700',
   },
   kakaoButtonText: {
     color: '#22211f',
@@ -617,61 +557,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     lineHeight: 20,
-  },
-  consentSection: {
-    gap: 8,
-  },
-  agreeAllRow: {
-    alignItems: 'center',
-    backgroundColor: '#e4e2de',
-    borderRadius: 8,
-    flexDirection: 'row',
-    gap: 10,
-    padding: 12,
-  },
-  agreeAllText: {
-    color: '#22211f',
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  consentRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    paddingHorizontal: 4,
-    paddingVertical: 6,
-  },
-  // 체크박스와 라벨만 토글 영역이다. '보기'는 이 밖에 있어야 문서를 열 때 동의가 켜지지 않는다.
-  consentToggle: {
-    alignItems: 'center',
-    flex: 1,
-    flexDirection: 'row',
-    gap: 10,
-  },
-  consentViewButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  consentViewText: {
-    color: '#5c5b57',
-    fontSize: 13,
-    fontWeight: '700',
-    textDecorationLine: 'underline',
-  },
-  consentText: {
-    color: '#5c5b57',
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  checkBox: {
-    alignItems: 'center',
-    backgroundColor: '#e4e2de',
-    borderRadius: 999,
-    height: 22,
-    justifyContent: 'center',
-    width: 22,
-  },
-  checkBoxChecked: {
-    backgroundColor: '#60beb8',
   },
 });
