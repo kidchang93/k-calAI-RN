@@ -34,7 +34,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         type: 'new',
-        text: 'iPhone 앱에서 월간·연간으로 시작할 수 있어요. 처음이라면 7일 동안 무료로 써 볼 수 있어요.',
+        text: 'iPhone 앱에서 월간·연간으로 구독할 수 있어요. 플러스 없이도 식단 기록과 진료 리포트는 지금처럼 무료로 쓸 수 있어요.',
       },
       {
         type: 'improved',

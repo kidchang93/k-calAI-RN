@@ -31,7 +31,7 @@ k-calAI-RN/
 │   │   ├── conditions.tsx      # 질병 정보 수정 (GET/PUT /api/me/conditions, 칩 + 메타 폴백)
 │   │   └── allergies.tsx       # 알러지 정보 수정 (GET/PUT /api/me/allergies, severity 보존)
 │   ├── plan.tsx                # 이용권 (P-04, 2026-10-06 — 내 정보 '이용권'에서 진입). 플러스면 지금 이용권·구독 해지·변경(App Store)·구매 복원·'끝나면', 무료면 플러스 알아보기 카드. 옛 토스 요금제는 LegacyTossPlan(토스 구독자에게만)
-│   ├── plus.tsx                # 플러스 알아보기 (P-02, 2026-10-06 — 인증 가드 안). 혜택·연간/월간·7일 무료로 시작·3.1.2 고지·구매 복원. **iOS 에서만 구매 버튼**, 웹 'iPhone 앱에서', Android '준비 중'. 이미 플러스면 /plan
+│   ├── plus.tsx                # 플러스 알아보기 (P-02, 2026-10-06 — 인증 가드 안). 혜택·연간/월간·(체험 상품일 때만 무료로 시작 — 10-13부터 체험 없음)·3.1.2 고지·구매 복원. **iOS 에서만 구매 버튼**, 웹 'iPhone 앱에서', Android '준비 중'. 이미 플러스면 /plan
 │   ├── billing/                # 토스 결제창 착지점 스택 (사용자가 직접 들어오는 곳이 아니다)
 │   │   ├── _layout.tsx         # 인증 가드 (payments 레이아웃과 같은 패턴)
 │   │   ├── success.tsx         # successUrl 착지 → POST /api/billing/confirm (마운트 1회, ref 가드)

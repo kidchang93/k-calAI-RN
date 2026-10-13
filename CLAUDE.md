@@ -141,10 +141,10 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 
 ### 플러스 — App Store 인앱 구독 (2026-10-06, 서버 `docs/DATA_MODEL.md` 32장)
 
-유료는 **플러스 하나**(월간·연간, 7일 무료 체험). **iOS 에서만 판다** — 웹은 "플러스는 iPhone 앱에서 구독할 수 있어요"(구매 링크 없음, 산 이용권은 같은 계정이면 웹에서도 열린다 — 3.1.3(b)), Android 는 '준비 중'(Play 결제 정책상 다른 결제 안내 금지). 클라이언트는 `services/iap.ts`(expo-iap), 화면은 `/plus`(P-02)·`/plan`(P-04).
+유료는 **플러스 하나**(월간·연간, **무료 체험 없음** — 2026-10-13 결정: 앱은 무료로 쓰고 플러스는 구독을 더한 것). **iOS 에서만 판다** — 웹은 "플러스는 iPhone 앱에서 구독할 수 있어요"(구매 링크 없음, 산 이용권은 같은 계정이면 웹에서도 열린다 — 3.1.3(b)), Android 는 '준비 중'(Play 결제 정책상 다른 결제 안내 금지). 클라이언트는 `services/iap.ts`(expo-iap), 화면은 `/plus`(P-02)·`/plan`(P-04).
 
 ```
-/plus [7일 무료로 시작하기]
+/plus [플러스 구독하기]
   └─ GET /api/me/subscription → app_account_token (회원 고정 UUID)
   └─ StoreKit requestPurchase({ sku, appAccountToken }) → transactionId      (취소 = PurchaseCancelledError, 오류 아님)
   └─ POST /api/billing/appstore/verify { transaction_id }   → 200 → finishTransaction → /report (dismissTo)
@@ -155,7 +155,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 
 - **서버 200 뒤에만 `finishTransaction`한다.** 먼저 끝내면 서버 확인이 실패했을 때 StoreKit 이 그 거래를 다시 주지 않아 돈을 낸 사람이 플러스를 못 받는다. 끝내지 않은 거래는 '구매 복원'이 다시 집는다. 반대로 서버 200 뒤의 finish 실패는 삼킨다(구독은 이미 붙었다).
 - **가격을 하드코딩하지 않는다.** 스토어가 준 `displayPrice`(현지화 문자열)를 그대로 쓴다 — 심사관의 스토어프런트가 다를 수 있다. 연간 할인율·'월 ~꼴'도 스토어가 준 숫자로만 계산하고, 못 하면 줄을 뺀다.
-- **'7일 무료'는 자격이 있을 때만 말한다.** 상품의 intro offer 가 free-trial 이고 `isEligibleForIntroOfferIOS`가 true 일 때만 버튼·고지가 체험 문구다(체험은 계정당 1회). 자격을 못 물으면 체험이 없다고 본다.
+- **'7일 무료'는 자격이 있을 때만 말한다.** 상품의 intro offer 가 free-trial 이고 `isEligibleForIntroOfferIOS`가 true 일 때만 버튼·고지가 체험 문구다(체험은 계정당 1회). 자격을 못 물으면 체험이 없다고 본다. **2026-10-13부터 ASC 상품에 체험이 없어 이 문구는 나오지 않는다**(체험을 다시 넣으면 살아난다).
 - **3.1.2 고지는 구매 버튼과 한 묶음이다** — 가격·갱신 주기·해지 방법(갱신 24시간 전·iPhone 설정 › Apple ID › 구독)·이용약관·처리방침·구매 복원.
 - **구매 경로는 `isIapSupported()`(iOS + 네이티브 모듈 있음)일 때만 그린다.** expo-iap 는 import 는 지연 해석이라 안전하지만 호출은 터진다 — 모듈 없이 새 JS 를 도는 Expo Go·옛 개발 빌드에서는 '업데이트하면 구독할 수 있어요'를 그린다. 실제 구매는 새 네이티브 빌드 + 실기기 샌드박스 계정에서만 확인된다.
 - **`app_account_token`이 없으면(옛 서버) 구매를 시작하지 않는다** — 토큰 없이 산 구독은 서버가 이 회원의 것인지 확인할 수 없다(409).

@@ -25,7 +25,7 @@ import { AppStoreUnavailableError, verifyAppStorePurchase } from '@/services/bil
 // 복원:  App Store 동기화 → 지금 유효한 플러스 거래를 전부 verify 에 다시 보낸다(409 문구는 그대로).
 // 해지:  앱 안에서 하지 않는다 — App Store 구독 화면을 연다.
 //
-// expo-iap 는 네이티브 모듈이라 Expo Go·웹·이 모듈이 없는 옛 빌드(OTA 로 새 JS 만 받은 TestFlight 빌드
+// expo-iap 는 네이티브 모듈이라 Expo Go·웹·이 모듈이 없는 옛 빌드(expo-iap 이전 개발 빌드
 // 등)에는 없다. import 는 지연 해석이라 터지지 않지만 **호출은 터진다** — 화면은 isIapSupported() 가
 // true 일 때만 구매 경로를 그리고, 아래 함수들도 같은 검사를 다시 한다.
 // ponytail: 앱 전역 purchaseUpdatedListener 를 두지 않는다. 자동 갱신 거래는 서버가 Apple 알림으로
