@@ -15,7 +15,7 @@
 | 5.1.1(v) | 앱 안에서 계정 삭제 | ✅ 내 정보 › 회원 탈퇴 (Apple 토큰 폐기 포함) |
 | 5.1.1(ix) | 규제 분야(의료)는 법인이 제출 | ⚠️ 개인 개발자 계정이다. 의료 서비스를 제공하지 않는 식단 기록 도구라는 점을 심사 메모에 밝힌다. 거부되면 §6 |
 | 1.4.1 | 의료 앱 — 근거 공개·의사 상담 상기 | ✅ 학회 지침 출처 표시, 수치 화면마다 의료 고지 |
-| 2.5.2 | 심사 후 동작을 바꿀 수 있는 코드(원격 리소스 + 동적 메서드 호출) | ⚠️ 2026-10-13 반려, **Extended Review 경고**(같은 문제로 다시 내면 심사가 길어진다). 반려된 바이너리는 빌드 6/7이다(둘 다 expo-iap 이전 — expo-iap·openiap 3.6.1 소스에도 dlopen/dlsym/performSelector 없음). **원인 추정: `expo-updates`**. 2026-08-03부터 들어 있고, `app.json` `updates.url` 때문에 실행할 때마다 u.expo.dev에 새 JS가 있는지 확인한다. 그런데 `eas update`로 올린 적은 한 번도 없다. `NSSelectorFromString`·`performSelector`·`method_exchangeImplementations`는 expo-modules-core·react-native-screens·expo-font 내부 코드라 모든 Expo 앱에 있다. ✅ 2026-10-13 코드 대응: `expo-updates` 제거(expo-iap 는 참조하지 않음) + `app.json` `updates`·`runtimeVersion`·`eas.json` `channel` 삭제. ⏳ 새 빌드(플러스 포함) + 회신 — "We removed the OTA update library (expo-updates). The app no longer downloads or executes any remote code; all functionality is contained in the reviewed binary." |
+| 2.5.2 | 심사 후 동작을 바꿀 수 있는 코드(원격 리소스 + 동적 메서드 호출) | ⚠️ 2026-10-13 반려, **Extended Review 경고**(같은 문제로 다시 내면 심사가 길어진다). 반려된 바이너리는 빌드 6/7이다(둘 다 expo-iap 이전 — expo-iap·openiap 3.6.1 소스에도 dlopen/dlsym/performSelector 없음). **원인 추정: `expo-updates`**. 2026-08-03부터 들어 있고, `app.json` `updates.url` 때문에 실행할 때마다 u.expo.dev에 새 JS가 있는지 확인한다. 그런데 `eas update`로 올린 적은 한 번도 없다. `NSSelectorFromString`·`performSelector`·`method_exchangeImplementations`는 expo-modules-core·react-native-screens·expo-font 내부 코드라 모든 Expo 앱에 있다. ✅ 2026-10-13 코드 대응: `expo-updates` 제거(expo-iap 는 참조하지 않음) + `app.json` `updates`·`runtimeVersion`·`eas.json` `channel` 삭제. ✅ **2026-10-13 21:28 재제출**(빌드 10 + 플러스 구독 2개, WAITING_FOR_REVIEW). 회신 문구 "We removed the OTA update library (expo-updates). The app no longer downloads or executes any remote code; all functionality is contained in the reviewed binary."는 API 로 해결 센터에 쓸 수 없어 **심사 메모 맨 앞**('Resubmission — Guideline 2.5.2')에 넣었다 |
 | 3.1.1 | 앱 기능 유료화는 IAP | ✅ 지금 제출본(빌드 6)은 결제 없음(무료 출시). ⏳ **플러스 출시 때**: 앱 코드는 2026-10-06 준비됨 — 판매는 App Store 인앱 구독(`expo-iap`, `com.kcalai.kcalairn.plus.monthly`·`.yearly`)뿐이고 **iOS 에서만** 구매 버튼, 웹은 'iPhone 앱에서', Android '준비 중'(다른 결제 수단 안내 없음). 3.1.2 고지(가격·갱신 주기·해지 방법·약관·처리방침·구매 복원)는 `/plus` 구매 버튼 아래. 새 네이티브 빌드·ASC 구독 상품·서버 verify(32장)가 함께 나가야 하고, 그때 아래 2장 메모의 'Payments'와 3장 '구매 내역'을 함께 고친다 |
 
 ## 1. URL
@@ -87,6 +87,8 @@ Registered business in Korea: 미드나잇모찌 (Midnight Mochi), owner 이창�
 - 수출 규정 암호화: 없음(`app.json`의 `usesNonExemptEncryption: false`).
 - 제3자 콘텐츠: 예 — 식약처 식품영양성분 DB(공공데이터), 학회 지침 인용.
 - **대한민국 규정 준수 정보**(ASC › 비즈니스 › 계약 › 규정 준수 › 대한민국 법률): 개인 계정은 이메일과 사업자등록번호. 전화·이메일 인증이 필요해 계정 소유자가 직접 한다.
+- **가격 및 사용 가능 여부**(2026-10-13 API): 앱 가격 **무료**(KOR 기준), 판매 국가 **대한민국만**(신규 국가 자동 추가 끔). 비어 있으면 심사 제출이 `APP_PRICING_REQUIRED` 로 막힌다 — 판매 국가는 `POST /v2/appAvailabilities` 에 **175개 국가 전부**를 available true/false 로 넣어야 한다.
+- **첫 구독 제출은 API 로 안 된다**(`FIRST_SUBSCRIPTION_MUST_BE_SUBMITTED_ON_VERSION`). 버전 화면에 '앱 내 구입 및 구독' 칸도 없다(2026-10 ASC). **구독 그룹 화면과 구독마다 '심사에 추가' → 기존 iOS 제출 초안**을 고르면 버전과 한 초안에 묶이고, 초안 창의 '심사를 위해 제출'로 낸다. 두 번째 구독부터는 구독 목록에서 따로 낼 수 있다.
 - 스크린샷: 6.9" 1290×2796(또는 1320×2868) 최소 1장. 로그인 화면만으로 채우지 않는다 — 앱을 쓰는 화면(식단 홈·기록·진료 리포트)을 담는다.
 
 ## 6. 거부되면
