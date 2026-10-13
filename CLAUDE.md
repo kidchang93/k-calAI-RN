@@ -63,7 +63,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 |------|-------------|------|
 | `EXPO_PUBLIC_API_ORIGIN` | API 오리진 강제(예: `https://api.kcalai.link`). **모든 서비스가 이 하나를 따른다** — 서비스별 `EXPO_PUBLIC_*_API_URL`은 2026-09-14에 없앴다. `eas.json`의 빌드 프로파일이 운영 오리진을 넣는다 | `services/api-base.ts` |
 | `EXPO_PUBLIC_PUBLIC_WEB_ORIGIN` | 네이티브에서 만드는 그룹 초대 링크의 오리진(웹은 접속 도메인을 따른다) | `services/group-invite.ts` |
-| `EXPO_PUBLIC_BUSINESS_*` | 약관·처리방침·고객 지원 화면의 사업자 정보(`NAME`·`OWNER`·`REG_NO`·`ADDRESS`·`EMAIL`·`PHONE`(2026-10-05, 전자상거래법 제10조), 선택 `MAIL_ORDER_NO`). 호스팅 서비스 제공자(AWS)는 코드 고정값이다. **약관에 공개되는 값**이라 비밀이 아니다. 하나라도 비면 `[[...]]`와 '초안' 경고가 보인다. ⚠️ EAS 클라우드 빌드는 gitignore 된 `.env`를 올리지 않는다 — `eas env:set production`으로 같은 이름을 등록한다(2026-10-05 등록 완료 — `eas env:list production`) (2026-09-29) | `constants/legal.ts` |
+| `EXPO_PUBLIC_BUSINESS_*` | 약관·처리방침·고객 지원 화면의 사업자 정보(`NAME`·`OWNER`·`REG_NO`·`ADDRESS`·`EMAIL`·`PHONE`(2026-10-05, 전자상거래법 제10조), 선택 `MAIL_ORDER_NO`). 호스팅 서비스 제공자(AWS)는 코드 고정값이다. **약관에 공개되는 값**이라 비밀이 아니다. 하나라도 비면 `[[...]]`와 '초안' 경고가 보인다. ⚠️ EAS 클라우드 빌드는 gitignore 된 `.env`를 올리지 않는다 — `eas env:set production`으로 같은 이름을 등록한다(2026-10-05 등록 완료 — `eas env:list production`) (2026-09-29). **2026-10-13 사업자 교체: 호시이 스토어 → 미드나잇모찌(대표 이창규, 880-54-00995, 일반과세 — 통신판매업 신고번호 있음)** — `.env`·`eas env` 둘 다 바꿨고 약관·처리방침 1.4 와 함께 나간다 | `constants/legal.ts` |
 | `EXPO_PUBLIC_DEV_AUTH_SESSION` | (오버라이드 아님) 로컬 개발 세션 JSON — **`../dev.sh`가 넣는다**. `__DEV__`에서만 읽고 저장된 세션보다 우선한다. 아래 '비밀값 금지'의 **유일한 예외**: 로컬 DB·로컬 pepper에서만 유효하고, 프로덕션 export는 빌드 시점에 값이 있어도 번들에 남지 않는다(2026-09-13 `expo export`로 확인) | `services/auth-session.ts` |
 
 기본 오리진(base)은 `services/api-base.ts`가 결정합니다(위 설명). 새 서비스는 `apiUrl('/api/…')` 패턴을 따르세요 — 호스트 분기·개별 환경변수를 서비스 파일에 두지 않습니다.

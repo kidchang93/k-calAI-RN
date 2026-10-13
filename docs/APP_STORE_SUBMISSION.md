@@ -48,11 +48,13 @@ Account deletion
 My Info > Delete account. All personal data is deleted immediately; Sign in with Apple tokens are revoked.
 
 Payments
-This version has no purchases.
+CareTable Plus is an auto-renewable subscription (monthly / yearly), sold only via In-App Purchase on iOS. Purchase screen: 내 정보 (My Info) > 이용권 > 플러스 알아보기 — the demo account is on the free plan so the purchase screen can be reviewed. Restore Purchases is on the same screen. Purchases are verified on our server with the App Store Server API. The web version does not sell Plus and does not link to any other payment method.
 
 Operator
-Registered business in Korea: 호시이 스토어 (Business Registration No. 850-09-03410).
+Registered business in Korea: 미드나잇모찌 (Midnight Mochi), owner 이창규 (Business Registration No. 880-54-00995).
 ```
+
+> 2026-10-13: 'Payments'를 플러스 기준으로, 'Operator'를 미드나잇모찌로 바꿨다(약관·처리방침 1.4, 빌드 10). ASC 버전 심사 메모와 TestFlight 베타 심사 메모 **두 곳 모두** 같은 값으로 맞춘다.
 
 ## 3. 앱 개인정보 (App Privacy)
 
@@ -65,9 +67,14 @@ Registered business in Korea: 호시이 스토어 (Business Registration No. 850
 | 연락처 정보 › 이메일 주소 | 예 | 예 | 앱 기능 | **이메일로 가입한 회원만**(2026-10-06) — 로그인 식별자·인증 코드 메일. 카카오·Apple 회원에게는 받지 않는다 |
 | 식별자 › 사용자 ID | 예 | 예 | 앱 기능 | 회원번호 · 카카오 회원번호 · Apple 사용자 식별자 |
 | 사용자 콘텐츠 › 사진 또는 비디오 | 예 | 아니요 | 앱 기능 | 음식 사진 — 저장하지 않지만 Google이 남용 탐지 목적으로 제한된 기간 기록할 수 있어 보수적으로 신고한다 |
-| 전화·위치·연락처·검색·구매·진단 | 아니요 | — | — | 받지 않는다(Apple·카카오는 이메일도 요청 안 함). ⚠️ **플러스 출시 때** **구매 › 구매 내역**을 '예 · 연결 · 앱 기능'으로 바꾼다(서버가 구독 상품·체험 여부·만료일을 회원에 붙여 둔다 — 32-2) + 매니페스트 `NSPrivacyCollectedDataTypePurchaseHistory`(✅ 2026-10-13 `app.json` — 빌드 9부터). 플러스가 든 빌드를 내기 전까지는 ASC 라벨 값을 바꾸지 않는다 |
+| 사용자 콘텐츠 › 기타 사용자 콘텐츠 | 예 | 예 | 앱 기능 | 함께 보기 그룹 이름(사용자가 직접 짓는다) — 경계선이지만 저장하므로 신고(2026-10-13) |
+| 민감 정보 | 예 | 예 | 앱 기능 | 질환 선택지 **'임신 중'** — Apple 정의의 민감 정보에 "임신 또는 출산 정보"가 들어 있다(처리방침도 임신을 민감정보로 적는다, 2026-10-13) |
+| 건강 및 피트니스 › 피트니스 | 예 | 예 | 앱 기능 | 프로필의 **활동량**(평소 활동 정도). 운동 기록 화면은 숨겨져 있어 받지 않는다 — 경계선이지만 신고(2026-10-13) |
+| 구매 › 구매 내역 | 예 | 예 | 앱 기능 | 플러스 구독 상품·만료일을 회원에 붙여 둔다(서버 32-2). 매니페스트 `NSPrivacyCollectedDataTypePurchaseHistory`(빌드 9부터) |
+| 전화·위치·연락처·검색·진단·기기 ID·오디오·지불 | 아니요 | — | — | 받지 않는다. 사진의 위치(EXIF)는 서버가 지우고 저장하지 않는다. 분석·크래시·푸시 SDK 없음(`package.json` — 넣으면 이 표를 고친다) |
 
-운동 기록(피트니스)은 진입점이 숨겨져 있어 지금은 수집하지 않는다 — 다시 열면 '피트니스'를 추가한다.
+**2026-10-13 ASC 게시 완료(위 9개, 추적 전부 아니요).** 게시 전 ASC 에는 35개 중 32개가 체크돼 있었다 — 손으로 다시 넣지 말고 이 표를 기준으로 맞춘다. 성별·출생연도는 칼로리 목표 계산용이라 '건강'에 포함한 것으로 본다.
+⚠️ 앱 매니페스트(`app.json` `privacyManifests`)에는 아직 **피트니스·민감 정보·기타 사용자 콘텐츠**가 없다 — 다음 네이티브 빌드에서 `NSPrivacyCollectedDataTypeFitness`·`…SensitiveInfo`·`…OtherUserContent` 를 더한다.
 
 ## 4. 연령 등급
 

@@ -126,7 +126,9 @@ export default function AccountScreen() {
 
     const confirmed = await confirmDialog({
       title: '마지막 확인',
-      message: '모든 끼니·체중·검사 수치 기록과 소유한 그룹이 영구 삭제됩니다. 되돌릴 수 없습니다.',
+      // 구독 안내는 Apple 계정 삭제 가이드 — Apple 이 청구하는 구독은 탈퇴로 멈추지 않는다(약관 제7조와 같은 내용).
+      message:
+        '모든 끼니·체중·검사 수치 기록과 소유한 그룹이 영구 삭제됩니다. 되돌릴 수 없습니다.\n\n플러스를 구독 중이라면 탈퇴해도 App Store 결제는 멈추지 않아요. iPhone 설정 › Apple ID › 구독에서 먼저 해지해주세요.',
       confirmLabel: '영구 삭제',
       destructive: true,
     });

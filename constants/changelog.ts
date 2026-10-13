@@ -40,6 +40,10 @@ export const CHANGELOG: ChangelogEntry[] = [
         type: 'improved',
         text: '무료로도 진료 리포트에서 최근 2주를 볼 수 있고, 지난 진료 이후 기록한 날도 함께 보여요.',
       },
+      {
+        type: 'improved',
+        text: '이용약관과 개인정보 처리방침을 고쳤어요. 운영자가 미드나잇모찌로 바뀌었고, 플러스 구독의 결제·자동 갱신·해지·환불 안내가 들어갔어요.',
+      },
     ],
   },
   {
