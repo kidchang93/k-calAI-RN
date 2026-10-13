@@ -15,6 +15,7 @@
 | 5.1.1(v) | 앱 안에서 계정 삭제 | ✅ 내 정보 › 회원 탈퇴 (Apple 토큰 폐기 포함) |
 | 5.1.1(ix) | 규제 분야(의료)는 법인이 제출 | ⚠️ 개인 개발자 계정이다. 의료 서비스를 제공하지 않는 식단 기록 도구라는 점을 심사 메모에 밝힌다. 거부되면 §6 |
 | 1.4.1 | 의료 앱 — 근거 공개·의사 상담 상기 | ✅ 학회 지침 출처 표시, 수치 화면마다 의료 고지 |
+| 2.5.2 | 심사 후 동작을 바꿀 수 있는 코드(원격 리소스 + 동적 메서드 호출) | ⚠️ 2026-10-13 반려, **Extended Review 경고**(같은 문제로 다시 내면 심사가 길어진다). 반려된 바이너리는 빌드 6/7이다(둘 다 expo-iap 이전 — expo-iap·openiap 3.6.1 소스에도 dlopen/dlsym/performSelector 없음). **원인 추정: `expo-updates`**. 2026-08-03부터 들어 있고, `app.json` `updates.url` 때문에 실행할 때마다 u.expo.dev에 새 JS가 있는지 확인한다. 그런데 `eas update`로 올린 적은 한 번도 없다. `NSSelectorFromString`·`performSelector`·`method_exchangeImplementations`는 expo-modules-core·react-native-screens·expo-font 내부 코드라 모든 Expo 앱에 있다. ✅ 2026-10-13 코드 대응: `expo-updates` 제거(expo-iap 는 참조하지 않음) + `app.json` `updates`·`runtimeVersion`·`eas.json` `channel` 삭제. ⏳ 새 빌드(플러스 포함) + 회신 — "We removed the OTA update library (expo-updates). The app no longer downloads or executes any remote code; all functionality is contained in the reviewed binary." |
 | 3.1.1 | 앱 기능 유료화는 IAP | ✅ 지금 제출본(빌드 6)은 결제 없음(무료 출시). ⏳ **플러스 출시 때**: 앱 코드는 2026-10-06 준비됨 — 판매는 App Store 인앱 구독(`expo-iap`, `com.kcalai.kcalairn.plus.monthly`·`.yearly`)뿐이고 **iOS 에서만** 구매 버튼, 웹은 'iPhone 앱에서', Android '준비 중'(다른 결제 수단 안내 없음). 3.1.2 고지(가격·갱신 주기·해지 방법·약관·처리방침·구매 복원)는 `/plus` 구매 버튼 아래. 새 네이티브 빌드·ASC 구독 상품·서버 verify(32장)가 함께 나가야 하고, 그때 아래 2장 메모의 'Payments'와 3장 '구매 내역'을 함께 고친다 |
 
 ## 1. URL

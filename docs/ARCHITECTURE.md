@@ -455,7 +455,7 @@ app/plus.tsx   (마운트 1회) fetchMySubscription() + [isIapSupported()] fetch
 app/plan.tsx   [구독 해지·변경] → Linking.openURL('https://apps.apple.com/account/subscriptions')
 ```
 
-- **웹·Android 는 이 흐름을 타지 않는다** — `isIapSupported()`가 false 라 상품 조회도 하지 않는다. iOS 인데 네이티브 모듈이 없는 빌드(OTA 로 JS 만 받은 옛 빌드·Expo Go)도 false 다(`requireOptionalNativeModule('ExpoIap')`). expo-iap 의 import 자체는 지연 해석이라 웹 정적 렌더(`expo export --platform web`)에서도 터지지 않는다(2026-10-06 확인).
+- **웹·Android 는 이 흐름을 타지 않는다** — `isIapSupported()`가 false 라 상품 조회도 하지 않는다. iOS 인데 네이티브 모듈이 없는 곳(Expo Go·expo-iap 이전 개발 빌드)도 false 다(`requireOptionalNativeModule('ExpoIap')`). expo-iap 의 import 자체는 지연 해석이라 웹 정적 렌더(`expo export --platform web`)에서도 터지지 않는다(2026-10-06 확인).
 - 가격은 스토어의 `displayPrice`, 할인율·'월 ~꼴'은 스토어 `price`로만 계산한다(하드코딩 없음).
 - 앱 전역 구매 리스너는 없다 — 자동 갱신은 서버가 Apple 알림으로 맞추고, 끝나지 않은 거래는 복원이 다시 집는다.
 

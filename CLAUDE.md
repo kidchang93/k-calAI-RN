@@ -157,7 +157,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 - **가격을 하드코딩하지 않는다.** 스토어가 준 `displayPrice`(현지화 문자열)를 그대로 쓴다 — 심사관의 스토어프런트가 다를 수 있다. 연간 할인율·'월 ~꼴'도 스토어가 준 숫자로만 계산하고, 못 하면 줄을 뺀다.
 - **'7일 무료'는 자격이 있을 때만 말한다.** 상품의 intro offer 가 free-trial 이고 `isEligibleForIntroOfferIOS`가 true 일 때만 버튼·고지가 체험 문구다(체험은 계정당 1회). 자격을 못 물으면 체험이 없다고 본다.
 - **3.1.2 고지는 구매 버튼과 한 묶음이다** — 가격·갱신 주기·해지 방법(갱신 24시간 전·iPhone 설정 › Apple ID › 구독)·이용약관·처리방침·구매 복원.
-- **구매 경로는 `isIapSupported()`(iOS + 네이티브 모듈 있음)일 때만 그린다.** expo-iap 는 import 는 지연 해석이라 안전하지만 호출은 터진다 — OTA 로 새 JS 만 받은 옛 TestFlight 빌드·Expo Go 에는 모듈이 없어 '업데이트하면 구독할 수 있어요'를 그린다. 실제 구매는 새 네이티브 빌드 + 실기기 샌드박스 계정에서만 확인된다.
+- **구매 경로는 `isIapSupported()`(iOS + 네이티브 모듈 있음)일 때만 그린다.** expo-iap 는 import 는 지연 해석이라 안전하지만 호출은 터진다 — 모듈 없이 새 JS 를 도는 Expo Go·옛 개발 빌드에서는 '업데이트하면 구독할 수 있어요'를 그린다. 실제 구매는 새 네이티브 빌드 + 실기기 샌드박스 계정에서만 확인된다.
 - **`app_account_token`이 없으면(옛 서버) 구매를 시작하지 않는다** — 토큰 없이 산 구독은 서버가 이 회원의 것인지 확인할 수 없다(409).
 - 앱 전역 `purchaseUpdatedListener`는 두지 않았다 — 자동 갱신은 서버가 Apple 알림(32-4)으로 맞춘다. 앱 밖 구매(프로모션 코드 등)를 받아야 하면 그때 붙인다.
 - 옛 토스 요금제 화면은 지우지 않고 `app/plan.tsx`의 `LegacyTossPlan`으로 옮겼다 — `provider === 'toss'`이면서 **아직 긁힐 수 있는**(유료가 살아 있거나 청구 예정이 남은) 회원에게만 그린다('자동결제 해지'가 거기에만 있어서다). 끝난 토스 구독자는 무료 회원이라 플러스 알아보기로 간다.
@@ -215,6 +215,7 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 - **`changePlan`(PUT `/api/me/subscription`)으로 업그레이드하지 않는다.** 유료 플랜은 400입니다. 유료 구독자에게는 `cancelBilling()`을 붙입니다.
 - **카카오 REST 키·`client_secret`을 앱에 넣지 않는다.** `EXPO_PUBLIC_*`는 번들에 평문 노출됩니다 — 토큰 교환은 서버에서만 합니다.
 - **`app.json`의 `newArchEnabled`, `reactCompiler`를 임의로 끄지 않는다.**
+- **OTA 업데이트(`expo-updates`·`eas update`)를 다시 넣지 않는다.** 2026-10-13 App Store 2.5.2 반려(원격 리소스로 심사 후 동작 변경)를 받아 뺐다 — 한 번도 쓰지 않은 채 실행마다 u.expo.dev를 확인하고 있었다. 수정은 새 네이티브 빌드로만 낸다(`docs/APP_STORE_SUBMISSION.md` §0).
 - **AI가 만든 결과물에서 AI 표시를 빼지 않고, AI가 만들지 않은 수치를 "AI 추정"이라 부르지 않는다.** 사진 인식 항목("AI가 사진에서 인식"·지난 기록 "AI 인식")과 `source='llm'` 칼로리("칼로리는 AI 추정값")에는 표시가 붙어야 하고(AI기본법 제31조②), 식약처 DB 값·공식 계산값에는 붙이면 안 된다 — 2026-09-13 전까지 앱이 거의 모든 수치를 "AI 추정값"이라 불렀다. 사전고지 문장은 `constants/ai-notice.ts` 한 곳에 둔다(식단 탭·기록 화면 — 2026-10-05 끼니 칸이 카메라를 바로 열면서 기록 탭에서 옮겼다). 근거 서버 `docs/LEGAL_COMPLIANCE.md` §7.
 - **사진을 Gemini로 보내는 경로를 새로 만들 때 사진 AI 분석 동의(`readAiPhotoConsent`)를 건너뛰지 않는다.** App Store 5.1.2(i)는 보내기 **전에** 동의를 요구한다 — 처리방침에 적어 둔 것으로는 부족하다(서버 `docs/LEGAL_COMPLIANCE.md` §6-7). 지금 사진이 나가는 곳은 `app/meals/compose.tsx`의 분석 하나다.
 - **질환 수치를 그리는 화면에서 `MedicalDisclaimer`를 빼지 않는다.** Apple 1.4.1은 의료 앱에 "의료 결정 전 의사와 상의하라고 **상기시킬 것**"을 요구하며, 약관에 조항을 두는 것으로는 그 요구를 충족하지 못합니다(`components/medical-disclaimer.tsx`, 서버 `docs/LEGAL_COMPLIANCE.md` §6-1). 현재 부착 위치: 기록 화면 경고(`app/meals/compose.tsx`) · 식단 탭 소금 항아리(`components/day-nutrients-card.tsx`) · 질환 영양 추이(`components/nutrient-trends.tsx`) · 진료 리포트(`app/report/index.tsx`, `tone="strong"`). 반대로 **모든 화면에 깔지도 않습니다** — 배경이 되면 아무도 읽지 않습니다.

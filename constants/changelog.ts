@@ -25,6 +25,24 @@ export const CHANGE_TYPE_LABELS: Record<ChangeType, string> = {
 // 최신순(위가 최신). 새 릴리즈는 이 배열 맨 앞에 추가한다.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-10-13',
+    title: '진료 리포트를 더 길게 보는 플러스가 생겼어요',
+    items: [
+      {
+        type: 'new',
+        text: '플러스에서는 진료 리포트 기간을 직접 바꿀 수 있어요. 지난 진료 때와 이번 구간을 나란히 놓고, 검사 수치와 식단을 겹쳐 볼 수도 있어요.',
+      },
+      {
+        type: 'new',
+        text: 'iPhone 앱에서 월간·연간으로 시작할 수 있어요. 처음이라면 7일 동안 무료로 써 볼 수 있어요.',
+      },
+      {
+        type: 'improved',
+        text: '무료로도 진료 리포트에서 최근 2주를 볼 수 있고, 지난 진료 이후 기록한 날도 함께 보여요.',
+      },
+    ],
+  },
+  {
     date: '2026-10-06',
     title: '이메일로도 가입할 수 있어요',
     items: [
