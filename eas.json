@@ -38,6 +38,11 @@
     "production": {
       "ios": {
         "ascAppId": "6819191246"
+      },
+      "android": {
+        "serviceAccountKeyPath": "../../keys/play-service-account.json",
+        "track": "internal",
+        "releaseStatus": "completed"
       }
     }
   }
