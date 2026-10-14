@@ -3,8 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 // 저장·조회 실패 배너. 홈 화면의 errorBox 패턴(#fbeaea / #b8524e)을 공용화한 것.
 // 402(이용 한도)는 재시도로 풀리지 않으므로 actionLabel="확인" + onRetry 에 닫기를 넘긴다. 문구는 서버 402 detail 이 정한다.
-// 예외: iOS 의 사진 인식 한도(vision_daily)는 '플러스 알아보기' → /plus (2026-10-06, app/meals/compose.tsx).
-// 판매 경로가 iOS 인앱 구독뿐이라 웹·Android 에서는 여전히 '확인'만 둔다(심사 3.1.1·Play 정책).
+// 예외: 사진 인식 한도(vision_daily)는 결제가 되는 앱(iOS·Android — isIapSupported)에서 '플러스 알아보기' → /plus
+// (2026-10-06 iOS, 2026-10-14 Android — app/meals/compose.tsx). 웹은 구매 경로가 없어 여전히 '확인'만 둔다.
 export function ErrorBanner({
   message,
   onRetry,

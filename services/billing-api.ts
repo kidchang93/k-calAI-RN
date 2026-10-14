@@ -37,10 +37,10 @@ export class BillingUnavailableError extends Error {
 
 const BILLING_API_URL = apiUrl('/api/billing');
 
-// 503 = 서버가 Apple 에 거래를 묻지 못했다(Apple 장애·인앱 결제 키 미설정). 결제는 Apple 에 남아 있어
+// 503 = 서버가 스토어(Apple·Google)에 구매를 묻지 못했다(스토어 장애·키 미설정). 결제는 스토어에 남아 있어
 // 나중에 '구매 복원'으로 이어서 확인할 수 있다 — services/iap.ts 가 이 경우에만 그 안내를 붙인다.
-export class AppStoreUnavailableError extends Error {
-  name = 'AppStoreUnavailableError';
+export class StoreUnavailableError extends Error {
+  name = 'StoreUnavailableError';
 }
 
 // 서버 detail은 이미 사용자용 한국어 문장이다 (토스 원문·fail_code는 서버 로그에만 남는다).
@@ -99,7 +99,22 @@ export async function verifyAppStorePurchase(transactionId: string): Promise<voi
     body: JSON.stringify({ transaction_id: transactionId }),
   });
 
-  await ensureOk(response, '구매 확인 실패', { 503: AppStoreUnavailableError });
+  await ensureOk(response, '구매 확인 실패', { 503: StoreUnavailableError });
+}
+
+// Google Play 구독 확인 (2026-10-14, DATA_MODEL.md 33-3). verifyAppStorePurchase 와 같은 규칙 — 앱이 주는 것은
+// **조회 키**(상품 ID·구매 토큰)뿐이고 서버가 purchases.subscriptionsv2.get 으로 직접 확인한 뒤 acknowledge 까지 한다.
+//   POST /api/billing/play/verify { product_id, purchase_token } → 200
+//        400(플러스 상품 아님·구매 없음·결제 대기) · 409(다른 계정에서 산 구독 — 문구 그대로 보인다) · 503
+// 호출부(iap.ts)는 **이 함수가 성공한 뒤에만** finishTransaction 한다.
+export async function verifyPlayPurchase(productId: string, purchaseToken: string): Promise<void> {
+  const response = await apiFetch(`${BILLING_API_URL}/play/verify`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ product_id: productId, purchase_token: purchaseToken }),
+  });
+
+  await ensureOk(response, '구매 확인 실패', { 503: StoreUnavailableError });
 }
 
 // ── 내부 헬퍼 (export 안 함) ────────────────────────────────────────────────

@@ -19,15 +19,16 @@ import {
   PlusProduct,
   purchasePlus,
   PurchaseCancelledError,
+  RESTORE_NONE_MESSAGE,
   restorePlus,
 } from '@/services/iap';
 import { fetchMySubscription, MySubscription } from '@/services/subscription-api';
 
-// 플러스 알아보기 (P-02, 2026-10-06 — 서버 DATA_MODEL.md 32-7). **iOS 에서만 판다.**
+// 플러스 알아보기 (P-02, 2026-10-06 — 서버 DATA_MODEL.md 32-7·33-7). **iOS(App Store)·Android(Google Play)에서 판다.**
 // - 웹: 팔지 않는다. 앱에서 산 이용권이 같은 계정이면 웹에서도 열린다(심사 3.1.3(b)) — 구매 링크를 두지 않는다.
-// - Android: '준비 중'만. Play 결제 정책상 다른 결제 수단을 안내하면 안 된다.
-// - iOS 인데 expo-iap 네이티브 모듈이 없는 빌드(OTA 로 새 JS 만 받은 옛 빌드·Expo Go): 업데이트 안내.
-// 고지(가격·갱신 주기·해지 방법·약관·처리방침·구매 복원)는 심사 3.1.2 필수라 구매 버튼과 한 묶음이다.
+// - expo-iap 네이티브 모듈이 없는 빌드(옛 개발 빌드·Expo Go): 업데이트 안내.
+// 고지(가격·갱신 주기·해지 방법·약관·처리방침·구매 복원)는 App Store 3.1.2·Play 구독 정책 필수라 구매 버튼과
+// 한 묶음이고, 결제 수단·해지 경로는 그 기기의 스토어 것만 말한다(Play 결제 정책 — 다른 결제 수단 안내 금지).
 
 const PLUS_PLAN_CODE = 'plus';
 
@@ -133,7 +134,7 @@ export default function PlusScreen() {
     setNoticeMessage(null);
 
     try {
-      const result = await purchasePlus(selected.productId, subscription.app_account_token);
+      const result = await purchasePlus(selected, subscription.app_account_token);
 
       if (result === 'pending') {
         setNoticeMessage("구매 승인을 기다리고 있어요. 승인되면 아래 '구매 복원'을 눌러주세요.");
@@ -163,7 +164,7 @@ export default function PlusScreen() {
         // 서버가 플러스를 붙였다 — 다시 읽으면 위 Redirect 가 지금 이용권으로 보낸다.
         await load();
       } else {
-        setNoticeMessage('이 Apple ID에 복원할 플러스 구독이 없어요.');
+        setNoticeMessage(RESTORE_NONE_MESSAGE);
       }
     } catch (error) {
       if (error instanceof PurchaseCancelledError) {
@@ -329,25 +330,24 @@ function LinkText({
   );
 }
 
-// ⚠️ 다른 결제 수단을 가리키지 않는다(Android: Play 결제 정책, 서버 LEGAL_COMPLIANCE.md §6-4).
+// 웹은 앱을 가리킬 뿐 구매 링크가 없다. 앱인데 구매가 안 되면(네이티브 모듈 없음) 업데이트 안내.
 function unsupportedText(): string {
-  if (Platform.OS === 'web') {
-    return '플러스는 iPhone 앱에서 구독할 수 있어요.';
-  }
-
-  if (Platform.OS === 'android') {
-    return 'Android 구독은 준비 중이에요.';
-  }
-
-  return '앱을 최신 버전으로 업데이트하면 구독할 수 있어요.';
+  return Platform.OS === 'web'
+    ? '플러스는 휴대폰 앱(iPhone·Android)에서 구독할 수 있어요.'
+    : '앱을 최신 버전으로 업데이트하면 구독할 수 있어요.';
 }
 
-// 심사 3.1.2 — 가격·갱신 주기·해지 방법. 가격은 스토어가 준 문자열 그대로다.
+// App Store 3.1.2·Play 구독 정책 — 가격·갱신 주기·해지 방법. 가격은 스토어가 준 문자열 그대로다.
 function termsText(product: PlusProduct): string {
   const text = PLUS_PERIOD_TEXT[product.period];
   const trial = product.hasFreeTrial ? '7일 무료 체험이 끝나면 ' : '';
+  const renew = `해지하지 않으면 ${text.cycle}마다 자동으로 갱신돼요.`;
 
-  return `${trial}${text.short} ${product.displayPrice}이 Apple ID로 결제되고, 해지하지 않으면 ${text.cycle}마다 자동으로 갱신돼요. 갱신 24시간 전까지 iPhone 설정 › Apple ID › 구독에서 해지할 수 있고, 해지해도 기록은 그대로 남아요.`;
+  if (Platform.OS === 'android') {
+    return `${trial}${text.short} ${product.displayPrice}이 Google Play로 결제되고, ${renew} 다음 결제일 전까지 Play 스토어 › 결제 및 정기 결제에서 해지할 수 있고, 해지해도 기록은 그대로 남아요.`;
+  }
+
+  return `${trial}${text.short} ${product.displayPrice}이 Apple ID로 결제되고, ${renew} 갱신 24시간 전까지 iPhone 설정 › Apple ID › 구독에서 해지할 수 있고, 해지해도 기록은 그대로 남아요.`;
 }
 
 function periodCaption(product: PlusProduct): string {

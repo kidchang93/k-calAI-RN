@@ -49,7 +49,9 @@ const MAIL_ORDER_NUMBER = process.env.EXPO_PUBLIC_BUSINESS_MAIL_ORDER_NO;
 // 수집 범위·권리 불변, 이메일 가입자에게만 해당).
 // 1.4(플러스 유료 조항 + 사업자 변경 → 미드나잇모찌)는 2026-10-13 시행. 공지 기간 없이 시행한다(2026-10-06 사용자
 // 결정 — 출시 전이라 회원은 운영자·관계자뿐). 출시 뒤 개정부터 공지 기간을 지킨다.
-const EFFECTIVE_DATE = '2026년 10월 13일';
+// 1.5(Android 플러스 — Google Play 정기 결제)는 2026-10-14 시행. 1.4 와 같은 판단(출시 전, 공지 기간 없음)이고,
+// 배포가 늦어지면 **배포일로 고친다**(시행일이 배포보다 앞서면 아무도 보지 못한 문서가 시행된 것이 된다).
+const EFFECTIVE_DATE = '2026년 10월 14일';
 
 const filled = (value: string | undefined, placeholder: string) =>
   value?.trim() || `[[${placeholder}]]`;
@@ -86,7 +88,9 @@ export const TERMS: LegalDocument = {
   // 1.3 (2026-10-06): 이메일 회원가입(제2조·제4조·제8조·제12조). 서버 consent_service.TERMS_VERSION 과 함께 올렸다.
   // 1.4 (2026-10-13): 플러스 — App Store 인앱 구독(제2조·제5조·제6조·제7조·제12조), 사업자 변경. 조항 번호는 그대로다
   //   (유료 조항을 제6조 안에 모았다 — 번호를 밀면 제11조·제12조의 참조가 어긋난다).
-  version: '1.4',
+  // 1.5 (2026-10-14): 플러스 — Android 앱의 Google Play 정기 결제(제2조·제6조·제7조·제12조). 서버는 가입 때 1.4·1.5 를
+  //   모두 받는다(App Store 심사 중인 iOS 빌드가 1.4 를 보낸다 — 서버 DATA_MODEL.md 33-6).
+  version: '1.5',
   effectiveDate: EFFECTIVE_DATE,
   draftNotice: DRAFT_NOTICE,
   sections: [
@@ -104,8 +108,9 @@ export const TERMS: LegalDocument = {
         '"서비스"란 회원이 촬영·선택한 음식 사진을 생성형 인공지능으로 인식하고, 식품의약품안전처 등 공공 데이터베이스를 조회해 예상 칼로리·영양 정보를 제공하며, 식단·체중 기록과 식단 추천을 제공하는 일체의 서비스를 말합니다.',
         '"회원"이란 이 약관에 동의하고 카카오 계정, Apple 계정 또는 이메일 주소로 가입해 서비스를 이용하는 자를 말합니다.',
         '"사진 인식"이란 회원이 올린 사진 1장에서 음식을 인식하는 기능을 말하며, 1일 이용 횟수가 정해져 있습니다.',
-        // 근거: 서버 docs/DATA_MODEL.md 32장 — plans.plus, App Store 자동 갱신 구독 2종(월간·연간)
-        '"플러스"란 App Store 인앱 구독으로 구매하는 유료 이용권을 말하며, 제6조에 정한 기능을 추가로 제공합니다.',
+        // 근거: 서버 docs/DATA_MODEL.md 32장 — plans.plus, App Store 자동 갱신 구독 2종(월간·연간) · 33장 — 같은 상품 ID 의
+        //   Google Play 구독 2종(기본 요금제 monthly·yearly)
+        '"플러스"란 App Store 또는 Google Play의 인앱 구독으로 구매하는 유료 이용권을 말하며, 제6조에 정한 기능을 추가로 제공합니다.',
       ],
     },
     {
@@ -147,17 +152,21 @@ export const TERMS: LegalDocument = {
         '사진 인식은 1일 5회(플러스 회원은 30회)까지 이용할 수 있으며, 횟수는 매일 0시(한국 표준시)에 초기화됩니다. 사진 1장당 1회가 차감되며, 한 장에서 여러 음식이 인식되어도 1회로 계산합니다. 횟수를 모두 사용한 날에도 음식 이름을 직접 입력해 기록할 수 있습니다.',
         // 근거: medical_report_service.PLUS_REPORT_DAYS(365)·_default_start(지난 진료일부터)·build_compare(플러스 전용, 무료 402).
         '플러스 회원은 진료 리포트의 기간을 지난 진료일부터 최대 1년까지 정할 수 있고, 지난 진료 구간과 이번 구간을 나란히 볼 수 있으며, 그 밖에 구매 화면에 안내한 기능을 이용할 수 있습니다.',
-        // 근거: app services/iap.ts — iOS 에서만 판다(isIapSupported), 가격은 스토어가 준 displayPrice. 웹은 '플러스는 iPhone
-        //   앱에서', Android 는 '준비 중'. 산 이용권은 계정에 붙어 웹에서도 열린다(App Store 3.1.3(b)).
-        '플러스는 iPhone 앱에서 App Store 인앱 구독(월간·연간)으로만 구매할 수 있습니다. 가격은 구매 화면에 App Store가 표시하는 금액이며, 구매를 확인하면 회원의 Apple ID로 결제됩니다. 웹과 Android 앱에서는 구매할 수 없으며, 구매한 플러스는 같은 계정으로 로그인하면 웹에서도 이용할 수 있습니다.',
-        // 근거: App Store 자동 갱신 구독 규칙(App Store Review Guidelines 3.1.2) — 앱은 해지하지 않는다(/plan 의 '구독 해지·변경'은
-        //   apps.apple.com/account/subscriptions 를 연다). 해지 후 기간 끝까지 유지 = 서버 cancel_at_period_end·current_period_end(32-2).
-        '플러스는 해지하지 않으면 구독 기간(1개월 또는 1년)이 끝날 때마다 같은 기간으로 자동 갱신되며 그 금액이 결제됩니다. 자동 갱신은 현재 기간이 끝나기 24시간 전까지 iPhone 설정 › Apple ID › 구독에서 끌 수 있고, 해지해도 이미 결제한 기간이 끝날 때까지 플러스를 이용할 수 있습니다. 회사는 서비스 안에서 회원의 구독을 해지하거나 결제를 청구하지 않습니다.',
+        // 근거: app services/iap.ts — iOS(App Store)·Android(Google Play)에서 판다(isIapSupported), 가격은 스토어가 준
+        //   displayPrice. 웹은 '휴대폰 앱에서'(구매 링크 없음). 산 이용권은 서버가 계정에 붙여(plan=plus) 웹·다른 기기에서도
+        //   열린다(App Store 3.1.3(b)).
+        '플러스는 iPhone 앱에서는 App Store 인앱 구독으로, Android 앱에서는 Google Play 정기 결제로 구매할 수 있으며, 구독 기간은 월간과 연간 중에서 고릅니다. 가격은 구매 화면에 각 스토어가 표시하는 금액이며, 구매를 확인하면 App Store에서는 회원의 Apple ID로, Google Play에서는 회원의 Google 계정으로 결제됩니다. 웹에서는 구매할 수 없으며, 구매한 플러스는 같은 계정으로 로그인하면 웹과 다른 기기에서도 이용할 수 있습니다.',
+        // 근거: App Store 자동 갱신 구독 규칙(App Store Review Guidelines 3.1.2)·Google Play 구독 정책 — 앱은 해지하지 않는다
+        //   (/plan 의 '구독 해지·변경'은 provider 에 따라 apps.apple.com/account/subscriptions 또는
+        //   play.google.com/store/account/subscriptions 를 연다). 해지 후 기간 끝까지 유지 = 서버 cancel_at_period_end·
+        //   current_period_end(32-2·33-3 — Google autoRenewEnabled=false 도 canceled, 기간까지는 플러스).
+        '플러스는 해지하지 않으면 구독 기간(1개월 또는 1년)이 끝날 때마다 같은 기간으로 자동 갱신되며 그 금액이 결제됩니다. App Store에서 구매한 경우 자동 갱신은 현재 기간이 끝나기 24시간 전까지 iPhone 설정 › Apple ID › 구독에서 끌 수 있고, Google Play에서 구매한 경우 다음 결제일 전까지 Play 스토어 › 결제 및 정기 결제에서 해지할 수 있습니다. 해지해도 이미 결제한 기간이 끝날 때까지 플러스를 이용할 수 있습니다. 회사는 서비스 안에서 회원의 구독을 해지하거나 결제를 청구하지 않습니다.',
         // 근거: 인앱 결제의 대금 수령·환불은 Apple 이 한다 — 서버는 결제 원장(payments)에 쓰지 않고 환불(revocationDate)을 알림
         //   재조회로 반영한다(32-3·32-4). ⚠️ 전자상거래법 청약철회(제17조)와 인앱 구독의 관계는 전문가 검토 전이다
         //   (서버 docs/LEGAL_COMPLIANCE.md §2 — 월정액이 가분적 디지털콘텐츠인가). 그래서 회사가 할 수 없는 환불을 약속하지 않고,
         //   법령상 협조 의무만 적는다.
-        '플러스의 결제와 환불은 Apple이 처리합니다. 환불은 Apple(reportaproblem.apple.com)에 요청할 수 있으며, 환불 여부는 Apple의 정책에 따릅니다. 관련 법령에 따라 회사가 청약철회나 환불에 협조해야 하는 경우 회사는 이에 협조합니다.',
+        //   Google Play 도 같다 — 대금 수령·환불은 Google 이 하고, 서버는 환불·만료를 알림(RTDN) 재조회로 반영한다(33-3·33-4).
+        '플러스의 결제와 환불은 구매한 스토어가 처리합니다. App Store에서 구매한 경우 Apple(reportaproblem.apple.com)에, Google Play에서 구매한 경우 Google(Google Play 주문 내역, play.google.com/store/account/orderhistory)에 환불을 요청할 수 있으며, 환불 여부는 각 회사의 정책에 따릅니다. 관련 법령에 따라 회사가 청약철회나 환불에 협조해야 하는 경우 회사는 이에 협조합니다.',
         // 근거: get_effective_plan — 만료·환불되면 실효 플랜이 lite. 기록은 지우지 않는다(/plan '플러스가 끝나면' 문구와 같은 내용).
         '플러스가 끝나거나 환불되면 무료 이용으로 돌아갑니다. 기록은 지워지지 않으며, 진료 리포트는 최근 2주로, 사진 인식은 1일 5회로 돌아갑니다.',
       ],
@@ -170,8 +179,8 @@ export const TERMS: LegalDocument = {
         '탈퇴 시 회원의 개인정보와 서비스 이용 기록(식단·체중 기록, 반려동물 정보, 소유한 그룹 등)은 즉시 파기되며 복구할 수 없습니다. 파기의 범위와 예외는 개인정보 처리방침에 따릅니다.',
         // 근거: account_service.py — 파기 커밋 후 카카오 unlink, Apple 가입자는 Apple 토큰 폐기(revoke) 요청
         '탈퇴 시 회사는 카카오 계정과의 연결을 해제하고, Apple 계정으로 가입한 경우 Apple에 로그인 연결 해제를 요청합니다.',
-        // 근거: Apple 이 갱신·청구하는 구독은 회원 데이터를 지워도 멈추지 않는다. 탈퇴 확인 문구(app/(tabs)/account.tsx)와 같은 내용.
-        '플러스를 구독 중인 회원이 탈퇴해도 App Store 구독은 자동으로 해지되지 않습니다. 다음 결제를 원하지 않으면 탈퇴 전에 iPhone 설정 › Apple ID › 구독에서 해지해야 합니다.',
+        // 근거: 스토어(Apple·Google)가 갱신·청구하는 구독은 회원 데이터를 지워도 멈추지 않는다. 탈퇴 확인 문구(app/(tabs)/account.tsx)와 같은 내용.
+        '플러스를 구독 중인 회원이 탈퇴해도 App Store·Google Play 구독은 자동으로 해지되지 않습니다. 다음 결제를 원하지 않으면 탈퇴 전에 iPhone 설정 › Apple ID › 구독 또는 Play 스토어 › 결제 및 정기 결제에서 해지해야 합니다.',
       ],
     },
     {
@@ -228,7 +237,7 @@ export const TERMS: LegalDocument = {
     {
       title: '제12조 (책임의 제한)',
       paragraphs: [
-        '회사는 천재지변, 통신 장애, 외부 서비스(인공지능 인식 서비스, 카카오 로그인, Apple 로그인, App Store 결제, 인증 메일 발송 등)의 장애 등 회사의 합리적인 통제를 벗어난 사유로 서비스를 제공할 수 없는 경우 책임을 지지 않습니다.',
+        '회사는 천재지변, 통신 장애, 외부 서비스(인공지능 인식 서비스, 카카오 로그인, Apple 로그인, App Store·Google Play 결제, 인증 메일 발송 등)의 장애 등 회사의 합리적인 통제를 벗어난 사유로 서비스를 제공할 수 없는 경우 책임을 지지 않습니다.',
         '회사는 회원이 서비스의 정보에 의존해 내린 결정과 그 결과에 대해 책임지지 않습니다(제9조·제10조 참조).',
         '회사는 회원 간 또는 회원과 제3자 간에 서비스를 매개로 발생한 분쟁에 관여하지 않습니다.',
         // ⚠️ 손해배상 범위는 전문가 검토 전이다 — 사업자 책임을 부당하게 배제·제한하는 조항은 무효가 될 수 있다
@@ -255,6 +264,7 @@ export const TERMS: LegalDocument = {
         '1.2 개정: 유료 서비스의 결제·자동갱신·요금제 변경·해지·환불 조항 삭제(서비스 무료 제공), 조항 번호 정리.',
         '1.3 개정: 이메일 주소로 가입하는 방법 추가(제2조·제4조·제8조·제12조).',
         '1.4 개정: 플러스(App Store 인앱 구독)의 기능·결제·자동 갱신·해지·환불 조항 추가(제2조·제5조·제6조·제7조·제12조), 사업자 변경(미드나잇모찌).',
+        '1.5 개정: Android 앱에서 Google Play 정기 결제로 플러스를 구매하는 방법과 그 결제·자동 갱신·해지·환불 추가(제2조·제6조·제7조·제12조).',
       ],
     },
   ],
@@ -271,7 +281,8 @@ export const PRIVACY_POLICY: LegalDocument = {
   // 1.3 (2026-10-06): 이메일 가입 — 수집 항목(이메일·비밀번호 해시·닉네임·인증 코드), 메일 발송 위탁(네이버),
   //   보유 기간·파기 범위·안전성 조치. 서버 consent_service.PRIVACY_VERSION 과 함께 올렸다.
   // 1.4 (2026-10-13): 플러스 구독 정보(수집 항목·이용 목적·Apple 국외 이전·보유 기간), 사업자 변경(미드나잇모찌).
-  version: '1.4',
+  // 1.5 (2026-10-14): Android 플러스 — Google Play 구매 토큰(수집 항목·Google 국외 이전·보유 기간). 약관과 함께 올렸다.
+  version: '1.5',
   effectiveDate: EFFECTIVE_DATE,
   draftNotice: DRAFT_NOTICE,
   sections: [
@@ -311,7 +322,8 @@ export const PRIVACY_POLICY: LegalDocument = {
         // 근거: models/subscription_model.UserSubscription — provider·store_original_transaction_id·store_product_id·store_environment·
         //   is_trial·status·current_period_end·cancel_at_period_end (리비전 0031). 결제 수단은 Apple 이 처리해 받지 않는다(32-3).
         //   토스 결제 정보는 적지 않는다(1.2) — 운영 토스 키는 test_ 였고 실결제가 없었으며 웹 결제를 닫았다.
-        '[플러스 구독 시] App Store 거래 번호, 구독 상품(월간·연간), 구독 상태와 만료일, 자동 갱신 여부, 무료 체험 여부, 거래 환경(정식·테스트). 결제 수단·카드 번호 등 결제 정보는 Apple이 처리하며 회사는 전달받지 않습니다.',
+        //   + 2026-10-14 Google Play: store_purchase_token(리비전 0032), provider='play', store_environment Production|Test (33-2).
+        '[플러스 구독 시] App Store 거래 번호 또는 Google Play 구매 토큰, 구독 상품(월간·연간), 구독 상태와 만료일, 자동 갱신 여부, 무료 체험 여부, 거래 환경(정식·테스트). 결제 수단·카드 번호 등 결제 정보는 Apple 또는 Google이 처리하며 회사는 전달받지 않습니다.',
         // 근거: 3항 참조
         '[민감정보 — 별도 동의 시에만] 혈액형, Rh 인자, 질병 정보(신장질환 병기 포함), 알러지 정보, 검사 수치, 진료 메모(진료에서 들은 내용, 진료 때 물어볼 것). 자세한 내용은 3항을 참조하십시오.',
         // 근거: main.py:107-116 실측 — 메서드/경로/상태/시간만. IP·쿠키·UA 수집 0건
@@ -416,6 +428,11 @@ export const PRIVACY_POLICY: LegalDocument = {
         //   UUID 형태 값, 저장하지 않고 매번 계산)을 StoreKit 에 넘긴다. 서버 appstore_client 는 거래 번호로 App Store Server API 를
         //   조회하고, Apple 은 갱신·해지·환불을 /api/billing/appstore/notifications 로 알린다(32-3·32-4).
         '회사는 플러스 구매를 확인하고 구독 상태를 반영하기 위해 Apple Inc.에 다음과 같이 개인정보를 이전합니다. 이전받는 자: Apple Inc.(미국). 이전 항목: 구매한 회원을 구별하기 위해 회사가 만든 식별값(회원번호 등 원래 정보를 알아볼 수 없는 형태), App Store 거래 번호. 이전 일시 및 방법: 플러스를 구매하거나 구매를 복원할 때, 그리고 회사가 구독 상태를 조회할 때 네트워크를 통해 전송. 이전받는 자의 이용 목적: 구매 확인과 구독 상태 제공. 보유·이용 기간: Apple의 개인정보 처리방침에 따릅니다. 이전받는 자의 연락처: https://www.apple.com/kr/legal/privacy/contact/ . 플러스를 구매하지 않으면 이전되지 않습니다.',
+        // 근거: app services/iap.ts — Android 구매 때 obfuscatedAccountId 로 위 appAccountToken 과 같은 값(회원번호에서 만든 UUID
+        //   형태 값)을 Play 결제에 넘긴다. 서버는 구매 토큰으로 purchases.subscriptionsv2.get 을 조회해 확인(acknowledge)하고,
+        //   Google 은 갱신·해지·환불을 실시간 개발자 알림(Pub/Sub → /api/billing/play/notifications)으로 알린다(33-3·33-4).
+        //   연락처는 위 Gemini 항목과 같다.
+        '회사는 Android 앱에서의 플러스 구매를 확인하고 구독 상태를 반영하기 위해 Google LLC에 다음과 같이 개인정보를 이전합니다. 이전받는 자: Google LLC(미국). 이전 항목: 구매한 회원을 구별하기 위해 회사가 만든 식별값(회원번호 등 원래 정보를 알아볼 수 없는 형태), Google Play 구매 토큰. 이전 일시 및 방법: 플러스를 구매하거나 구매를 복원할 때, 그리고 회사가 구매를 확인하거나 구독 상태를 조회할 때 네트워크를 통해 전송. 이전받는 자의 이용 목적: 구매 확인과 구독 상태 제공. 보유·이용 기간: Google의 개인정보 처리방침에 따릅니다. 이전받는 자의 연락처: Google 개인정보 문의 양식(https://support.google.com/policies?p=privpol_privts), 이메일 googlekrsupport@google.com . Android 앱에서 플러스를 구매하지 않으면 이전되지 않습니다.',
       ],
     },
     {
@@ -435,8 +452,8 @@ export const PRIVACY_POLICY: LegalDocument = {
         // 근거: auth_service.SESSION_RETENTION_DAYS=7, CODE_RETENTION_DAYS=1
         '로그인 세션 기록은 만료·폐기 후 7일이 지나면 파기합니다. 카카오 연동 코드와 이메일 인증 코드(요청 기록 포함)는 발급 후 1일이 지나면 파기합니다. Apple 로그인 인증 토큰은 탈퇴할 때 Apple에 폐기를 요청하고 함께 파기합니다.',
         '동의 이력(동의 항목, 버전, 동의·철회 일시)은 동의 사실의 증빙을 위해 보존하며, 회원 탈퇴 시 파기합니다.',
-        // 근거: account_service.delete_account 가 user_subscriptions 를 지운다. IAP 는 payments 원장에 쓰지 않는다(32-3).
-        '플러스 구독 정보는 회원 탈퇴 시 파기합니다. 인앱 구독의 결제 기록은 Apple이 보관하며, 회사는 결제 정보를 보관하지 않습니다.',
+        // 근거: account_service.delete_account 가 user_subscriptions 를 지운다. IAP 는 payments 원장에 쓰지 않는다(32-3·33-3).
+        '플러스 구독 정보는 회원 탈퇴 시 파기합니다. 인앱 구독의 결제 기록은 Apple 또는 Google이 보관하며, 회사는 결제 정보를 보관하지 않습니다.',
         // 근거: 전자상거래법 시행령 제6조 — 표시·광고 6개월 / 계약·청약철회 5년 / 대금결제·공급 5년 / 소비자 불만·분쟁처리 3년
         '그 밖에 전자상거래 등에서의 소비자보호에 관한 법률에 따라, 계약 또는 청약철회 등에 관한 기록은 5년, 소비자의 불만 또는 분쟁처리에 관한 기록은 3년, 표시·광고에 관한 기록은 6개월간 보존합니다. 이 기록들은 해당 사유가 발생한 경우에만 생성되며, 보존 기간이 지나면 파기합니다.',
       ],
@@ -533,6 +550,7 @@ export const PRIVACY_POLICY: LegalDocument = {
         '개정 이력: 1.2 — 결제 정보 수집·결제 처리 위탁·결제 기록 보존 항목 삭제(서비스 무료 제공), Apple 로그인 추가, 진료 메모에 진료 때 물어볼 것 추가, 사진을 AI로 보내기 전 동의와 사진 부가 정보 제거 명시, 화면 이름 갱신.',
         '개정 이력: 1.3 — 이메일 가입 추가(수집 항목, 인증 메일 발송 위탁, 보유 기간, 파기 범위, 안전성 확보 조치).',
         '개정 이력: 1.4 — 플러스(App Store 인앱 구독) 추가(수집 항목, 이용 목적, Apple로의 국외 이전, 보유 기간), 개인정보처리자 변경(미드나잇모찌).',
+        '개정 이력: 1.5 — Android 앱의 플러스(Google Play 정기 결제) 추가(수집 항목, Google로의 국외 이전, 보유 기간).',
       ],
     },
   ],

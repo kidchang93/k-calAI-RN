@@ -17,11 +17,13 @@ import { formatIsoMonthDay, formatPlanPrice, formatResetAt } from '@/services/fo
 import {
   fetchPlusProducts,
   isIapSupported,
+  isThisStore,
   openSubscriptionManagement,
   PLUS_PERIOD_TEXT,
   plusPeriodOf,
   PlusProduct,
   PurchaseCancelledError,
+  RESTORE_NONE_MESSAGE,
   restorePlus,
 } from '@/services/iap';
 import {
@@ -33,9 +35,10 @@ import {
 } from '@/services/subscription-api';
 import { billingReturnUrl, isBillingSupported, requestBillingAuth } from '@/services/toss-sdk';
 
-// 이용권 (P-04, 2026-10-06 — 서버 DATA_MODEL.md 32-7). 내 정보 › 이용권 · 플러스 알아보기에서 온다.
+// 이용권 (P-04, 2026-10-06 — 서버 DATA_MODEL.md 32-7·33-7). 내 정보 › 이용권 · 플러스 알아보기에서 온다.
 // - 플러스: 지금 이용권(상품·체험 종료일·다음 결제일 또는 끝나는 날·갱신 꺼짐)·구독 해지·변경·구매 복원·'끝나면'.
-//   **해지는 앱 안에서 하지 않는다** — App Store 구독 화면을 연다(Apple 이 대금·해지·환불을 갖는다).
+//   **해지는 앱 안에서 하지 않는다** — 구독을 판 스토어(App Store·Google Play)의 구독 화면을 연다(스토어가
+//   대금·해지·환불을 갖는다).
 // - 무료: 플러스 알아보기(P-02)로 잇는 카드.
 // - 토스 구독(provider='toss', 2026-09-29 판매 중단 · 구독자 0명): 옛 요금제 화면을 **지우지 않고**
 //   LegacyTossPlan 으로 그대로 둔다(KCAL-14). 그 사람만 보는 이유는 '자동결제 해지'가 거기에만 있어서다 —
@@ -68,9 +71,10 @@ export default function PlanScreen() {
       const mine = await fetchMySubscription();
 
       setSubscription(mine);
-      // 가격 표시용일 뿐이다 — 스토어 조회가 실패해도 이용권은 그린다.
+      // 가격 표시용일 뿐이다 — 스토어 조회가 실패해도 이용권은 그린다. 다른 스토어에서 산 구독에는
+      // 이 기기 스토어의 가격을 붙이지 않는다.
       setPlusProducts(
-        canBuy && mine.provider === 'appstore' ? await fetchPlusProducts().catch(() => []) : []
+        canBuy && isThisStore(mine.provider) ? await fetchPlusProducts().catch(() => []) : []
       );
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.');
@@ -79,7 +83,7 @@ export default function PlanScreen() {
     }
   }, [isAuthenticated, canBuy]);
 
-  // App Store 구독 화면에서 해지하고 돌아오면 서버(Apple 알림)가 바뀐 상태를 준다 — 포커스마다 다시 읽는다.
+  // 스토어 구독 화면에서 해지하고 돌아오면 서버(스토어 알림)가 바뀐 상태를 준다 — 포커스마다 다시 읽는다.
   useFocusEffect(
     useCallback(() => {
       void loadPlan();
@@ -108,7 +112,7 @@ export default function PlanScreen() {
       if (await restorePlus()) {
         await loadPlan();
       } else {
-        setNoticeMessage('이 Apple ID에 복원할 플러스 구독이 없어요.');
+        setNoticeMessage(RESTORE_NONE_MESSAGE);
       }
     } catch (error) {
       if (error instanceof PurchaseCancelledError) {
@@ -121,13 +125,17 @@ export default function PlanScreen() {
     }
   };
 
-  const openManage = async () => {
+  const openManage = async (sub: MySubscription) => {
     setErrorMessage(null);
 
     try {
-      await openSubscriptionManagement();
+      await openSubscriptionManagement(sub.provider, sub.store_product_id);
     } catch {
-      setErrorMessage('App Store 구독 화면을 열지 못했어요. iPhone 설정 › Apple ID › 구독에서 바꿀 수 있어요.');
+      setErrorMessage(
+        sub.provider === 'play'
+          ? 'Google Play 정기 결제 화면을 열지 못했어요. Play 스토어 › 결제 및 정기 결제에서 바꿀 수 있어요.'
+          : 'App Store 구독 화면을 열지 못했어요. iPhone 설정 › Apple ID › 구독에서 바꿀 수 있어요.'
+      );
     }
   };
 
@@ -177,12 +185,16 @@ export default function PlanScreen() {
           )}
 
           <View style={styles.actions}>
-            {subscription.provider === 'appstore' ? (
+            {isStoreProvider(subscription.provider) ? (
               <ActionRow
-                caption="App Store의 구독 화면이 열려요"
+                caption={
+                  subscription.provider === 'play'
+                    ? 'Google Play의 정기 결제 화면이 열려요'
+                    : 'App Store의 구독 화면이 열려요'
+                }
                 icon="chevron-right"
                 label="구독 해지·변경"
-                onPress={() => void openManage()}
+                onPress={() => void openManage(subscription)}
               />
             ) : null}
             {canBuy ? (
@@ -262,8 +274,13 @@ function ActionRow({
   );
 }
 
-// 지금 이용권의 줄들. IAP 는 우리가 청구하지 않으므로 next_billing_at 이 늘 null 이다(32-2) —
-// 체험 종료일·다음 갱신일·끝나는 날은 모두 current_period_end(Apple expiresDate)다.
+// 스토어(App Store·Google Play)가 갱신·청구하는 구독인가. 'review'(심사용 부여)·'toss' 는 아니다.
+function isStoreProvider(provider: string | null): boolean {
+  return provider === 'appstore' || provider === 'play';
+}
+
+// 지금 이용권의 줄들. 인앱 구독은 우리가 청구하지 않으므로 next_billing_at 이 늘 null 이다(32-2·33-2) —
+// 체험 종료일·다음 갱신일·끝나는 날은 모두 current_period_end(Apple expiresDate·Google expiryTime)다.
 function passRows(
   subscription: MySubscription,
   products: PlusProduct[]
@@ -272,7 +289,7 @@ function passRows(
   const text = period === null ? null : PLUS_PERIOD_TEXT[period];
   const price = products.find((product) => product.period === period)?.displayPrice ?? null;
   const periodEnd = formatIsoMonthDay(subscription.current_period_end);
-  const isStore = subscription.provider === 'appstore';
+  const isStore = isStoreProvider(subscription.provider);
   const renews = isStore && !subscription.cancel_at_period_end;
   const cycle = text === null ? '' : ` · 이후 ${text.cycle}마다`;
   const rows: { label: string; value: string }[] = [];

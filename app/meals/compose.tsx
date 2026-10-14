@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -51,6 +50,7 @@ import {
   updateMeal,
 } from '@/services/health-api';
 import { PlanLimitError } from '@/services/http';
+import { isIapSupported } from '@/services/iap';
 import { pickPhoto } from '@/services/photo-picker';
 import { readPhotoTakenAt } from '@/services/photo-time';
 import { nextMealType } from '@/services/recommendation-api';
@@ -919,10 +919,10 @@ export default function MealComposeScreen() {
       </View>
 
       {/* 402 사진 인식 한도. 2026-09-29 에는 판매 경로가 없어 '확인'(닫기)만 두었다 — 2026-10-06 플러스
-          (App Store 인앱 구독)가 생겨 그 이유가 사라졌다. 단 파는 곳이 iOS 뿐이라 iOS 에서만 /plus 로 잇는다
-          (웹·Android 에서 결제를 권하면 심사 3.1.1·Play 정책). 이미 플러스면 더 팔 것이 없다. */}
+          (인앱 구독)가 생겨 그 이유가 사라졌다. 결제가 되는 곳(isIapSupported — iOS·Android 앱)에서만 /plus 로
+          잇는다(웹에서 결제를 권하지 않는다 — 웹은 구매 경로가 없다). 이미 플러스면 더 팔 것이 없다. */}
       {planLimit ? (
-        Platform.OS === 'ios' && planLimit.resource === 'vision_daily' && planLimit.plan !== 'plus' ? (
+        isIapSupported() && planLimit.resource === 'vision_daily' && planLimit.plan !== 'plus' ? (
           <ErrorBanner
             actionLabel="플러스 알아보기"
             message={planLimit.message}

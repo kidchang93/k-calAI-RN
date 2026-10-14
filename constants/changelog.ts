@@ -25,6 +25,24 @@ export const CHANGE_TYPE_LABELS: Record<ChangeType, string> = {
 // 최신순(위가 최신). 새 릴리즈는 이 배열 맨 앞에 추가한다.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-10-14',
+    title: 'Android에서도 플러스를 구독할 수 있어요',
+    items: [
+      {
+        type: 'new',
+        text: 'Android 앱에서도 월간·연간으로 플러스를 구독할 수 있어요. 결제는 Google Play로 되고, 해지는 Play 스토어의 결제 및 정기 결제에서 할 수 있어요.',
+      },
+      {
+        type: 'improved',
+        text: '휴대폰을 바꿔도 같은 계정으로 로그인하면 플러스가 그대로 열려요. iPhone에서 구독했어도 Android 앱과 웹에서 쓸 수 있어요.',
+      },
+      {
+        type: 'improved',
+        text: '이용약관과 개인정보 처리방침에 Google Play 결제·자동 갱신·해지·환불 안내를 더했어요.',
+      },
+    ],
+  },
+  {
     date: '2026-10-13',
     title: '진료 리포트를 더 길게 보는 플러스가 생겼어요',
     items: [

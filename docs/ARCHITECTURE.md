@@ -30,8 +30,8 @@ k-calAI-RN/
 │   │   ├── weights.tsx         # 체중 기록 (POST/GET /api/weights)
 │   │   ├── conditions.tsx      # 질병 정보 수정 (GET/PUT /api/me/conditions, 칩 + 메타 폴백)
 │   │   └── allergies.tsx       # 알러지 정보 수정 (GET/PUT /api/me/allergies, severity 보존)
-│   ├── plan.tsx                # 이용권 (P-04, 2026-10-06 — 내 정보 '이용권'에서 진입). 플러스면 지금 이용권·구독 해지·변경(App Store)·구매 복원·'끝나면', 무료면 플러스 알아보기 카드. 옛 토스 요금제는 LegacyTossPlan(토스 구독자에게만)
-│   ├── plus.tsx                # 플러스 알아보기 (P-02, 2026-10-06 — 인증 가드 안). 혜택·연간/월간·(체험 상품일 때만 무료로 시작 — 10-13부터 체험 없음)·3.1.2 고지·구매 복원. **iOS 에서만 구매 버튼**, 웹 'iPhone 앱에서', Android '준비 중'. 이미 플러스면 /plan
+│   ├── plan.tsx                # 이용권 (P-04, 2026-10-06 — 내 정보 '이용권'에서 진입). 플러스면 지금 이용권·구독 해지·변경(구독을 판 스토어 — App Store·Google Play)·구매 복원·'끝나면', 무료면 플러스 알아보기 카드. 옛 토스 요금제는 LegacyTossPlan(토스 구독자에게만)
+│   ├── plus.tsx                # 플러스 알아보기 (P-02, 2026-10-06 — 인증 가드 안). 혜택·연간/월간·(체험 상품일 때만 무료로 시작 — 10-13부터 체험 없음)·구독 고지(플랫폼별)·구매 복원. **iOS·Android(2026-10-14)에서 구매 버튼**, 웹 '휴대폰 앱(iPhone·Android)에서'. 이미 플러스면 /plan
 │   ├── billing/                # 토스 결제창 착지점 스택 (사용자가 직접 들어오는 곳이 아니다)
 │   │   ├── _layout.tsx         # 인증 가드 (payments 레이아웃과 같은 패턴)
 │   │   ├── success.tsx         # successUrl 착지 → POST /api/billing/confirm (마운트 1회, ref 가드)
@@ -62,8 +62,8 @@ k-calAI-RN/
 │   ├── visit-api.ts            # 진료 일정 (31장) + daysUntil() 로컬 자정 기준 D-day 계산
 │   ├── recommendation-api.ts   # 식단 추천 (11·13장)
 │   ├── subscription-api.ts     # 요금제·구독 (GET /api/plans 무인증, GET·PUT /api/me/subscription) + FALLBACK_PLANS + parseMySubscription(billing-api 재사용)
-│   ├── billing-api.ts          # 자동결제 (POST /api/billing/{checkout,confirm,cancel}) + BillingChargeError(502)·BillingUnavailableError(503) · App Store 구독 확인 verifyAppStorePurchase (POST /api/billing/appstore/verify, 32장) + AppStoreUnavailableError(503)
-│   ├── iap.ts                  # 플러스 인앱 구독 (expo-iap, **iOS 전용**). isIapSupported(iOS + 네이티브 모듈) · fetchPlusProducts(현지화 가격·체험 자격) · purchasePlus(구매 → verify → 200 뒤 finish) · restorePlus · openSubscriptionManagement · PurchaseCancelledError(오류 아님)
+│   ├── billing-api.ts          # 자동결제 (POST /api/billing/{checkout,confirm,cancel}) + BillingChargeError(502)·BillingUnavailableError(503) · App Store 구독 확인 verifyAppStorePurchase (POST /api/billing/appstore/verify, 32장) · Google Play 구독 확인 verifyPlayPurchase (POST /api/billing/play/verify, 33장) + StoreUnavailableError(503, 둘 다)
+│   ├── iap.ts                  # 플러스 인앱 구독 (expo-iap, **iOS·Android**). isIapSupported(iOS·Android + 네이티브 모듈) · isThisStore(provider) · fetchPlusProducts(현지화 가격·체험 자격·Android 기본 요금제 offerToken) · purchasePlus(구매 → 스토어별 verify → 200 뒤 finish) · restorePlus · openSubscriptionManagement(provider 로 App Store·Play 구독 화면) · RESTORE_NONE_MESSAGE · PurchaseCancelledError(오류 아님)
 │   ├── toss-sdk.ts             # 토스 결제창 SDK 어댑터 — **웹 전용**. script 1회 동적 로드(프라미스 캐시), window 접근을 여기 가둔다
 │   ├── payment-api.ts          # 결제 내역·영수증 (GET /api/payments, GET /api/payments/{id}) + PaymentNotFoundError(404)
 │   ├── format.ts               # 날짜·시각 표시 문자열(순수 함수). 'YYYY-MM-DD'는 Date로 파싱하지 않고, ISO 시각은 기기 로컬로 그린다
@@ -78,14 +78,14 @@ k-calAI-RN/
 │   ├── loading-state.tsx       # 본문 불러오는 중 카드 (스피너 + 문구)
 │   ├── primary-button.tsx      # 폼 제출 민트 버튼 (loading 스피너·disabled)
 │   ├── goal-form.tsx, profile-form.tsx, allergy-form.tsx, condition-form.tsx  # 온보딩(app/onboarding/)·내 정보 수정(app/me/)이 같이 쓰는 폼. 불러오기·API 저장·이동은 라우트에 두고 폼은 값·onChange·onSave만 받는다. 배타 '없음' 토글(toggleExclusive·NONE_VALUE)은 condition-form이 export
-│   ├── error-banner.tsx        # 오류 배너 + 다시 시도 (actionLabel로 문구 교체 — 402는 '확인', iOS 사진 인식 한도만 '플러스 알아보기')
+│   ├── error-banner.tsx        # 오류 배너 + 다시 시도 (actionLabel로 문구 교체 — 402는 '확인', 결제가 되는 앱(iOS·Android)의 사진 인식 한도만 '플러스 알아보기')
 │   ├── back-button.tsx         # 탭 밖 스택 화면(그룹·요금제)의 뒤로가기
 │   ├── tab-header.tsx          # 세 탭 공통 머리 — 제목(둥근 글꼴) + 내 정보 동그라미 (2026-10-05)
 │   ├── detail-header.tsx       # 상세 화면 머리 — '← 식단'처럼 돌아갈 탭 이름 + 제목 (tone 으로 탭 색)
 │   ├── chunky-button.tsx       # 탭 색의 두툼한 버튼 (solid = 그 화면의 할 일, outline = 보조)
 │   ├── stamp-calendar.tsx      # 케어 탭 도장판 — 남긴 날에 도장. kcal·목표 색을 칸에 찍지 않는다 (옛 kcal-calendar)
 │   ├── visit-path.tsx          # 진료 탭 '진료까지의 길' — 지난 4주(주별 남긴 날) → 남은 길 → 도착(진료일)
-│   ├── report-free.tsx         # 무료 리포트 '지난 진료부터 보기'(P-01) — 남긴 날 수·범위 그림·기록 안심·플러스 알아보기(iOS만)
+│   ├── report-free.tsx         # 무료 리포트 '지난 진료부터 보기'(P-01) — 남긴 날 수·범위 그림·기록 안심·플러스 알아보기(결제가 되는 앱에서만 — 호출부가 onPressPlus 를 null 로)
 │   ├── report-plus.tsx         # 플러스 리포트(P-03) — 지난 구간과 나란히(숫자만) · 검사 수치와 식단(주별 일평균 막대, 상한 점선은 나트륨만)
 │   ├── chip-group.tsx, onboarding-progress.tsx
 │   ├── meal-type-card.tsx, progress-ring.tsx, next-meal-card.tsx  # (2026-10-05부터 쓰는 곳 없음 — 옛 홈 링·끼니 카드·추천 카드. 지우지 않고 남김)
@@ -142,8 +142,8 @@ expo-router의 파일 기반 라우팅입니다. `app/` 하위 파일이 곧 경
 | `app/me/allergies.tsx` | `/me/allergies` | 알러지 정보 수정 (내 정보 탭에서 진입, 기존 severity 보존) |
 | `app/meals/index.tsx` | `/meals?date=YYYY-MM-DD` | 날짜별 끼니 기록 목록 + 삭제 + 인라인 수정 (식단 탭 채운 칸·케어 도장판에서 진입, 날짜 파라미터 유지) |
 | `app/meals/compose.tsx` | `/meals/compose?date=&meal_type=&meal_id=&photoUri=…` | 끼니 구성(다중 항목). `meal_id` 있으면 append 모드(PUT 전체 교체), 없으면 신규(POST + `logged_at` 앵커). 식단 탭 끼니 칸(`meal_type` 지정)·도장판·기록 목록에서 진입 |
-| `app/plan.tsx` | `/plan` | 이용권 (2026-10-06, 내 정보 '이용권'·플러스 알아보기에서 진입). 레이아웃 없는 단일 라우트라 화면 자신이 `<Stack.Screen options={{ headerShown: false }} />` + `<Redirect>` 가드를 건다. 포커스마다 `GET /api/me/subscription` 재조회(App Store 에서 해지하고 돌아오면 바뀐다). 플러스 → 지금 이용권 카드(`passRows` — 체험·다음 결제·끝나는 날 모두 `current_period_end`) + '구독 해지·변경'(`provider === 'appstore'`, App Store 구독 화면) + '구매 복원'(iOS) + '플러스가 끝나면'. 무료 → '플러스 알아보기' → `/plus`. `provider === 'toss'`(0명) → 옛 화면 `LegacyTossPlan`(유료 카드 → `startCheckout` + 토스 결제창, 해지 → `cancelBilling()`) |
-| `app/plus.tsx` | `/plus` | 플러스 알아보기 (2026-10-06, 진입: 리포트 '플러스 알아보기'·이용권·사진 인식 402 배너 — 셋 다 iOS 에서만 그리거나 다른 플랫폼에선 안내만). 같은 단일 라우트 가드. 이미 플러스면 `<Redirect href="/plan" />`. 구매 성공 → `router.dismissTo('/report')`(리포트에서 왔으면 그 화면으로, 아니면 교체) |
+| `app/plan.tsx` | `/plan` | 이용권 (2026-10-06, 내 정보 '이용권'·플러스 알아보기에서 진입). 레이아웃 없는 단일 라우트라 화면 자신이 `<Stack.Screen options={{ headerShown: false }} />` + `<Redirect>` 가드를 건다. 포커스마다 `GET /api/me/subscription` 재조회(App Store 에서 해지하고 돌아오면 바뀐다). 플러스 → 지금 이용권 카드(`passRows` — 체험·다음 결제·끝나는 날 모두 `current_period_end`, `appstore`·`play` 같게) + '구독 해지·변경'(`provider`가 `appstore`면 App Store, `play`면 Google Play 정기 결제 화면 — 기기가 아니라 산 스토어로 고른다) + '구매 복원'(결제가 되는 앱) + '플러스가 끝나면'. 무료 → '플러스 알아보기' → `/plus`. `provider === 'toss'`(0명) → 옛 화면 `LegacyTossPlan`(유료 카드 → `startCheckout` + 토스 결제창, 해지 → `cancelBilling()`) |
+| `app/plus.tsx` | `/plus` | 플러스 알아보기 (2026-10-06, 진입: 리포트 '플러스 알아보기'·이용권·사진 인식 402 배너 — 리포트·배너는 결제가 되는 앱(`isIapSupported()` — iOS·Android, 2026-10-14)에서만 그리고, 이용권 카드로 웹에서 들어오면 안내만). 같은 단일 라우트 가드. 이미 플러스면 `<Redirect href="/plan" />`. 구매 성공 → `router.dismissTo('/report')`(리포트에서 왔으면 그 화면으로, 아니면 교체) |
 | `app/billing/success.tsx` | `/billing/success?plan=&authKey=&customerKey=` | 토스 successUrl 착지점. `confirmBilling`을 **마운트 1회**만 호출(ref 가드 — `authKey`는 1회용). `BackButton` 없음, 이동은 전부 `router.replace` (뒤가 토스 결제창이라 되돌아오면 소비된 authKey로 재confirm) |
 | `app/billing/fail.tsx` | `/billing/fail?code=&message=` | 토스 failUrl 착지점. 서버를 부르지 않는다(카드 등록 자체가 없었다). `USER_CANCEL`·`PAY_PROCESS_CANCELED`는 오류가 아니라 취소로 그린다 |
 | `app/payments/index.tsx` | `/payments` | 결제 내역 목록 (내 정보에서 진입, `GET /api/payments`). 포커스마다 재조회, 항목 탭 → `/payments/[id]`. 빈 목록은 빈 상태 카드 |
@@ -359,7 +359,7 @@ useAuthSession()      → useSyncExternalStore(subscribe, getSnapshot) → AuthS
 ```
 GET /api/me/report            (파라미터 생략 = 서버 기본 기간)  → range { plan, max_days, last_visit_on, clamped, default_start_date }
   plan=free  ReportFreeCard  지난 진료일 ~ 오늘을 getTrendDays 로 읽어 'N일 중 M일 남김' + 주별 범위 그림(보이는 주만 파랑)
-             지난 진료일이 없으면 숫자·그림 대신 '진료일 적기' → /visit.  '플러스 알아보기' → /plus 는 iOS 에서만
+             지난 진료일이 없으면 숫자·그림 대신 '진료일 적기' → /visit.  '플러스 알아보기' → /plus 는 결제가 되는 앱(iOS·Android)에서만
   plan=plus  기간 바꾸기  지난 진료부터 · 3개월 · 6개월 · 1년(365) → 같은 API 를 start/end 로 다시
              GET /api/me/report/compare → ReportCompareCard  previous=null 이면 숨김, 402 면 표만 뺀다
              ReportLabOverlay  리포트의 nutrients.axes[].days 로 주별 일평균 막대 + labs 검사일 주 표시
@@ -434,30 +434,39 @@ app/plan.tsx  [자동결제 해지] → 화면 내 2단계 확인 → cancelBill
 
 > 2026-10-06: 위 토스 흐름은 `app/plan.tsx`의 `LegacyTossPlan`으로 옮겨 `provider === 'toss'`이면서 유료가 살아 있거나 청구 예정이 남은 회원에게만 그린다. 판매는 아래 플러스(인앱 구독)다.
 
-### 플러스 — App Store 인앱 구독 (2026-10-06, 서버 DATA_MODEL.md 32장) — **iOS 전용**
+### 플러스 — App Store·Google Play 인앱 구독 (2026-10-06 iOS · 2026-10-14 Android, 서버 DATA_MODEL.md 32·33장)
 
 ```
 app/plus.tsx   (마운트 1회) fetchMySubscription() + [isIapSupported()] fetchPlusProducts()
-                 └─ initConnection 1회(프라미스 캐시, 실패는 캐시하지 않음) → fetchProducts(subs) → isEligibleForIntroOfferIOS(groupId)
-               [7일 무료로 시작하기]  (hasFreeTrial 이 아니면 '플러스 구독하기')
+                 └─ initConnection 1회(프라미스 캐시, 실패는 캐시하지 않음) → fetchProducts({ skus, type:'subs' })
+                      iOS      → isEligibleForIntroOfferIOS(groupId)
+                      Android  → subscriptionOffers 에서 기본 요금제(id === basePlanIdAndroid) offerTokenAndroid (없으면 상품 제외)
+               [7일 무료로 시작하기]  (hasFreeTrial 이 아니면 '플러스 구독하기' — Android 는 늘 '플러스 구독하기')
                  └─ app_account_token 이 null(옛 서버) → 시작하지 않고 안내
-                 └─ purchasePlus(productId, app_account_token)                      services/iap.ts
-                      └─ requestPurchase({ type:'subs', request:{ apple:{ sku, appAccountToken } } })
+                 └─ purchasePlus(product, app_account_token)                         services/iap.ts
+                      └─ requestPurchase({ type:'subs', request:{
+                           apple:{ sku, appAccountToken },
+                           google:{ skus:[sku], subscriptionOffers:[{ sku, offerToken }], obfuscatedAccountId: app_account_token } } })
+                           (expo-iap 가 플랫폼 쪽만 읽는다. Android 도 결제 시트가 끝날 때까지 기다렸다가 구매 목록으로 resolve)
                            취소 → PurchaseCancelledError (배너 없음) · 그 외 스토어 오류 → 한국어 한 문장
-                           purchased 거래 없음(구입 요청 승인 대기) → 'pending' 안내
-                      └─ verifyAppStorePurchase(transactionId)   POST /api/billing/appstore/verify
+                           purchased 거래 없음(구입 요청 승인 대기·Play 대기 결제) → 'pending' 안내
+                      └─ iOS      verifyAppStorePurchase(transactionId)            POST /api/billing/appstore/verify
+                         Android  verifyPlayPurchase(productId, purchaseToken)     POST /api/billing/play/verify (서버가 acknowledge)
                            200 → finishTransaction (실패는 삼킨다 — 구독은 이미 붙었다) → 'verified'
-                           503·네트워크 → "결제는 Apple에 남아 있어요 — '구매 복원'"  ·  400·409 → 서버 문구 그대로
+                           503·네트워크 → "결제는 Apple에(Google Play에) 남아 있어요 — '구매 복원'"  ·  400·409 → 서버 문구 그대로
                  └─ 'verified' → router.dismissTo('/report')
                [구매 복원] (plus·plan 공통) → restorePlus()
-                 └─ restorePurchases()(AppStore.sync) → getAvailablePurchases({ onlyIncludeActiveItemsIOS })
-                 └─ 플러스 상품 거래마다 verify → finish     (없으면 false → '복원할 구독이 없어요')
-app/plan.tsx   [구독 해지·변경] → Linking.openURL('https://apps.apple.com/account/subscriptions')
+                 └─ restorePurchases()(iOS AppStore.sync, Android 는 조회) → getAvailablePurchases({ onlyIncludeActiveItemsIOS })
+                 └─ 플러스 상품 구매마다 verify → finish     (없으면 false → RESTORE_NONE_MESSAGE)
+app/plan.tsx   [구독 해지·변경] → openSubscriptionManagement(provider, store_product_id)
+                 appstore → https://apps.apple.com/account/subscriptions
+                 play     → https://play.google.com/store/account/subscriptions?sku=<상품ID>&package=com.kcalai.kcalairn
 ```
 
-- **웹·Android 는 이 흐름을 타지 않는다** — `isIapSupported()`가 false 라 상품 조회도 하지 않는다. iOS 인데 네이티브 모듈이 없는 곳(Expo Go·expo-iap 이전 개발 빌드)도 false 다(`requireOptionalNativeModule('ExpoIap')`). expo-iap 의 import 자체는 지연 해석이라 웹 정적 렌더(`expo export --platform web`)에서도 터지지 않는다(2026-10-06 확인).
-- 가격은 스토어의 `displayPrice`, 할인율·'월 ~꼴'은 스토어 `price`로만 계산한다(하드코딩 없음).
-- 앱 전역 구매 리스너는 없다 — 자동 갱신은 서버가 Apple 알림으로 맞추고, 끝나지 않은 거래는 복원이 다시 집는다.
+- **웹은 이 흐름을 타지 않는다** — `isIapSupported()`가 false 라 상품 조회도 하지 않는다. 앱인데 네이티브 모듈이 없는 곳(Expo Go·expo-iap 이전 개발 빌드)도 false 다(`requireOptionalNativeModule('ExpoIap')` — Android 모듈 이름도 `ExpoIap`). expo-iap 의 import 자체는 지연 해석이라 웹 정적 렌더(`expo export --platform web`)에서도 터지지 않는다(2026-10-06 확인, 2026-10-14 compose·report 가 iap 를 import 한 뒤 다시 확인).
+- 가격은 스토어의 `displayPrice`, 할인율·'월 ~꼴'은 스토어 `price`로만 계산한다(하드코딩 없음). Android 는 expo-iap 가 기본(반복) 가격 단계로 채운다.
+- 앱 전역 구매 리스너는 없다 — 자동 갱신은 서버가 스토어 알림(Apple 32-4·Google RTDN 33-4)으로 맞추고, 끝나지 않은 거래는 복원이 다시 집는다.
+- 이용권 화면은 `provider`(`appstore`·`play`)로 표시와 해지 경로를 가른다. 가격은 이 기기 스토어에서 산 구독일 때만 붙인다(`isThisStore`).
 
 ### 식단 분석 · 끼니 구성 (2026-07-16, 다중 항목)
 
@@ -533,7 +542,7 @@ readOk(response, fallback, statusErrors?)              # ensureOk + 본문 JSON 
 
 화면은 `catch`에서 `error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.'`로 받아 `errorMessage` 상태에 넣고 `ErrorBanner`로 표시합니다.
 
-**402(요금제 한도)는 예외입니다.** 화면은 `catch`에서 `instanceof PlanLimitError`를 먼저 판별해 같은 `ErrorBanner`를 **`actionLabel="확인"` + 닫기**로 그립니다 — 한도 초과는 재시도로 풀리지 않기 때문입니다(2026-09-14, 전용 `PlanLimitBanner` 컴포넌트 삭제. 2026-09-29 판매 경로가 없어 '요금제 업그레이드' → `/plan`을 뺐다). **2026-10-06: iOS 의 사진 인식 한도(`resource === 'vision_daily'`, 플러스 아님)만 `actionLabel="플러스 알아보기"` → `router.push('/plus')`**(`app/meals/compose.tsx`) — 파는 곳이 iOS 인앱 구독뿐이라 웹·Android 는 여전히 '확인'이다.
+**402(요금제 한도)는 예외입니다.** 화면은 `catch`에서 `instanceof PlanLimitError`를 먼저 판별해 같은 `ErrorBanner`를 **`actionLabel="확인"` + 닫기**로 그립니다 — 한도 초과는 재시도로 풀리지 않기 때문입니다(2026-09-14, 전용 `PlanLimitBanner` 컴포넌트 삭제. 2026-09-29 판매 경로가 없어 '요금제 업그레이드' → `/plan`을 뺐다). **2026-10-06: 사진 인식 한도(`resource === 'vision_daily'`, 플러스 아님)만 `actionLabel="플러스 알아보기"` → `router.push('/plus')`**(`app/meals/compose.tsx`) — 2026-10-14부터 결제가 되는 앱(`isIapSupported()` — iOS·Android)에서, 웹은 구매 경로가 없어 여전히 '확인'이다.
 
 `readErrorMessage`·`readOk`·`ensureOk`는 `services/http.ts`의 **공통 함수**입니다. 개별 서비스 함수를 재정의하지 않고 이를 import 합니다.
 
@@ -542,7 +551,7 @@ readOk(response, fallback, statusErrors?)              # ensureOk + 본문 JSON 
 | 분기 방식 | 위치 |
 |-----------|------|
 | 파일명 접미사 (`.ios.tsx`) | `components/ui/icon-symbol.ios.tsx` |
-| `Platform.OS` 런타임 분기 | `services/*.ts`의 기본 URL, `calorie-api.ts`의 FormData 구성, `iap.ts`의 `isIapSupported()`(iOS + 네이티브 모듈 — 플러스 구매 경로)와 `app/plus.tsx`의 웹('iPhone 앱에서')·Android('준비 중') 안내 |
+| `Platform.OS` 런타임 분기 | `services/*.ts`의 기본 URL, `calorie-api.ts`의 FormData 구성, `iap.ts`의 `isIapSupported()`(iOS·Android + 네이티브 모듈 — 플러스 구매 경로)·스토어별 verify·문구, `app/plus.tsx`의 플랫폼별 구독 고지와 웹('휴대폰 앱에서') 안내 |
 
 ## 외부 시스템
 
@@ -569,7 +578,8 @@ readOk(response, fallback, statusErrors?)              # ensureOk + 본문 JSON 
 | `fetchMySubscription` / `changePlan` | `GET·PUT /api/me/subscription` | PUT: `{ plan_code }` | `{ plan, vision_usage: { used, limit, remaining, resets_at }, started_at, status, current_period_end, next_billing_at, cancel_at_period_end, provider, store_product_id, is_trial, app_account_token }`. 뒤 4필드는 2026-10-06(32장) **추가** — 없으면 null/false, `provider`는 없을 때 `next_billing_at`이 있으면 `'toss'`(서버 백필 규칙과 같다). 뒤 4필드는 2026-07-16 **추가**(기존 3필드 불변)라 `parseMySubscription`이 누락 시 무료 회원 기본값(`'active'`/null/false)으로 흘린다 — 신규 필드 때문에 화면 전체가 막히면 안 된다. `plan`은 **실효 플랜**(만료된 유료 구독은 lite). **PUT은 무료 전환 전용** — 유료 플랜은 400이고, 무료 전환은 남은 유료 기간을 포기시키므로 화면은 대신 `cancelBilling`을 쓴다 |
 | `startCheckout` | `POST /api/billing/checkout` | `{ plan_code }` | `{ customer_key, client_key, plan_code, amount, order_name }`. `client_key`는 공개값이고 **이 응답으로만** 받는다(번들에 두지 않는다). `amount`는 표시 전용 — 실제 청구액은 confirm에서 서버가 다시 정한다. **503** = 결제 키 미설정 → `BillingUnavailableError` |
 | `confirmBilling` | `POST /api/billing/confirm` | `{ auth_key, customer_key, plan_code }` — **금액 필드 없음** | `MySubscriptionResponse`. `auth_key`는 **1회용**이라 호출부가 중복을 막는다. **502** = 결제사 청구 실패 → `BillingChargeError`(이때 구독은 활성화되지 않고, 실패는 `payments` 원장에 `failed`로 남는다), **503** → `BillingUnavailableError` |
-| `verifyAppStorePurchase` | `POST /api/billing/appstore/verify` | `{ transaction_id }` | 200(본문 안 씀 — 화면이 구독을 다시 읽는다). **400** 플러스 상품 아님·번들 불일치·거래 없음 · **409** 다른 계정에서 산 구독(문구 그대로) · **503** → `AppStoreUnavailableError`. 32-3 계약 기준 — 2026-10-06 로컬 서버에 아직 없음 |
+| `verifyAppStorePurchase` | `POST /api/billing/appstore/verify` | `{ transaction_id }` | 200(본문 안 씀 — 화면이 구독을 다시 읽는다). **400** 플러스 상품 아님·번들 불일치·거래 없음 · **409** 다른 계정에서 산 구독(문구 그대로) · **503** → `StoreUnavailableError`. 32-3 계약 기준 — 2026-10-06 로컬 서버에 아직 없음 |
+| `verifyPlayPurchase` | `POST /api/billing/play/verify` | `{ product_id, purchase_token }` | 200(본문 안 씀). 서버가 `subscriptionsv2.get`으로 확인하고 **acknowledge 까지 한다**. **400** 플러스 상품 아님·구매 없음·결제 대기(PENDING) · **409** 다른 회원의 구매(문구 그대로) · **503** → `StoreUnavailableError`. 33-3 계약 기준 — 2026-10-14 서버 작업 트리(미커밋) `api/billing_api.py`·`schemas/billing_schema.py` 소스 대조, 로컬 서버가 꺼져 `openapi.json` 미실측 |
 | `cancelBilling` | `POST /api/billing/cancel` | — (바디 없음) | `MySubscriptionResponse`. 즉시 무료가 아니라 `current_period_end`까지 유료를 유지한다(`status='canceled'`, `cancel_at_period_end=true`). **400** = 해지할 유료 구독 없음 |
 | `getPayments` / `getPayment` | `GET /api/payments`, `GET /api/payments/{id}` | — (Bearer) | `{ payments: [PaymentItem] }`(최신순) / `PaymentItem`. `PaymentItem = { id, order_id, plan_code, plan_label, amount, status, method\|null, approved_at\|null, fail_reason\|null, created_at }`. `status`·`amount`는 서버 참조값이라 유니온으로 굳히지 않고 `string`·유한수로 받는다. 단건 **404** = `PaymentNotFoundError`(재시도 대신 안내). 자동결제 연동(2026-07-16, 24장) 이후 `confirm`·갱신 배치가 이 원장을 채운다 — 실패한 청구도 `status='failed'` + `fail_reason`(사용자용 한국어)로 남는다. 결제 이력이 없는 회원은 여전히 빈 배열 |
 | `updateMeal` | `PUT /api/meals/{meal_id}` | `createMeal`과 동일 구조 (전체 교체) | `MealLog`. `logged_at` 생략 시 기존 기록 시각 유지, `total_kcal`은 서버가 items 합계로 재계산. 남의 끼니·삭제된 끼니 404 (DATA_MODEL.md 4장) |

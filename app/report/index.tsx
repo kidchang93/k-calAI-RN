@@ -27,6 +27,7 @@ import {
   TrendDay,
 } from '@/services/health-api';
 import { PlanLimitError } from '@/services/http';
+import { isIapSupported } from '@/services/iap';
 import { getConsents, isSensitiveConsentOutdated } from '@/services/onboarding-api';
 
 // 진료·영양상담에 가져가는 기록. 목표 지표의 첫 항목("진료에서 실제로 열어 보였는가",
@@ -54,12 +55,6 @@ const CHOICE_DAYS: Record<Exclude<PeriodChoice, 'visit'>, number> = { '3m': 90, 
 
 function isPrintSupported(): boolean {
   return Platform.OS === 'web';
-}
-
-// 플러스는 **iOS 에서만 판다**(32-7). 판매 경로가 없는 웹·Android 에서 결제를 권하면 App Store
-// 3.1.1·Play 결제 정책에 걸린다 — 그곳에서는 버튼을 그리지 않는다.
-function isPlusSaleSupported(): boolean {
-  return Platform.OS === 'ios';
 }
 
 export default function MedicalReportScreen() {
@@ -231,7 +226,7 @@ export default function MedicalReportScreen() {
             <ReportFreeCard
               lastVisitOn={range.last_visit_on}
               maxDays={range.max_days}
-              onPressPlus={isPlusSaleSupported() ? () => router.push('/plus') : null}
+              onPressPlus={isIapSupported() ? () => router.push('/plus') : null}
               onPressVisit={() => router.push('/visit')}
               sinceVisitDays={sinceVisitDays}
               visibleEnd={report.end_date}
