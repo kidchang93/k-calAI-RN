@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Redirect, Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
 import { ChunkyButton } from '@/components/chunky-button';
@@ -185,7 +185,18 @@ export default function PlanScreen() {
           )}
 
           <View style={styles.actions}>
-            {isStoreProvider(subscription.provider) ? (
+            {isStoreProvider(subscription.provider) && isOtherDeviceStore(subscription.provider) ? (
+              // 다른 휴대폰 스토어에서 산 구독 — 이 기기에서 그 스토어 화면은 열리지 않으니 어디서 바꾸는지만 말한다.
+              <ActionRow
+                caption={
+                  subscription.provider === 'play'
+                    ? 'Android에서 구독했어요. Android 휴대폰의 Play 스토어 › 결제 및 정기 결제에서 바꿀 수 있어요.'
+                    : 'iPhone에서 구독했어요. iPhone 설정 › Apple ID › 구독에서 바꿀 수 있어요.'
+                }
+                icon="info-outline"
+                label="구독 해지·변경"
+              />
+            ) : isStoreProvider(subscription.provider) ? (
               <ActionRow
                 caption={
                   subscription.provider === 'play'
@@ -257,12 +268,12 @@ function ActionRow({
   disabled?: boolean;
   icon: keyof typeof MaterialIcons.glyphMap;
   label: string;
-  onPress: () => void;
+  onPress?: () => void; // 없으면 누를 수 없는 안내 줄
 }) {
   return (
     <Pressable
-      accessibilityRole="button"
-      disabled={disabled}
+      accessibilityRole={onPress ? 'button' : 'text'}
+      disabled={disabled || !onPress}
       onPress={onPress}
       style={({ pressed }) => [styles.actionRow, pressed && styles.pressed]}>
       <View style={styles.actionBody}>
@@ -277,6 +288,12 @@ function ActionRow({
 // 스토어(App Store·Google Play)가 갱신·청구하는 구독인가. 'review'(심사용 부여)·'toss' 는 아니다.
 function isStoreProvider(provider: string | null): boolean {
   return provider === 'appstore' || provider === 'play';
+}
+
+// 휴대폰 앱에서 다른 스토어(iPhone 구독을 Android 에서, 또는 그 반대)의 구독을 보고 있는가. 웹은 두 스토어
+// 링크가 모두 브라우저에서 열리므로 아니다.
+function isOtherDeviceStore(provider: string | null): boolean {
+  return Platform.OS !== 'web' && !isThisStore(provider);
 }
 
 // 지금 이용권의 줄들. 인앱 구독은 우리가 청구하지 않으므로 next_billing_at 이 늘 null 이다(32-2·33-2) —

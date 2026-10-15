@@ -158,6 +158,8 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
 /plan [구독 해지·변경] → 구독을 판 스토어(provider)의 구독 화면 — 앱 안에서 해지하지 않는다
        appstore → https://apps.apple.com/account/subscriptions
        play     → https://play.google.com/store/account/subscriptions?sku=<상품ID>&package=com.kcalai.kcalairn
+       다른 휴대폰 스토어에서 산 구독(Android 에서 iPhone 구독, 그 반대) → 링크 없이 '어디서 바꾸는지' 안내 줄만
+       (2026-10-15 — Android 에서 App Store 링크를 열면 해지할 수 없다. 웹은 두 링크가 다 열려 그대로 둔다)
 ```
 
 - **서버 200 뒤에만 `finishTransaction`한다.** 먼저 끝내면 서버 확인이 실패했을 때 스토어가 그 거래를 다시 주지 않아 돈을 낸 사람이 플러스를 못 받는다. 끝내지 않은 거래는 '구매 복원'이 다시 집는다. 반대로 서버 200 뒤의 finish 실패는 삼킨다(구독은 이미 붙었다 — Android 는 서버가 verify 안에서 acknowledge 까지 했다).

@@ -25,6 +25,16 @@ export const CHANGE_TYPE_LABELS: Record<ChangeType, string> = {
 // 최신순(위가 최신). 새 릴리즈는 이 배열 맨 앞에 추가한다.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-10-15',
+    title: '다른 휴대폰에서 구독한 플러스의 해지 안내를 고쳤어요',
+    items: [
+      {
+        type: 'fixed',
+        text: 'iPhone에서 구독한 플러스를 Android 앱에서 보면 열리지 않는 App Store 링크가 보였어요. 이제 어디서 해지·변경하는지 바로 알려 드려요. Android에서 구독하고 iPhone에서 볼 때도 같아요.',
+      },
+    ],
+  },
+  {
     date: '2026-10-14',
     title: 'Android에서도 플러스를 구독할 수 있어요',
     items: [
