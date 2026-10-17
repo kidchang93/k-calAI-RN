@@ -25,6 +25,15 @@ export const CHANGE_TYPE_LABELS: Record<ChangeType, string> = {
 // 최신순(위가 최신). 새 릴리즈는 이 배열 맨 앞에 추가한다.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-10-17',
+    title: '짬뽕·육개장·라면의 영양 정보를 바로잡았어요',
+    items: [
+      { type: 'fixed', text: '짬뽕 1인분을 중국집 한 그릇 크기로 바로잡아 칼로리와 나트륨이 더 정확해졌어요.' },
+      { type: 'fixed', text: '육개장의 나트륨·칼륨·인과 라면의 칼륨·인이 식약처 자료대로 보여요.' },
+      { type: 'improved', text: '계정과 개인정보를 더 안전하게 지키도록 보안을 강화했어요.' },
+    ],
+  },
+  {
     date: '2026-10-15',
     title: '다른 휴대폰에서 구독한 플러스의 해지 안내를 고쳤어요',
     items: [
