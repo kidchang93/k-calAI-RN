@@ -30,6 +30,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [
       { type: 'fixed', text: '짬뽕 1인분을 중국집 한 그릇 크기로 바로잡아 칼로리와 나트륨이 더 정확해졌어요.' },
       { type: 'fixed', text: '육개장의 나트륨·칼륨·인과 라면의 칼륨·인이 식약처 자료대로 보여요.' },
+      { type: 'fixed', text: '하루 나트륨 2,000mg 기준 옆에 붙는 출처를, 그 숫자를 실제로 적은 대한신장학회·KDIGO 자료로 바로잡았어요.' },
       { type: 'improved', text: '계정과 개인정보를 더 안전하게 지키도록 보안을 강화했어요.' },
     ],
   },

@@ -30,7 +30,7 @@ export default function ConditionsScreen() {
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
   const [selectedValues, setSelectedValues] = useState<string[]>([]);
   // 신장 질환을 고르면 **병기까지 이어서 묻는다** (2026-07-25). 2026-09-16 부터 나트륨 상한은
-  // 병기와 무관하게 2,000 mg 이고(KDOQI 2020 6.5.1 이 CKD 5D 를 같은 값으로 묶는다), 병기가
+  // 병기와 무관하게 2,000 mg 이고(KSN2 p114·KDIGO 2024 — KDOQI 2020 6.5.1 도 투석에 완화를 주지 않는다, 값은 2.3 g), 병기가
   // 가르는 것은 **칼륨·인 참고치 노출과 칼륨 과일 분류**다 (서버 CKD_NUTRITION.md §3-6).
   const [stageOptions, setStageOptions] = useState<MetaOption[]>(FALLBACK_CKD_STAGE_OPTIONS);
   const [ckdStage, setCkdStage] = useState<CkdStage | null>(null);
