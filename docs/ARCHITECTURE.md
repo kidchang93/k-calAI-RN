@@ -31,6 +31,7 @@ k-calAI-RN/
 │   │   ├── conditions.tsx      # 질병 정보 수정 (GET/PUT /api/me/conditions, 칩 + 메타 폴백)
 │   │   └── allergies.tsx       # 알러지 정보 수정 (GET/PUT /api/me/allergies, severity 보존)
 │   ├── plan.tsx                # 이용권 (P-04, 2026-10-06 — 내 정보 '이용권'에서 진입). 플러스면 지금 이용권·구독 해지·변경(구독을 판 스토어 — App Store·Google Play)·구매 복원·'끝나면', 무료면 플러스 알아보기 카드. 옛 토스 요금제는 LegacyTossPlan(토스 구독자에게만)
+│   ├── sources.tsx             # 근거와 출처 (2026-10-20 App Store 1.4.1 — 내 정보에서 진입, 화면 자신이 인증 가드). 서버 문헌(GET /api/citations) + 앱 소유 계산식·데이터(constants/citations.ts)
 │   ├── plus.tsx                # 플러스 알아보기 (P-02, 2026-10-06 — 인증 가드 안). 혜택·연간/월간·(체험 상품일 때만 무료로 시작 — 10-13부터 체험 없음)·구독 고지(플랫폼별)·구매 복원. **iOS·Android(2026-10-14)에서 구매 버튼**, 웹 '휴대폰 앱(iPhone·Android)에서'. 이미 플러스면 /plan
 │   ├── billing/                # 토스 결제창 착지점 스택 (사용자가 직접 들어오는 곳이 아니다)
 │   │   ├── _layout.tsx         # 인증 가드 (payments 레이아웃과 같은 패턴)
@@ -60,6 +61,7 @@ k-calAI-RN/
 │   ├── group-invite.ts         # 그룹 초대 링크 생성·공유 문구 + 로그인 전 초대코드 보관(consume 1회). 서버 API 없음
 │   ├── share.ts                # 텍스트 공유 플랫폼 shim — 웹은 Web Share API → 클립보드 폴백 (dialog.ts와 같은 이유)
 │   ├── visit-api.ts            # 진료 일정 (31장) + daysUntil() 로컬 자정 기준 D-day 계산
+│   ├── citations.ts            # 근거 문헌 원문 링크 (34장) — CitationLink 타입 · parseCitations(https 만 남김, 없으면 []) · withCitations · mergeCitations(url 중복 제거) · fetchCitations(GET /api/citations) · openCitation(expo-web-browser → 실패 시 Linking)
 │   ├── recommendation-api.ts   # 식단 추천 (11·13장)
 │   ├── subscription-api.ts     # 요금제·구독 (GET /api/plans 무인증, GET·PUT /api/me/subscription) + FALLBACK_PLANS + parseMySubscription(billing-api 재사용)
 │   ├── billing-api.ts          # 자동결제 (POST /api/billing/{checkout,confirm,cancel}) + BillingChargeError(502)·BillingUnavailableError(503) · App Store 구독 확인 verifyAppStorePurchase (POST /api/billing/appstore/verify, 32장) · Google Play 구독 확인 verifyPlayPurchase (POST /api/billing/play/verify, 33장) + StoreUnavailableError(503, 둘 다)
@@ -78,6 +80,7 @@ k-calAI-RN/
 │   ├── loading-state.tsx       # 본문 불러오는 중 카드 (스피너 + 문구)
 │   ├── primary-button.tsx      # 폼 제출 민트 버튼 (loading 스피너·disabled)
 │   ├── goal-form.tsx, profile-form.tsx, allergy-form.tsx, condition-form.tsx  # 온보딩(app/onboarding/)·내 정보 수정(app/me/)이 같이 쓰는 폼. 불러오기·API 저장·이동은 라우트에 두고 폼은 값·onChange·onSave만 받는다. 배타 '없음' 토글(toggleExclusive·NONE_VALUE)은 condition-form이 export
+│   ├── citation-links.tsx      # '출처' 라벨 + 문헌마다 누르면 원문이 열리는 줄(Pressable link · open-in-new). 빈 배열이면 null, showUrl 은 인쇄 리포트용 (2026-10-20 App Store 1.4.1)
 │   ├── error-banner.tsx        # 오류 배너 + 다시 시도 (actionLabel로 문구 교체 — 402는 '확인', 결제가 되는 앱(iOS·Android)의 사진 인식 한도만 '플러스 알아보기')
 │   ├── back-button.tsx         # 탭 밖 스택 화면(그룹·요금제)의 뒤로가기
 │   ├── tab-header.tsx          # 세 탭 공통 머리 — 제목(둥근 글꼴) + 내 정보 동그라미 (2026-10-05)
@@ -107,7 +110,7 @@ app/  ──→  components/  ──→  hooks/  ──→  constants/
 | 레이어 | 책임 | 의존해도 되는 것 | 의존하면 안 되는 것 |
 |--------|------|------------------|---------------------|
 | `app/` | 화면, 라우팅, 로컬 UI 상태 | 전부 | — |
-| `components/` | 표시 전용 UI | `hooks/`, `constants/`. **예외로 `services/`의 타입·순수 함수·세션 훅**(`health-api` 타입, `food-label`, `format`, `auth-guard-stack`→`useAuthSession`)과 자기 데이터를 스스로 읽는 카드(`group-challenges`, `next-meal-card`, `weekly-coaching`, `condition-guide-card`), 그리고 `email-auth`(이메일 인증 API·`setAuthSession` — 단계가 많아 `app/auth.tsx`에 콜백 여섯 개를 늘어놓지 않으려고 직접 부른다) | `app/`. 그 외 `services/` 호출은 props로 주입 |
+| `components/` | 표시 전용 UI | `hooks/`, `constants/`. **예외로 `services/`의 타입·순수 함수·세션 훅**(`health-api` 타입, `food-label`, `format`, `auth-guard-stack`→`useAuthSession`)과 자기 데이터를 스스로 읽는 카드(`group-challenges`, `next-meal-card`, `weekly-coaching`, `condition-guide-card`), 그리고 `email-auth`(이메일 인증 API·`setAuthSession` — 단계가 많아 `app/auth.tsx`에 콜백 여섯 개를 늘어놓지 않으려고 직접 부른다), `citation-links`(`openCitation` — 링크를 여는 동작이 어느 화면에서나 같아 화면마다 콜백을 넘기지 않는다) | `app/`. 그 외 `services/` 호출은 props로 주입 |
 | `services/` | HTTP, 응답 검증, 세션 | 없음 (RN `Platform`만) | `app/`, `components/` |
 | `hooks/` | (현재 비어 있음 — 라이트 전용 확정으로 `use-color-scheme` 제거, 2026-09-14) | `constants/` | `app/`, `services/` |
 | `constants/` | 정적 데이터·토큰 (`changelog.ts` 업데이트 이력) | 없음 | 전부 |
@@ -149,6 +152,7 @@ expo-router의 파일 기반 라우팅입니다. `app/` 하위 파일이 곧 경
 | `app/payments/index.tsx` | `/payments` | 결제 내역 목록 (내 정보에서 진입, `GET /api/payments`). 포커스마다 재조회, 항목 탭 → `/payments/[id]`. 빈 목록은 빈 상태 카드 |
 | `app/payments/[id].tsx` | `/payments/:id` | 영수증 상세 (`GET /api/payments/{id}`). `router.push({ pathname: '/payments/[id]', params })`. 404는 `PaymentNotFoundError` → '영수증을 찾을 수 없어요' 안내 |
 | `app/report/index.tsx` | `/report` | 진료 리포트 (진료 가방·D-day '오늘'에서 진입, 인증 가드 레이아웃). **기간은 서버가 이용권으로 정한다** — 파라미터 없이 열면 서버 기본(무료 = 최근 `max_days`일, 플러스 = 지난 진료일부터 오늘). 응답 `range.plan`으로 무료(P-01)·플러스(P-03) 칸이 갈리고, `range`가 없으면(옛 서버) 예전처럼 요약만 그린다. `?start_date&end_date` 딥링크는 계속 받는다(상한을 넘으면 서버가 잘라 `clamped`) |
+| `app/sources.tsx` | `/sources` | 근거와 출처 (2026-10-20, App Store 1.4.1 반려 대응 — 내 정보에서 진입). 섹션 1 '학회 지침·공공 자료'는 `GET /api/citations`(Bearer — 실패하면 ErrorBanner + 다시 시도), 섹션 2 '계산식·데이터'는 `constants/citations.ts`(Mifflin-St Jeor·식약처 DB). Bearer 가 필요한 단일 루트 라우트라 `app/plan.tsx`처럼 화면 자신이 `<Redirect>` 가드를 건다. 수치 옆의 '출처'(`components/citation-links.tsx`)와 같은 링크를 한곳에 모은다 |
 | `app/updates.tsx` | `/updates` | 업데이트 이력(사용자 공지). `constants/changelog.ts`의 정적 배열을 렌더한다 — 서버·API 없음. 내 정보에서 진입 |
 
 `groups/`·`recommendations/`·`me/`·`meals/`·`payments/`·`billing/` 스택은 루트 레이아웃에 등록하지 않고 (expo-router 자동 등록) 각 `_layout.tsx`가

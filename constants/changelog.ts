@@ -25,6 +25,16 @@ export const CHANGE_TYPE_LABELS: Record<ChangeType, string> = {
 // 최신순(위가 최신). 새 릴리즈는 이 배열 맨 앞에 추가한다.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-10-20',
+    title: '수치마다 출처를 눌러 원문을 볼 수 있어요',
+    items: [
+      { type: 'new', text: "나트륨 기준·검사 정상범위·질환 도감처럼 기준이 나오는 곳 옆 '출처'를 누르면 학회 지침 원문을 바로 볼 수 있어요." },
+      { type: 'new', text: "내 정보에 '근거와 출처'가 생겼어요. 케어테이블이 쓰는 지침과 자료를 한곳에서 볼 수 있어요." },
+      { type: 'improved', text: '목표 칼로리를 고칠 때도 어떤 공식으로 계산했는지 보여요.' },
+      { type: 'improved', text: '진료 리포트 끝에 출처와 주소가 함께 실려 인쇄해도 찾아볼 수 있어요.' },
+    ],
+  },
+  {
     date: '2026-10-17',
     title: '짬뽕·육개장·라면의 영양 정보를 바로잡았어요',
     items: [

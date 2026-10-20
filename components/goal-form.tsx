@@ -3,7 +3,9 @@ import { useMemo } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ChipGroup } from '@/components/chip-group';
+import { CitationLinks } from '@/components/citation-links';
 import { PrimaryButton } from '@/components/primary-button';
+import { MIFFLIN_CITATION } from '@/constants/citations';
 import type {
   ActivityLevel,
   GoalRequest,
@@ -114,7 +116,7 @@ export function GoalForm({
         </Text>
         <Text style={styles.subtitle}>
           {currentGoal === null
-            ? 'Mifflin-St Jeor 공식으로 계산했어요. 직접 바꿀 수 있어요.'
+            ? '성별·키·몸무게·나이·활동량으로 계산했어요. 직접 바꿀 수 있어요.'
             : `현재 목표 ${currentGoal.target_kcal.toLocaleString()} kcal · 저장하면 새 목표로 바뀝니다.`}
         </Text>
       </View>
@@ -152,6 +154,12 @@ export function GoalForm({
               {computed.adjustment > 0 ? `+${computed.adjustment}` : String(computed.adjustment)}
             </Text>
           </View>
+          {/* 계산 근거는 온보딩뿐 아니라 목표를 고칠 때도 보인다 (2026-10-20 App Store 1.4.1).
+              출처는 계산식에만 붙인다 — 활동량 계수·목표 보정에 문헌을 지어 붙이지 않는다. */}
+          <Text style={styles.cardNote}>
+            기초대사량은 Mifflin-St Jeor 공식으로 계산하고, 활동량 계수를 곱해 활동대사량을 구해요.
+          </Text>
+          <CitationLinks citations={[MIFFLIN_CITATION]} />
         </View>
       )}
 
@@ -197,6 +205,11 @@ const styles = StyleSheet.create({
     color: '#5c5b57',
     fontSize: 14,
     fontWeight: '700',
+  },
+  cardNote: {
+    color: '#5c5b57',
+    fontSize: 12,
+    lineHeight: 17,
   },
   cardRow: {
     alignItems: 'center',

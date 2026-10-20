@@ -3,6 +3,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { CitationLinks } from '@/components/citation-links';
 import { DayNutrientsCard } from '@/components/day-nutrients-card';
 import { ErrorBanner } from '@/components/error-banner';
 import { LoadingState } from '@/components/loading-state';
@@ -10,6 +11,7 @@ import { Screen } from '@/components/screen';
 import { TabHeader } from '@/components/tab-header';
 import { YesterdayCard } from '@/components/yesterday-card';
 import { AI_USE_NOTICE, INTAKE_ESTIMATE_NOTICE } from '@/constants/ai-notice';
+import { MFDS_DB_CITATION } from '@/constants/citations';
 import { MEAL_TYPE_LABELS, MEAL_TYPES, mealTypeAt } from '@/constants/meal';
 import { DISPLAY_FONT } from '@/constants/typography';
 import { formatFoodLabel } from '@/services/food-label';
@@ -196,6 +198,8 @@ export default function HomeScreen() {
       )}
 
       <Text style={styles.disclaimer}>{INTAKE_ESTIMATE_NOTICE}</Text>
+      {/* 위 두 고지가 말하는 식약처 DB의 원문. 화면에 한 번만 (2026-10-20 App Store 1.4.1). */}
+      <CitationLinks citations={[MFDS_DB_CITATION]} />
     </Screen>
   );
 }

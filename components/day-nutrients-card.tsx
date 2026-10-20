@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { CitationLinks } from '@/components/citation-links';
 import { MedicalDisclaimer } from '@/components/medical-disclaimer';
 import { DISPLAY_FONT } from '@/constants/typography';
 import { DayNutrientAxis, DayNutrients } from '@/services/health-api';
@@ -44,6 +45,8 @@ export function DayNutrientsCard({
       )}
 
       <Text style={styles.notice}>{nutrients.notice}</Text>
+      {/* 기준선(basis)·'하루 상한 없음'의 근거 원문 (2026-10-20 App Store 1.4.1). */}
+      <CitationLinks citations={nutrients.citations} />
       <MedicalDisclaimer />
     </View>
   );

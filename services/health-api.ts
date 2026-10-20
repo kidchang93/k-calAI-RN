@@ -1,5 +1,6 @@
 import { MEAL_TYPES, type MealType } from '@/constants/meal';
 import { apiUrl } from '@/services/api-base';
+import { type CitationLink, parseCitations } from '@/services/citations';
 import {
   apiFetch,
   ensure,
@@ -120,6 +121,9 @@ export type DayNutrients = {
   axes: DayNutrientAxis[];
   total_items: number;
   notice: string;
+  // 축의 basis·notice 와 칼륨·인 '하루 상한 없음'의 근거 문헌 링크 (2026-10-20, 서버 DATA_MODEL 34장).
+  // 옛 서버엔 없어 빈 배열이다.
+  citations: CitationLink[];
 };
 
 export type DaySummary = {
@@ -252,6 +256,8 @@ export type NutrientTrendAxis = {
 export type NutrientTrends = {
   axes: NutrientTrendAxis[];
   notice: string;
+  // DayNutrients.citations 와 같은 규칙 (2026-10-20, 34장).
+  citations: CitationLink[];
 };
 
 export type TrendsResponse = {
@@ -336,6 +342,9 @@ export type MedicalReport = {
   labs: ReportLabResult[];
   meals: ReportMeal[];
   notice: string;
+  // 이 문서에 실린 질환 축·검사 정상범위의 근거 문헌 링크 (2026-10-20, 34장). 문서 끝 '출처'에 그린다.
+  // 옛 서버·민감정보를 싣지 않은 리포트는 빈 배열이다.
+  citations: CitationLink[];
 };
 
 // period 를 생략하면 서버 기본 기간(무료 = 상한만큼 최근, 플러스 = 지난 진료일부터 오늘)이다.
@@ -360,6 +369,9 @@ export async function getMedicalReport(
     // 옛 서버(2026-08-03 이전)는 `labs`를 주지 않는다. 그대로 두면 화면이 undefined에
     // .map()을 걸어 리포트 전체가 크래시한다 — 검사 수치는 부가 정보이므로 빈 배열로 흘린다.
     labs: Array.isArray(data.labs) ? data.labs : [],
+    // trends 와 같은 구조라 같은 파서로 읽는다 — citations 를 채우고, 어긋나면 영양 칸만 접는다.
+    nutrients: parseNutrientTrends(data.nutrients),
+    citations: parseCitations(data.citations),
   } as unknown as MedicalReport;
 }
 
@@ -446,6 +458,8 @@ export type FoodWarningsResult = {
   // 1인분 경계는 지침 컷오프가 아니라 1일 상한을 끼니로 나눈 정책값이라, 등급만 보여주고
   // 이 문구를 빼면 안 된다 (서버 docs/CHRONIC_NUTRITION_SOURCES.md §6 노출 원칙).
   notice: string | null;
+  // 질환 경고가 기대는 지침의 원문 링크 (2026-10-20, 34장). 질환 경고가 없거나 옛 서버면 빈 배열.
+  citations: CitationLink[];
 };
 
 export type CreateWeightRequest = {
@@ -671,6 +685,7 @@ export async function checkFoodWarnings(foodLabels: string[]): Promise<FoodWarni
     unmeasured: Array.isArray(data.unmeasured)
       ? data.unmeasured.filter((label): label is string => typeof label === 'string')
       : [],
+    citations: parseCitations(data.citations),
   };
 }
 
@@ -947,6 +962,7 @@ function parseDayNutrients(value: unknown): DayNutrients | null {
     axes,
     total_items: typeof value.total_items === 'number' ? value.total_items : 0,
     notice: value.notice,
+    citations: parseCitations(value.citations),
   };
 }
 
@@ -1153,7 +1169,13 @@ function parseNutrientTrends(value: unknown): NutrientTrends | null {
 
   const axes = value.axes.map(parseNutrientTrendAxis);
 
-  return axes.includes(null) ? null : { axes: axes as NutrientTrendAxis[], notice: value.notice };
+  return axes.includes(null)
+    ? null
+    : {
+        axes: axes as NutrientTrendAxis[],
+        notice: value.notice,
+        citations: parseCitations(value.citations),
+      };
 }
 
 function parseNutrientTrendAxis(value: unknown): NutrientTrendAxis | null {

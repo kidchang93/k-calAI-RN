@@ -1,4 +1,5 @@
 import { apiUrl } from '@/services/api-base';
+import { type CitationLink, withCitations } from '@/services/citations';
 import { apiFetch, ensureOk, isRecord, JSON_HEADERS, readOk } from '@/services/http';
 import { ConsentRequiredError } from '@/services/onboarding-api';
 
@@ -25,6 +26,8 @@ export type LabResult = {
   source_note: string;
   note: string | null;
   created_at: string;
+  // 정상범위 문장의 근거 문헌 링크 (2026-10-20, 서버 DATA_MODEL 34장). 옛 서버엔 없어 빈 배열.
+  citations: CitationLink[];
 };
 
 export type LabPanel = {
@@ -37,6 +40,8 @@ export type LabPanel = {
   decimals: number;
   // 내 질환에 해당하는 항목인가. 서버가 이 항목을 **앞으로 정렬**해 준다.
   is_mine: boolean;
+  // source 문장의 근거 문헌 링크 (2026-10-20, 34장). 사용자 입력 항목(혈압)·옛 서버는 빈 배열.
+  citations: CitationLink[];
 };
 
 const LAB_API_URL = apiUrl('/api');
@@ -53,7 +58,7 @@ export async function listLabPanels(): Promise<{ panels: LabPanel[]; notice: str
   }
 
   return {
-    panels: payload.panels.filter(isLabPanel),
+    panels: payload.panels.filter(isLabPanel).map(withCitations),
     notice: typeof payload.notice === 'string' ? payload.notice : '',
   };
 }
@@ -78,7 +83,7 @@ export async function listLabResults(params?: {
   }
 
   return {
-    results: payload.results.filter(isLabResult),
+    results: payload.results.filter(isLabResult).map(withCitations),
     notice: typeof payload.notice === 'string' ? payload.notice : '',
   };
 }
@@ -101,7 +106,7 @@ export async function saveLabResult(input: {
     throw new Error('저장 응답 형식이 올바르지 않습니다.');
   }
 
-  return payload;
+  return withCitations(payload);
 }
 
 export async function deleteLabResult(id: number): Promise<void> {

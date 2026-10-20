@@ -3,6 +3,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { CitationLinks } from '@/components/citation-links';
 import { ConditionGuideCard } from '@/components/condition-guide-card';
 import { ErrorBanner } from '@/components/error-banner';
 import { LoadingState } from '@/components/loading-state';
@@ -12,6 +13,7 @@ import { Segmented } from '@/components/segmented';
 import { StampCalendar } from '@/components/stamp-calendar';
 import { TabHeader } from '@/components/tab-header';
 import { INTAKE_ESTIMATE_NOTICE } from '@/constants/ai-notice';
+import { MFDS_DB_CITATION } from '@/constants/citations';
 import { MEAL_TYPE_LABELS } from '@/constants/meal';
 import { DISPLAY_FONT } from '@/constants/typography';
 import { formatFoodLabel } from '@/services/food-label';
@@ -367,6 +369,7 @@ export default function TrendsScreen() {
 
       {/* 이 탭의 수치는 AI 가 만든 것이 아니다 — 섭취량은 식약처 DB 로 계산한다(KCAL-17). */}
       <Text style={styles.disclaimer}>{INTAKE_ESTIMATE_NOTICE}</Text>
+      <CitationLinks citations={[MFDS_DB_CITATION]} />
     </Screen>
   );
 }

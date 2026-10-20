@@ -1,6 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { CitationLinks } from '@/components/citation-links';
 import { MedicalDisclaimer } from '@/components/medical-disclaimer';
 import { NutrientTrendAxis, NutrientTrends as NutrientTrendsData } from '@/services/health-api';
 
@@ -24,6 +25,7 @@ export function NutrientTrends({ trends }: { trends: NutrientTrendsData | null }
       ))}
 
       <Text style={styles.notice}>{trends.notice}</Text>
+      <CitationLinks citations={trends.citations} />
       {/* 축마다 붙이지 않고 섹션에 한 번만 — 반복되면 읽히지 않는다. */}
       <MedicalDisclaimer />
     </View>

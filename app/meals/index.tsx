@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 import { ChipGroup } from '@/components/chip-group';
 import { ChunkyButton } from '@/components/chunky-button';
+import { CitationLinks } from '@/components/citation-links';
 import { DayNutrientsCard } from '@/components/day-nutrients-card';
 import { DetailHeader } from '@/components/detail-header';
 import { ErrorBanner } from '@/components/error-banner';
@@ -13,6 +14,7 @@ import { NutrientChip, NutrientChips } from '@/components/nutrient-chips';
 import { QuantityEditor, QuantityValue } from '@/components/quantity-editor';
 import { Screen } from '@/components/screen';
 import { INTAKE_ESTIMATE_NOTICE } from '@/constants/ai-notice';
+import { MFDS_DB_CITATION } from '@/constants/citations';
 import { isMealType, MEAL_TYPE_LABELS, MEAL_TYPES, MealType } from '@/constants/meal';
 import { NUTRIENT_LABELS } from '@/constants/nutrition';
 import { TAB_TONES } from '@/constants/tab-tone';
@@ -442,6 +444,7 @@ export default function MealListScreen() {
       )}
 
       <Text style={styles.disclaimer}>{INTAKE_ESTIMATE_NOTICE}</Text>
+      <CitationLinks citations={[MFDS_DB_CITATION]} />
     </Screen>
   );
 }

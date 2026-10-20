@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ChunkyButton } from '@/components/chunky-button';
+import { CitationLinks } from '@/components/citation-links';
 import { DetailHeader } from '@/components/detail-header';
 import { ErrorBanner } from '@/components/error-banner';
 import { LoadingState } from '@/components/loading-state';
@@ -253,6 +254,8 @@ function AxisDetail({ axis }: { axis: GuideAxis }) {
             {`· ${source}`}
           </Text>
         ))}
+        {/* 위 문장(쪽수 포함)은 그대로 두고, 그 문헌의 원문을 열 수 있게 한다 (2026-10-20 App Store 1.4.1). */}
+        <CitationLinks citations={axis.citations} />
       </View>
     </View>
   );

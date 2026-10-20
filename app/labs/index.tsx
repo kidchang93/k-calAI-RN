@@ -4,12 +4,14 @@ import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ChunkyButton } from '@/components/chunky-button';
+import { CitationLinks } from '@/components/citation-links';
 import { DetailHeader } from '@/components/detail-header';
 import { ErrorBanner } from '@/components/error-banner';
 import { LoadingState } from '@/components/loading-state';
 import { MedicalDisclaimer } from '@/components/medical-disclaimer';
 import { Screen } from '@/components/screen';
 import { DISPLAY_FONT } from '@/constants/typography';
+import { mergeCitations } from '@/services/citations';
 import { confirmDialog } from '@/services/dialog';
 import { formatYearMonthDay } from '@/services/format';
 import { formatDateParam } from '@/services/health-api';
@@ -298,6 +300,8 @@ export default function LabsScreen() {
             저희는 수치를 재거나 판정하지 않아요. 옮겨 적은 값은 진료 리포트에 나란히 실려요.
           </Text>
           {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+          {/* 항목마다 붙인 출처를 한 번 더 모아 둔다 — 펼치지 않은 항목의 근거도 여기서 찾는다. */}
+          <CitationLinks citations={mergeCitations(...panels.map((panel) => panel.citations))} />
           <MedicalDisclaimer tone="strong" />
         </>
       )}
@@ -348,6 +352,7 @@ function PanelField({
       {/* 범위 문장은 서버가 지침에서 옮긴 그대로다 — 앱이 값과 비교하지 않는다. */}
       {panel.reference !== null ? <Text style={styles.reference}>{panel.reference}</Text> : null}
       <Text style={styles.sourceNote}>{`출처: ${panel.source}`}</Text>
+      <CitationLinks citations={panel.citations} />
     </View>
   );
 }

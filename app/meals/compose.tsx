@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 
 import { ChunkyButton } from '@/components/chunky-button';
+import { CitationLinks } from '@/components/citation-links';
 import { ConsentNotice } from '@/components/consent-notice';
 import { DetailHeader } from '@/components/detail-header';
 import { ErrorBanner } from '@/components/error-banner';
@@ -21,6 +22,7 @@ import { QuantityEditor, QuantityValue } from '@/components/quantity-editor';
 import { NutrientChip, NutrientChips } from '@/components/nutrient-chips';
 import { Screen } from '@/components/screen';
 import { AI_USE_NOTICE } from '@/constants/ai-notice';
+import { MFDS_DB_CITATION } from '@/constants/citations';
 import { AI_PHOTO_CONSENT_ROWS, AI_PHOTO_CONSENT_TITLE } from '@/constants/consent';
 import { isMealType, MEAL_TYPE_LABELS, MealType, mealTypeAt } from '@/constants/meal';
 import { NUTRIENT_LABELS, NUTRIENT_TIER_LABELS } from '@/constants/nutrition';
@@ -28,6 +30,7 @@ import { TAB_TONES } from '@/constants/tab-tone';
 import { DISPLAY_FONT } from '@/constants/typography';
 import { readAiPhotoConsent, saveAiPhotoConsent } from '@/services/ai-photo-consent';
 import { FoodDetection, PhotoAsset, uploadFoodPhoto } from '@/services/calorie-api';
+import type { CitationLink } from '@/services/citations';
 import { notifyDialog } from '@/services/dialog';
 import { formatFoodLabel } from '@/services/food-label';
 import { formatFullDate, formatMonthDay, formatShortDate, formatTakenAt } from '@/services/format';
@@ -214,6 +217,8 @@ export default function MealComposeScreen() {
   const [warnings, setWarnings] = useState<FoodWarning[]>([]);
   // 등급 경고와 함께 내려오는 고지문(서버 단일 진실). 등급 근거가 정책값이라는 사실을 숨기지 않는다.
   const [warningNotice, setWarningNotice] = useState<string | null>(null);
+  // 질환 경고가 기대는 지침의 원문 링크 (2026-10-20 App Store 1.4.1).
+  const [warningCitations, setWarningCitations] = useState<CitationLink[]>([]);
   // 질환 축을 판정하지 못한 음식. 경고가 없는 것과 안전한 것은 다르다 — 침묵을 안전으로
   // 읽지 않도록 그 사실을 그대로 보여준다 (서버 PRODUCT_STRATEGY.md §0-1).
   const [unmeasured, setUnmeasured] = useState<string[]>([]);
@@ -282,6 +287,7 @@ export default function MealComposeScreen() {
     if (deduped.length === 0) {
       setWarnings([]);
       setWarningNotice(null);
+      setWarningCitations([]);
 
       return;
     }
@@ -291,6 +297,7 @@ export default function MealComposeScreen() {
         if (warningSeqRef.current === seq) {
           setWarnings(result.warnings);
           setWarningNotice(result.notice);
+          setWarningCitations(result.citations);
           setUnmeasured(result.unmeasured);
         }
       })
@@ -975,6 +982,8 @@ export default function MealComposeScreen() {
               </View>
             </View>
           ))}
+          {/* 칼로리·영양값의 원천. 항목마다가 아니라 목록 끝에 한 번 (2026-10-20 App Store 1.4.1). */}
+          <CitationLinks citations={[MFDS_DB_CITATION]} />
         </View>
       )}
 
@@ -1022,6 +1031,7 @@ export default function MealComposeScreen() {
           {/* 경고가 뜬 순간이 사용자가 식이 결정을 내리는 순간이다 — 최종 판단자가
               누구인지 여기서 말해야 한다 (Apple 1.4.1). */}
           <MedicalDisclaimer />
+          <CitationLinks citations={warningCitations} />
 
           {/* 경고를 막다른 길로 두지 않는다 — "먹지 마세요" 다음에는 "그럼 뭘 먹지"가
               와야 한다. 기록을 막지 않으므로 이건 대안 제시일 뿐이고, 이미 먹은 것을

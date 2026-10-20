@@ -103,6 +103,7 @@
 | 신규 끼니 `logged_at`을 그 날짜의 **UTC 정오**로 앵커 | `app/meals/compose.tsx`, `services/health-api.ts` `dayAnchorLoggedAt` | 서버는 끼니 하루를 UTC 자정으로 나눈다. 캘린더 셀 D에 추가한 끼니가 그 셀에서 다시 보이려면 `logged_at`의 UTC 날짜가 D여야 한다 — 정오 앵커면 타임존 무관하게 D로 고정 |
 | append(기존 끼니에 항목 추가)는 기존 항목을 그대로 보존해 PUT 전체 교체 | `app/meals/compose.tsx`, `updateMeal` | PUT은 전체 교체다. `getMeals(date)`로 기존 항목을 읽어 편집 없이 다시 싣고 신규만 더한다. `logged_at` 생략으로 기존 시각 유지 (DATA_MODEL.md 4장) |
 | 캘린더·기록 목록에 **빈 날짜에도** 추가 진입점 노출, 선택 날짜를 파라미터로 전달 | `app/(tabs)/trends.tsx`, `app/meals/index.tsx` | 과거 빈 날짜가 막다른 길이던 문제 해소. `router.push('/meals')`가 날짜를 버려 오늘로 폴백되던 버그도 함께 수정 |
+| **의료 수치·기준 옆에 누르면 원문이 열리는 '출처'** (2026-10-20 App Store 1.4.1 반려) | `components/citation-links.tsx`, `services/citations.ts`, `constants/citations.ts`, `app/sources.tsx` | 근거 문장(학회 지침 이름·쪽수)은 이미 있었지만 링크가 아니어서 '출처 없음'으로 반려됐다. **서버가 쓰는 근거는 서버가 링크까지 준다**(응답의 `citations` — 근거 문장과 같은 저장소에서 고쳐야 문장과 링크가 어긋나지 않는다), 앱이 직접 쓰는 근거(Mifflin-St Jeor 계산식·식약처 DB)만 앱 상수다. 근거 문장은 그대로 두고 그 아래에 링크를 붙이며, 출처가 없는 값(활동량 계수·목표 보정)에는 문헌을 지어 붙이지 않는다. 인쇄되는 리포트는 주소까지 적는다(`showUrl`). 전부 모아 보는 화면은 내 정보 '근거와 출처' |
 
 ## 선택지 데이터 규칙 (2026-07-09 확정)
 

@@ -48,6 +48,8 @@ const MENU_ROWS: { href: Href; icon: keyof typeof MaterialIcons.glyphMap; label:
   // 온보딩이 "내 정보에서 언제든 철회할 수 있어요"라고 약속한 진입점이다
   // (app/onboarding/consent.tsx). 이 행이 없으면 그 고지가 거짓이 된다.
   { href: '/me/consents', icon: 'fact-check', label: '동의 관리' },
+  // 수치·기준의 출처를 한곳에서 (2026-10-20 App Store 1.4.1 — 출처를 쉽게 찾을 수 있어야 한다).
+  { href: '/sources', icon: 'menu-book', label: '근거와 출처' },
   { href: '/updates', icon: 'campaign', label: '업데이트 이력' },
   { href: '/support', icon: 'support-agent', label: '고객 지원' },
 ];

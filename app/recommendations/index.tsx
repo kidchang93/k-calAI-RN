@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ChunkyButton } from '@/components/chunky-button';
+import { CitationLinks } from '@/components/citation-links';
 import { DetailHeader } from '@/components/detail-header';
 import { ErrorBanner } from '@/components/error-banner';
 import { LoadingState } from '@/components/loading-state';
@@ -191,6 +192,9 @@ export default function RecommendationsScreen() {
               </View>
             </View>
           ) : null}
+
+          {/* 등급·식이 도움말이 기대는 지침의 원문 (2026-10-20 App Store 1.4.1). */}
+          <CitationLinks citations={recommendation.citations} />
 
           {/* 고지 문구는 서버가 내려보낸 문자열을 그대로 표시한다 — 앱 하드코딩 금지. */}
           <Text style={styles.disclaimer}>{recommendation.disclaimer}</Text>

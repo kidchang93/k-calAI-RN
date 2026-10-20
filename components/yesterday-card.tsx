@@ -1,6 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { CitationLinks } from '@/components/citation-links';
 import { formatMonthDay } from '@/services/format';
 import type { NutrientTrendAxis, TrendsResponse } from '@/services/health-api';
 
@@ -25,6 +26,9 @@ export function YesterdayCard({
   }
 
   const hasRecord = day.meal_count > 0;
+  const axes = trends.nutrients?.axes ?? [];
+  // 축 줄이 하나라도 그려질 때만 출처를 붙인다 — 기준 줄 없이 '출처'만 남으면 무엇의 출처인지 모른다.
+  const hasAxisLine = axes.some((axis) => (axis.days[0]?.total_items ?? 0) > 0);
 
   return (
     <View style={styles.card}>
@@ -49,9 +53,11 @@ export function YesterdayCard({
             ) : null}
             <Text style={styles.muted}>{` · 끼니 ${day.meal_count}번`}</Text>
           </Text>
-          {(trends.nutrients?.axes ?? []).map((axis) => (
+          {axes.map((axis) => (
             <AxisLine key={axis.nutrient} axis={axis} />
           ))}
+          {/* '기준 2,000 mg'이 어디서 왔는지 (2026-10-20 App Store 1.4.1). */}
+          {hasAxisLine ? <CitationLinks citations={trends.nutrients?.citations ?? []} /> : null}
         </View>
       ) : (
         <Text style={styles.emptyText}>기록이 없는 날이에요. 지금 남겨도 그날 기록으로 들어가요.</Text>

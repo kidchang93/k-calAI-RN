@@ -1,5 +1,6 @@
 import { MEAL_TYPES, type MealType } from '@/constants/meal';
 import { apiUrl } from '@/services/api-base';
+import { type CitationLink, parseCitations } from '@/services/citations';
 import { type FoodWarningTier, NUTRIENT_TIERS } from '@/services/health-api';
 import { apiFetch, ensure, isRecord, oneOf, readOk } from '@/services/http';
 import { ConsentRequiredError } from '@/services/onboarding-api';
@@ -60,6 +61,8 @@ export type DietRecommendation = {
   tier_notice: string | null;
   cached: boolean;
   disclaimer: string;
+  // 등급·식이 도움말이 기대는 지침의 원문 링크 (2026-10-20, 서버 DATA_MODEL 34장). 옛 서버엔 없어 빈 배열.
+  citations: CitationLink[];
 };
 
 const RECOMMENDATION_API_URL = apiUrl('/api/recommendations');
@@ -202,5 +205,6 @@ function parseDietRecommendation(value: unknown): DietRecommendation | null {
     tier_notice: typeof value.tier_notice === 'string' ? value.tier_notice : null,
     cached: value.cached,
     disclaimer: value.disclaimer,
+    citations: parseCitations(value.citations),
   };
 }

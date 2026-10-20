@@ -1,4 +1,5 @@
 import { apiUrl } from '@/services/api-base';
+import { type CitationLink, withCitations } from '@/services/citations';
 import { apiFetch, isRecord, readOk } from '@/services/http';
 
 // 질환별 식이 가이드 (서버 `docs/CARE_LOOP.md` §5).
@@ -24,6 +25,8 @@ export type GuideAxis = {
   // 출처. **화면에서 숨기지 않는다** — 근거를 밝히는 것이 이 화면의 존재 이유이고,
   // Apple 1.4.1이 의료 앱에 요구하는 "근거·방법론 공개"이기도 하다.
   sources: string[];
+  // sources 문장에 나온 문헌의 원문 링크 (2026-10-20, 서버 DATA_MODEL 34장). 옛 서버엔 없어 빈 배열.
+  citations: CitationLink[];
   // 병존 질환에서 방향이 엇갈리는 축(칼륨)의 경고. 없으면 null.
   caution: string | null;
 };
@@ -72,7 +75,7 @@ export async function getGuide(condition: string): Promise<ConditionGuide> {
     throw new Error('가이드 응답 형식이 올바르지 않습니다.');
   }
 
-  return payload;
+  return { ...payload, axes: payload.axes.map(withCitations) };
 }
 
 function isStringArray(value: unknown): value is string[] {

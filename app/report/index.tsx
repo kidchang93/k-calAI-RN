@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 
 import { ChunkyButton } from '@/components/chunky-button';
+import { CitationLinks } from '@/components/citation-links';
 import { DetailHeader } from '@/components/detail-header';
 import { ErrorBanner } from '@/components/error-banner';
 import { MedicalDisclaimer } from '@/components/medical-disclaimer';
@@ -10,8 +11,10 @@ import { ReportFreeCard } from '@/components/report-free';
 import { ReportCompareCard, ReportLabOverlay } from '@/components/report-plus';
 import { Screen } from '@/components/screen';
 import { Segmented } from '@/components/segmented';
+import { MFDS_DB_CITATION, MIFFLIN_CITATION } from '@/constants/citations';
 import { MEAL_TYPE_LABELS } from '@/constants/meal';
 import { DISPLAY_FONT } from '@/constants/typography';
+import { mergeCitations } from '@/services/citations';
 import { formatFoodLabel } from '@/services/food-label';
 import { formatDaySpan, formatGeneratedAt, formatMonthDay } from '@/services/format';
 import {
@@ -444,6 +447,18 @@ function ReportBody({
         사진으로 기록한 음식명은 생성형 AI(Google Gemini)가 인식한 뒤 사용자가 확인한 것이며, 식약처 DB에
         없는 일부 음식의 칼로리는 생성형 AI가 추정한 값입니다.
       </Text>
+
+      {/* 문서 하나에 출처 한 묶음 (2026-10-20 App Store 1.4.1). 서버 citations 는 질환 축 기준선·
+          '하루 상한 없음'(위 영양소 요약과 플러스의 비교 표·주별 막대)·검사 정상범위의 근거이고,
+          영양 수치의 원천(식약처 DB)과 목표 칼로리 계산식은 앱이 더한다. 종이로 나가므로 주소도 적는다. */}
+      <CitationLinks
+        citations={mergeCitations(
+          report.citations,
+          [MFDS_DB_CITATION],
+          report.kcal.target !== null ? [MIFFLIN_CITATION] : []
+        )}
+        showUrl
+      />
 
       {/* 이 문서는 **진료실에서 의료진이 보는 종이**가 된다. 인쇄물에 최종 판단자가 누구인지
           적혀 있지 않으면, 우리가 낸 수치가 판단처럼 읽힐 여지가 남는다 (Apple 1.4.1 이
