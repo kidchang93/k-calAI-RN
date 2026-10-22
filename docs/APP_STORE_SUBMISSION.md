@@ -3,6 +3,9 @@
 > 2026-10-05 작성. App Store Connect(ASC) 앱 '케어테이블'(ascAppId 6819191246)에 그대로 붙여 넣는 값과,
 > 거부 사유별 대응 상태를 한 곳에 둔다. 근거 조항 해설은 서버 `docs/LEGAL_COMPLIANCE.md` §6.
 > 빌드·업로드 절차는 `/kcal-release ios` 스킬.
+>
+> ✅ **2026-10-22 승인·출시** — 버전 1.0(빌드 11) `READY_FOR_SALE`(승인 후 자동 출시), 플러스 월간·연간 `APPROVED`.
+> https://apps.apple.com/kr/app/id6819191246 . 다음 심사는 `app.json` `version` 을 올려야 낼 수 있다.
 
 ## 0. 거부 사유별 상태
 
