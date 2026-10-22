@@ -6,6 +6,8 @@
 >
 > ✅ **2026-10-22 승인·출시** — 버전 1.0(빌드 11) `READY_FOR_SALE`(승인 후 자동 출시), 플러스 월간·연간 `APPROVED`.
 > https://apps.apple.com/kr/app/id6819191246 . 다음 심사는 `app.json` `version` 을 올려야 낼 수 있다.
+>
+> 2026-10-22 웹 본 주소를 `https://caretable.kr` 로 옮겼다 — 아래 `api.kcalai.link/...` URL 은 경로 그대로 caretable.kr 로 302 되어 그대로 열린다. 다음 버전을 낼 때 지원·처리방침 URL 을 caretable.kr 로 바꾼다(지원 URL 은 버전 단위).
 
 ## 0. 거부 사유별 상태
 
