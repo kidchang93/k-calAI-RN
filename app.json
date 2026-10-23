@@ -12,6 +12,9 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.kcalai.kcalairn",
       "usesAppleSignIn": true,
+      "infoPlist": {
+        "CFBundleDevelopmentRegion": "ko"
+      },
       "config": {
         "usesNonExemptEncryption": false
       },
@@ -99,6 +102,13 @@
             ]
           }
         ]
+      }
+    },
+    "locales": {
+      "ko": {
+        "ios": {
+          "CFBundleDisplayName": "케어테이블"
+        }
       }
     },
     "android": {
