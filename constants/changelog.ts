@@ -2,7 +2,8 @@
 // 정적 번들 데이터라 서버 왕복이 없고 오프라인에서도 보인다. 사용자에게 보이는 문구이므로
 // 개발 용어가 아니라 사용자 관점의 변화로 적는다(예: "logged_at 앵커" X → "지난 날짜에도 기록" O).
 
-export type ChangeType = 'new' | 'improved' | 'fixed';
+// notice = 약관·처리방침 개정 같은 사전 공지(처리방침 15항 '시행 7일 전부터 서비스 내에 공지').
+export type ChangeType = 'new' | 'improved' | 'fixed' | 'notice';
 
 export type ChangeItem = {
   type: ChangeType;
@@ -20,10 +21,21 @@ export const CHANGE_TYPE_LABELS: Record<ChangeType, string> = {
   new: '신규',
   improved: '개선',
   fixed: '수정',
+  notice: '안내',
 };
 
 // 최신순(위가 최신). 새 릴리즈는 이 배열 맨 앞에 추가한다.
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    // 처리방침 1.6 사전 공지 — 시행일은 constants/legal.ts PRIVACY_EFFECTIVE_DATE 와 같아야 한다(서버 DATA_MODEL 35-6).
+    date: '2026-10-23',
+    title: '개인정보 처리방침이 10월 31일부터 바뀌어요',
+    items: [
+      { type: 'notice', text: '플러스를 구독하면 결제할 때마다 결제 일시·금액·이용 기간·환불 여부를 기록해 두어요. 결제 문의에 답하고 법령이 정한 기록을 남기기 위해서예요.' },
+      { type: 'notice', text: '탈퇴하면 결제 기록은 회원 정보와의 연결을 끊고 삭제 처리해요. 전자상거래법에 따라 결제일로부터 5년간 따로 보관한 뒤 파기해요.' },
+      { type: 'notice', text: '결제 수단과 카드 번호는 지금처럼 Apple·Google이 처리하고 케어테이블은 받지 않아요. 바뀐 처리방침(1.6)은 10월 31일부터 적용돼요.' },
+    ],
+  },
   {
     date: '2026-10-20',
     title: '수치마다 출처를 눌러 원문을 볼 수 있어요',

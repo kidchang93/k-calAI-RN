@@ -10,11 +10,12 @@ import {
 } from '@/constants/changelog';
 import { formatYearMonthDay } from '@/services/format';
 
-// 변화 유형별 배지 색. new=민트(진한 틴트), improved=민트(옅은 틴트), fixed=중립.
+// 변화 유형별 배지 색. new=민트(진한 틴트), improved=민트(옅은 틴트), fixed·notice=중립.
 const TYPE_COLORS: Record<ChangeType, { bg: string; fg: string }> = {
   new: { bg: '#bee2dd', fg: '#2a7d76' },
   improved: { bg: '#eef7f5', fg: '#2a7d76' },
   fixed: { bg: '#e4e2de', fg: '#5c5b57' },
+  notice: { bg: '#e4e2de', fg: '#5c5b57' },
 };
 
 export default function UpdatesScreen() {
