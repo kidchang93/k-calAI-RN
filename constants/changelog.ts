@@ -27,6 +27,14 @@ export const CHANGE_TYPE_LABELS: Record<ChangeType, string> = {
 // 최신순(위가 최신). 새 릴리즈는 이 배열 맨 앞에 추가한다.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-10-23',
+    title: '앱 없이도 탈퇴를 요청할 수 있어요',
+    items: [
+      { type: 'improved', text: '고객 지원 페이지에 앱을 지운 뒤에도 메일로 탈퇴를 요청하는 방법을 적었어요. 늦어도 10일 안에 처리하고 결과를 알려 드려요.' },
+      { type: 'improved', text: '플러스를 구독 중이라면 탈퇴 전에 스토어에서 먼저 해지해야 한다는 안내도 함께 볼 수 있어요.' },
+    ],
+  },
+  {
     // 처리방침 1.6 사전 공지 — 시행일은 constants/legal.ts PRIVACY_EFFECTIVE_DATE 와 같아야 한다(서버 DATA_MODEL 35-6).
     date: '2026-10-23',
     title: '개인정보 처리방침이 10월 31일부터 바뀌어요',

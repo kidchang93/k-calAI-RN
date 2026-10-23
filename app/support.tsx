@@ -8,11 +8,23 @@ import { BUSINESS_EMAIL, BUSINESS_INFO_LINES } from '@/constants/legal';
 // 고객 지원 (2026-10-05). App Store Connect 의 '지원 URL'(https://api.kcalai.link/support)이 가리키는
 // 화면이라 **로그인 없이** 열려야 한다 — 인증 가드가 없는 루트 라우트에 둔다(app/legal 과 같은 이유).
 // 심사관이 보는 것은 실제 연락처와, 계정 삭제·동의 철회를 어디서 하는지다.
+// Google Play 계정 삭제 요건(고객센터 13327111, 2026-10-23): 데이터 보안 양식의 삭제 URL 이 이 화면이라 **앱 없이도**
+// 삭제를 요청하는 길·스토어 이름(케어테이블)·삭제 전에 할 일(구독 해지)이 여기 보여야 한다. 처리 기한 10일은
+// 개인정보 보호법상 삭제 요구 처리 기한에 맞췄다 — 메일로 온 요청은 운영자가 직접 처리한다(Play 제출 문서 §1-②).
 const FAQ: { question: string; answer: string }[] = [
   {
     question: '회원 탈퇴는 어디서 하나요?',
     answer:
       '앱의 내 정보 › 회원 탈퇴에서 바로 할 수 있어요. 모든 기록이 즉시 지워지고 되돌릴 수 없어요. Apple로 가입했다면 Apple 로그인 연결도 함께 끊어요.',
+  },
+  {
+    question: '앱 없이 탈퇴를 요청할 수 있나요?',
+    answer: `네. ${BUSINESS_EMAIL} 로 '케어테이블 회원 탈퇴 요청'이라고 적어 보내 주세요. 가입할 때 쓴 로그인 방법(카카오·Apple·이메일)과 가입한 이메일 주소 또는 닉네임을 함께 알려 주시면 돼요. 본인 확인을 위해 몇 가지를 더 여쭐 수 있고, 늦어도 10일 안에 탈퇴를 마치고 결과를 회신해 드려요. 지워지는 정보는 앱에서 탈퇴할 때와 같아요.`,
+  },
+  {
+    question: '플러스를 구독 중인데 탈퇴해도 되나요?',
+    answer:
+      '탈퇴해도 App Store·Google Play 결제는 멈추지 않아요. iPhone은 설정 › Apple ID › 구독, Android는 Play 스토어 › 결제 및 정기 결제에서 먼저 해지한 뒤 탈퇴해 주세요.',
   },
   {
     question: '건강 정보 동의나 사진 AI 분석 동의를 거두고 싶어요.',
@@ -38,7 +50,7 @@ export default function SupportScreen() {
       <BackButton />
 
       <View style={styles.header}>
-        <Text style={styles.title}>고객 지원</Text>
+        <Text style={styles.title}>케어테이블 고객 지원</Text>
         <Text style={styles.subtitle}>궁금한 점이나 불편한 점을 알려 주세요.</Text>
       </View>
 
