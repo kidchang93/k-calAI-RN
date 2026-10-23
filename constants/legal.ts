@@ -52,6 +52,10 @@ const MAIL_ORDER_NUMBER = process.env.EXPO_PUBLIC_BUSINESS_MAIL_ORDER_NO;
 // 1.5(Android 플러스 — Google Play 정기 결제)는 2026-10-14 시행. 1.4 와 같은 판단(출시 전, 공지 기간 없음)이고,
 // 배포가 늦어지면 **배포일로 고친다**(시행일이 배포보다 앞서면 아무도 보지 못한 문서가 시행된 것이 된다).
 const EFFECTIVE_DATE = '2026년 10월 14일';
+// 처리방침 1.6(플러스 결제 기록의 보관 — 서버 DATA_MODEL.md 35장)은 약관과 따로 시행한다. 출시 뒤 첫 개정이라 15항의
+// '시행 7일 전 공지'를 지킨다 — 공지가 늦어지면 시행일도 함께 민다(공지 없이 시행일만 오면 아무도 모르는 문서가 시행된다).
+// 서버의 결제 기록 저장(store_transactions)은 이 날짜에 배포한다 — 앞서 배포하면 1.5 의 "결제 정보를 보관하지 않습니다"와 어긋난다.
+const PRIVACY_EFFECTIVE_DATE = '2026년 10월 31일';
 
 const filled = (value: string | undefined, placeholder: string) =>
   value?.trim() || `[[${placeholder}]]`;
@@ -282,8 +286,10 @@ export const PRIVACY_POLICY: LegalDocument = {
   //   보유 기간·파기 범위·안전성 조치. 서버 consent_service.PRIVACY_VERSION 과 함께 올렸다.
   // 1.4 (2026-10-13): 플러스 구독 정보(수집 항목·이용 목적·Apple 국외 이전·보유 기간), 사업자 변경(미드나잇모찌).
   // 1.5 (2026-10-14): Android 플러스 — Google Play 구매 토큰(수집 항목·Google 국외 이전·보유 기간). 약관과 함께 올렸다.
-  version: '1.5',
-  effectiveDate: EFFECTIVE_DATE,
+  // 1.6 (2026-10-23 작성): 플러스 결제 기록(서버 store_transactions — 수집 항목·이용 목적·국외 이전·보유 기간·파기 절차).
+  //   약관은 그대로 1.5 다. 서버 consent_service.PRIVACY_VERSION 과 함께 올리고, 1.5 를 보내는 옛 앱 빌드는 서버가 받는다.
+  version: '1.6',
+  effectiveDate: PRIVACY_EFFECTIVE_DATE,
   draftNotice: DRAFT_NOTICE,
   sections: [
     {
@@ -323,7 +329,9 @@ export const PRIVACY_POLICY: LegalDocument = {
         //   is_trial·status·current_period_end·cancel_at_period_end (리비전 0031). 결제 수단은 Apple 이 처리해 받지 않는다(32-3).
         //   토스 결제 정보는 적지 않는다(1.2) — 운영 토스 키는 test_ 였고 실결제가 없었으며 웹 결제를 닫았다.
         //   + 2026-10-14 Google Play: store_purchase_token(리비전 0032), provider='play', store_environment Production|Test (33-2).
-        '[플러스 구독 시] App Store 거래 번호 또는 Google Play 구매 토큰, 구독 상품(월간·연간), 구독 상태와 만료일, 자동 갱신 여부, 무료 체험 여부, 거래 환경(정식·테스트). 결제 수단·카드 번호 등 결제 정보는 Apple 또는 Google이 처리하며 회사는 전달받지 않습니다.',
+        //   + 1.6 결제 기록: store_transactions(리비전 0033) — transaction_id(Apple 거래 번호·Google 주문 번호)·product_id·environment·
+        //   status(환불 여부)·purchased_at·period_end·amount·currency·refunded_at (35-1). 결제 수단은 여전히 받지 않는다.
+        '[플러스 구독 시] App Store 거래 번호 또는 Google Play 구매 토큰, 구독 상품(월간·연간), 구독 상태와 만료일, 자동 갱신 여부, 무료 체험 여부, 거래 환경(정식·테스트). 그리고 결제할 때마다의 결제 기록(App Store 거래 번호 또는 Google Play 주문 번호, 결제 일시, 결제 금액과 통화, 그 결제로 이용하는 기간, 환불 여부와 환불 일시). 결제 수단·카드 번호 등 결제 정보는 Apple 또는 Google이 처리하며 회사는 전달받지 않습니다.',
         // 근거: 3항 참조
         '[민감정보 — 별도 동의 시에만] 혈액형, Rh 인자, 질병 정보(신장질환 병기 포함), 알러지 정보, 검사 수치, 진료 메모(진료에서 들은 내용, 진료 때 물어볼 것). 자세한 내용은 3항을 참조하십시오.',
         // 근거: main.py:107-116 실측 — 메서드/경로/상태/시간만. IP·쿠키·UA 수집 0건
@@ -370,7 +378,7 @@ export const PRIVACY_POLICY: LegalDocument = {
       title: '4. 개인정보의 이용 목적',
       paragraphs: [
         // 민감정보 동의 시 목적은 3항 이용 목적과 같다(근거 주석 3항).
-        '회원 식별 및 로그인, 서비스 제공(사진 인식, 칼로리·영양 정보 제공, 식단·체중·운동 기록 및 통계, 진료 일정 기록, 진료용 리포트), 목표 섭취량 산출, 민감정보 동의 시 기록할 때의 음식 경고·질환 기준 영양 합계·주간 조언·식단 추천·검사 수치와 진료 메모 기록·진료 리포트에 질환과 검사 수치 수록, 사진 인식 이용 한도 관리, 플러스 이용권의 부여·유지·복원과 갱신·해지·환불 반영, 문의 응대.',
+        '회원 식별 및 로그인, 서비스 제공(사진 인식, 칼로리·영양 정보 제공, 식단·체중·운동 기록 및 통계, 진료 일정 기록, 진료용 리포트), 목표 섭취량 산출, 민감정보 동의 시 기록할 때의 음식 경고·질환 기준 영양 합계·주간 조언·식단 추천·검사 수치와 진료 메모 기록·진료 리포트에 질환과 검사 수치 수록, 사진 인식 이용 한도 관리, 플러스 이용권의 부여·유지·복원과 갱신·해지·환불 반영, 플러스 결제 기록의 보관(결제 관련 문의·분쟁 대응과 법령에 따른 기록 보존), 문의 응대.',
         '회사는 위 목적 외의 용도로 개인정보를 이용하지 않으며, 목적이 변경되는 경우 별도의 동의를 받습니다.',
         '회사는 개인정보를 마케팅·광고에 이용하지 않습니다.',
       ],
@@ -427,12 +435,14 @@ export const PRIVACY_POLICY: LegalDocument = {
         // 근거: app services/iap.ts — 구매 때 appAccountToken(서버 subscription_service.app_account_token: 회원번호에서 만든
         //   UUID 형태 값, 저장하지 않고 매번 계산)을 StoreKit 에 넘긴다. 서버 appstore_client 는 거래 번호로 App Store Server API 를
         //   조회하고, Apple 은 갱신·해지·환불을 /api/billing/appstore/notifications 로 알린다(32-3·32-4).
-        '회사는 플러스 구매를 확인하고 구독 상태를 반영하기 위해 Apple Inc.에 다음과 같이 개인정보를 이전합니다. 이전받는 자: Apple Inc.(미국). 이전 항목: 구매한 회원을 구별하기 위해 회사가 만든 식별값(회원번호 등 원래 정보를 알아볼 수 없는 형태), App Store 거래 번호. 이전 일시 및 방법: 플러스를 구매하거나 구매를 복원할 때, 그리고 회사가 구독 상태를 조회할 때 네트워크를 통해 전송. 이전받는 자의 이용 목적: 구매 확인과 구독 상태 제공. 보유·이용 기간: Apple의 개인정보 처리방침에 따릅니다. 이전받는 자의 연락처: https://www.apple.com/kr/legal/privacy/contact/ . 플러스를 구매하지 않으면 이전되지 않습니다.',
+        //   1.6: 같은 거래 번호로 거래 이력(/inApps/v2/history)도 조회해 결제 기록을 남긴다(35-2) — 보내는 항목은 그대로다.
+        '회사는 플러스 구매를 확인하고 구독 상태와 결제 기록을 반영하기 위해 Apple Inc.에 다음과 같이 개인정보를 이전합니다. 이전받는 자: Apple Inc.(미국). 이전 항목: 구매한 회원을 구별하기 위해 회사가 만든 식별값(회원번호 등 원래 정보를 알아볼 수 없는 형태), App Store 거래 번호. 이전 일시 및 방법: 플러스를 구매하거나 구매를 복원할 때, 그리고 회사가 구독 상태와 거래 내역을 조회할 때 네트워크를 통해 전송. 이전받는 자의 이용 목적: 구매 확인과 구독 상태·거래 내역 제공. 보유·이용 기간: Apple의 개인정보 처리방침에 따릅니다. 이전받는 자의 연락처: https://www.apple.com/kr/legal/privacy/contact/ . 플러스를 구매하지 않으면 이전되지 않습니다.',
         // 근거: app services/iap.ts — Android 구매 때 obfuscatedAccountId 로 위 appAccountToken 과 같은 값(회원번호에서 만든 UUID
         //   형태 값)을 Play 결제에 넘긴다. 서버는 구매 토큰으로 purchases.subscriptionsv2.get 을 조회해 확인(acknowledge)하고,
         //   Google 은 갱신·해지·환불을 실시간 개발자 알림(Pub/Sub → /api/billing/play/notifications)으로 알린다(33-3·33-4).
         //   연락처는 위 Gemini 항목과 같다.
-        '회사는 Android 앱에서의 플러스 구매를 확인하고 구독 상태를 반영하기 위해 Google LLC에 다음과 같이 개인정보를 이전합니다. 이전받는 자: Google LLC(미국). 이전 항목: 구매한 회원을 구별하기 위해 회사가 만든 식별값(회원번호 등 원래 정보를 알아볼 수 없는 형태), Google Play 구매 토큰. 이전 일시 및 방법: 플러스를 구매하거나 구매를 복원할 때, 그리고 회사가 구매를 확인하거나 구독 상태를 조회할 때 네트워크를 통해 전송. 이전받는 자의 이용 목적: 구매 확인과 구독 상태 제공. 보유·이용 기간: Google의 개인정보 처리방침에 따릅니다. 이전받는 자의 연락처: Google 개인정보 문의 양식(https://support.google.com/policies?p=privpol_privts), 이메일 googlekrsupport@google.com . Android 앱에서 플러스를 구매하지 않으면 이전되지 않습니다.',
+        //   1.6: 구독 응답의 주문 번호로 orders.get 을 조회해 결제 기록을 남긴다(35-2) — 이전 항목에 주문 번호가 더해진다.
+        '회사는 Android 앱에서의 플러스 구매를 확인하고 구독 상태와 결제 기록을 반영하기 위해 Google LLC에 다음과 같이 개인정보를 이전합니다. 이전받는 자: Google LLC(미국). 이전 항목: 구매한 회원을 구별하기 위해 회사가 만든 식별값(회원번호 등 원래 정보를 알아볼 수 없는 형태), Google Play 구매 토큰과 주문 번호. 이전 일시 및 방법: 플러스를 구매하거나 구매를 복원할 때, 그리고 회사가 구매를 확인하거나 구독 상태와 주문 내역을 조회할 때 네트워크를 통해 전송. 이전받는 자의 이용 목적: 구매 확인과 구독 상태·주문 내역 제공. 보유·이용 기간: Google의 개인정보 처리방침에 따릅니다. 이전받는 자의 연락처: Google 개인정보 문의 양식(https://support.google.com/policies?p=privpol_privts), 이메일 googlekrsupport@google.com . Android 앱에서 플러스를 구매하지 않으면 이전되지 않습니다.',
       ],
     },
     {
@@ -447,13 +457,17 @@ export const PRIVACY_POLICY: LegalDocument = {
       title: '8. 개인정보의 보유 및 이용 기간',
       paragraphs: [
         '회사는 원칙적으로 회원 탈퇴 시 개인정보를 지체 없이 파기합니다.',
-        // 결제 기록 5년 보존 문장은 1.2 에서 뺐다 — 유료 판매가 없다. 인앱 결제를 넣을 때 되돌린다
+        // 결제 기록 5년 보존 문장은 1.2 에서 뺐다가(유료 판매가 없었다) 1.6 에서 플러스 결제 기록으로 되돌렸다(아래 플러스 문단).
         //   (account_service.delete_account 는 여전히 payments 를 익명화하고 billing_keys 를 지운다).
         // 근거: auth_service.SESSION_RETENTION_DAYS=7, CODE_RETENTION_DAYS=1
         '로그인 세션 기록은 만료·폐기 후 7일이 지나면 파기합니다. 카카오 연동 코드와 이메일 인증 코드(요청 기록 포함)는 발급 후 1일이 지나면 파기합니다. Apple 로그인 인증 토큰은 탈퇴할 때 Apple에 폐기를 요청하고 함께 파기합니다.',
         '동의 이력(동의 항목, 버전, 동의·철회 일시)은 동의 사실의 증빙을 위해 보존하며, 회원 탈퇴 시 파기합니다.',
-        // 근거: account_service.delete_account 가 user_subscriptions 를 지운다. IAP 는 payments 원장에 쓰지 않는다(32-3·33-3).
-        '플러스 구독 정보는 회원 탈퇴 시 파기합니다. 인앱 구독의 결제 기록은 Apple 또는 Google이 보관하며, 회사는 결제 정보를 보관하지 않습니다.',
+        // 근거: account_service.delete_account 가 user_subscriptions 를 지우고, store_transactions 는 user_id 를 끊고 deleted_at 을
+        //   찍는다(소프트 딜리트 — 다른 테이블과 이어지지 않고 어떤 API 도 읽지 않는다). 결제일로부터 5년이 지난 삭제 행은 매일 도는
+        //   정리 배치(scripts/purge_expired_auth.py → purge_expired_store_transactions)가 물리 삭제한다(서버 DATA_MODEL 35-4).
+        //   근거 법령: 전자상거래법 시행령 제6조(대금결제·재화 공급 기록 5년), 개인정보 보호법 제21조①단서·③(법령상 보존·분리 보관).
+        //   ⚠️ 같은 테이블 안에서 연결을 끊고 표시만 다는 것을 '분리 보관'으로 볼 수 있는지는 전문가 검토 전이다(서버 LEGAL_COMPLIANCE).
+        '플러스 구독 정보(구독 상태·만료일 등)는 회원 탈퇴 시 파기합니다. 플러스 결제 기록(2항)은 전자상거래 등에서의 소비자보호에 관한 법률에 따른 대금결제 기록으로서, 회원 탈퇴 후에도 결제일로부터 5년이 지날 때까지 보존합니다. 탈퇴하면 결제 기록은 회원 정보와의 연결을 끊고 삭제 처리하여 서비스에서 더 이상 조회되지 않게 하고, 다른 개인정보와 분리하여 보관하다가 보존 기간이 지나면 파기합니다. 결제 수단·카드 번호 등 결제 정보는 Apple 또는 Google이 처리하며 회사는 보관하지 않습니다.',
         // 근거: 전자상거래법 시행령 제6조 — 표시·광고 6개월 / 계약·청약철회 5년 / 대금결제·공급 5년 / 소비자 불만·분쟁처리 3년
         '그 밖에 전자상거래 등에서의 소비자보호에 관한 법률에 따라, 계약 또는 청약철회 등에 관한 기록은 5년, 소비자의 불만 또는 분쟁처리에 관한 기록은 3년, 표시·광고에 관한 기록은 6개월간 보존합니다. 이 기록들은 해당 사유가 발생한 경우에만 생성되며, 보존 기간이 지나면 파기합니다.',
       ],
@@ -461,12 +475,13 @@ export const PRIVACY_POLICY: LegalDocument = {
     {
       title: '9. 개인정보의 파기 절차 및 방법',
       paragraphs: [
-        '파기 절차: 회원이 탈퇴하면 개인정보와 서비스 이용 기록을 즉시 파기합니다. 별도의 보관 기간을 두거나 삭제 표시만 남기지 않습니다.',
+        // 1.6: 플러스 결제 기록만 예외다(8항 — 법령상 보존). 그 밖의 테이블은 여전히 물리 삭제다.
+        '파기 절차: 회원이 탈퇴하면 개인정보와 서비스 이용 기록을 즉시 파기합니다. 다만 8항에 따라 법령상 보존해야 하는 플러스 결제 기록은 삭제 처리 후 분리 보관하다가 보존 기간이 지나면 파기하며, 그 밖의 정보에는 별도의 보관 기간을 두거나 삭제 표시만 남기지 않습니다.',
         // 근거: account_service.delete_account 전체(2026-09-13 대조) — auth_sessions·kakao_link_codes, user_subscriptions·
         //   vision_usage_daily, billing_keys, user_consents, user_health_profiles·user_conditions·user_allergies, meal_items·meal_logs,
         //   weight_logs, lab_results, care_visits, exercise_logs·exercise_goals, user_goals, user_profiles, diet_recommendations,
         //   pet_feeding_logs·group_pets·pets, 소유 그룹의 group_members·group_challenges·groups, 남의 그룹 멤버십, users.
-        //   payments 는 파기하지 않고 user_id 를 끊는다(8항).
+        //   payments 는 파기하지 않고 user_id 를 끊는다(8항). store_transactions 는 끊고 삭제 표시를 찍는다(1.6, 8항).
         '파기 범위: 회원 정보(Apple 사용자 식별자·인증 토큰, 이메일 주소·비밀번호 포함), 로그인 세션과 카카오 연동 코드·이메일 인증 코드, 프로필(성별·태어난 해·키·몸무게·활동량), 목표, 식단 기록과 그 항목, 체중 기록, 운동 기록과 주간 운동 목표, 진료 예정일과 진료 메모, 검사 수치, 식단 추천 결과, 민감정보(혈액형·Rh·질병·신장질환 병기·알러지), 동의 이력, 반려동물과 급여 기록, 소유한 그룹, 구독 정보, 사진 인식 사용량.',
         // 근거: 같은 함수 5)·6) — 소유 그룹은 멤버·챌린지째 삭제, 남의 그룹에 만든 챌린지는 created_by 만 null.
         '소유한 그룹은 그룹의 멤버 목록과 챌린지를 포함해 그룹 자체가 삭제되며, 다른 회원이 만든 그룹에 참여한 기록은 참여 기록만 삭제되고 그룹은 유지됩니다. 다른 회원의 그룹에 회원이 만든 챌린지는 그 그룹에 남고, 회원과의 연결(작성자 정보)만 삭제됩니다.',
@@ -545,12 +560,13 @@ export const PRIVACY_POLICY: LegalDocument = {
       title: '15. 처리방침의 변경',
       paragraphs: [
         '이 방침을 변경하는 경우 변경 사항을 시행 7일 전부터 서비스 내에 공지합니다. 다만 정보주체의 권리에 중대한 변경이 있는 경우에는 30일 전에 공지합니다.',
-        `이 방침은 ${EFFECTIVE_DATE}부터 적용됩니다.`,
+        `이 방침은 ${PRIVACY_EFFECTIVE_DATE}부터 적용됩니다.`,
         '개정 이력: 1.1 — 민감정보 항목(검사 수치·진료 메모)·이용 목적·보유 기간 명시, 국외 이전의 법적 근거·이전받는 자 연락처 명시, 수집 항목·파기 범위 갱신.',
         '개정 이력: 1.2 — 결제 정보 수집·결제 처리 위탁·결제 기록 보존 항목 삭제(서비스 무료 제공), Apple 로그인 추가, 진료 메모에 진료 때 물어볼 것 추가, 사진을 AI로 보내기 전 동의와 사진 부가 정보 제거 명시, 화면 이름 갱신.',
         '개정 이력: 1.3 — 이메일 가입 추가(수집 항목, 인증 메일 발송 위탁, 보유 기간, 파기 범위, 안전성 확보 조치).',
         '개정 이력: 1.4 — 플러스(App Store 인앱 구독) 추가(수집 항목, 이용 목적, Apple로의 국외 이전, 보유 기간), 개인정보처리자 변경(미드나잇모찌).',
         '개정 이력: 1.5 — Android 앱의 플러스(Google Play 정기 결제) 추가(수집 항목, Google로의 국외 이전, 보유 기간).',
+        '개정 이력: 1.6 — 플러스 결제 기록(결제 일시·금액·이용 기간·환불 여부) 수집과 보존(회원 탈퇴 후에도 결제일로부터 5년, 삭제 처리 후 분리 보관하다가 파기) 추가, Apple·Google로 이전하는 항목과 목적에 거래·주문 내역 조회 추가.',
       ],
     },
   ],
