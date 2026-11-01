@@ -27,6 +27,14 @@ export const CHANGE_TYPE_LABELS: Record<ChangeType, string> = {
 // 최신순(위가 최신). 새 릴리즈는 이 배열 맨 앞에 추가한다.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-11-01',
+    title: '바뀐 개인정보 처리방침을 적용했어요',
+    items: [
+      { type: 'notice', text: '10월 23일에 알려 드린 개인정보 처리방침 1.6을 적용했어요.' },
+      { type: 'improved', text: '회원 탈퇴 확인 창과 고객 지원 페이지에서 플러스 결제 기록을 얼마나 보관하는지 바로 볼 수 있어요.' },
+    ],
+  },
+  {
     date: '2026-10-23',
     title: '앱 없이도 탈퇴를 요청할 수 있어요',
     items: [

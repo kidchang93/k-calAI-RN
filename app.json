@@ -2,7 +2,7 @@
   "expo": {
     "name": "케어테이블",
     "slug": "k-calAI-RN",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "kcalairn",
