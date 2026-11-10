@@ -156,8 +156,9 @@ npx tsc --noEmit       # 타입 체크  (확인 완료: 통과)
        → 200 → finishTransaction(실패는 삼킨다) → /report (dismissTo)
        → 503·네트워크 → "결제는 Apple에(Google Play에) 남아 있어요 — '구매 복원'"
 /plus·/plan [구매 복원] → restorePurchases → getAvailablePurchases → 플러스 구매마다 verify → finish  (409·400 문구 그대로)
-/plan [구독 해지·변경] → 구독을 판 스토어(provider)의 구독 화면 — 앱 안에서 해지하지 않는다
-       appstore → https://apps.apple.com/account/subscriptions
+/plan [구독 해지·변경] → 구독을 판 스토어(provider)의 구독 화면 — 앱이 직접 해지하지 않는다
+       appstore → iOS 앱: StoreKit 구독 관리 시트(showManageSubscriptionsIOS — 2026-11-10, TestFlight 구독은 이것으로만
+                  해지된다) · 시트 실패·웹: https://apps.apple.com/account/subscriptions
        play     → https://play.google.com/store/account/subscriptions?sku=<상품ID>&package=com.kcalai.kcalairn
        다른 휴대폰 스토어에서 산 구독(Android 에서 iPhone 구독, 그 반대) → 링크 없이 '어디서 바꾸는지' 안내 줄만
        (2026-10-15 — Android 에서 App Store 링크를 열면 해지할 수 없다. 웹은 두 링크가 다 열려 그대로 둔다)

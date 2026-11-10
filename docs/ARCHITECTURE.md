@@ -463,13 +463,14 @@ app/plus.tsx   (마운트 1회) fetchMySubscription() + [isIapSupported()] fetch
                  └─ restorePurchases()(iOS AppStore.sync, Android 는 조회) → getAvailablePurchases({ onlyIncludeActiveItemsIOS })
                  └─ 플러스 상품 구매마다 verify → finish     (없으면 false → RESTORE_NONE_MESSAGE)
 app/plan.tsx   [구독 해지·변경] → openSubscriptionManagement(provider, store_product_id)
-                 appstore → https://apps.apple.com/account/subscriptions
+                 appstore → iOS 앱: showManageSubscriptionsIOS()(StoreKit 구독 관리 시트) · 실패·웹: https://apps.apple.com/account/subscriptions
                  play     → https://play.google.com/store/account/subscriptions?sku=<상품ID>&package=com.kcalai.kcalairn
 ```
 
 - **웹은 이 흐름을 타지 않는다** — `isIapSupported()`가 false 라 상품 조회도 하지 않는다. 앱인데 네이티브 모듈이 없는 곳(Expo Go·expo-iap 이전 개발 빌드)도 false 다(`requireOptionalNativeModule('ExpoIap')` — Android 모듈 이름도 `ExpoIap`). expo-iap 의 import 자체는 지연 해석이라 웹 정적 렌더(`expo export --platform web`)에서도 터지지 않는다(2026-10-06 확인, 2026-10-14 compose·report 가 iap 를 import 한 뒤 다시 확인).
 - 가격은 스토어의 `displayPrice`, 할인율·'월 ~꼴'은 스토어 `price`로만 계산한다(하드코딩 없음). Android 는 expo-iap 가 기본(반복) 가격 단계로 채운다.
 - 앱 전역 구매 리스너는 없다 — 자동 갱신은 서버가 스토어 알림(Apple 32-4·Google RTDN 33-4)으로 맞추고, 끝나지 않은 거래는 복원이 다시 집는다.
+- **iOS 의 구독 관리는 앱 안 시트**다(2026-11-10). TestFlight 에서 산 구독은 기기의 실제 Apple ID 로 샌드박스에서 결제돼, App Store 구독 페이지(링크)·설정 › 구독·설정 › 샌드박스 계정 어디에도 나오지 않는다 — Apple DTS 가 답한 해지 방법은 앱이 `showManageSubscriptions` 를 띄우는 것뿐이다. 운영 구독도 같은 시트로 관리된다. 시트가 던지면 링크로 넘어가고, 시트가 돌려주는 '바뀐 구독' 목록은 쓰지 않는다(상태는 서버가 Apple 알림으로 맞춘다). Android 는 Play 정기 결제 화면에 라이선스 테스터 구독도 나와 링크 그대로다.
 - 이용권 화면은 `provider`(`appstore`·`play`)로 표시와 해지 경로를 가른다. 가격은 이 기기 스토어에서 산 구독일 때만 붙인다(`isThisStore`).
 
 ### 식단 분석 · 끼니 구성 (2026-07-16, 다중 항목)

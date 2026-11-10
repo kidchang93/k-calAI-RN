@@ -8,6 +8,7 @@ import {
   isUserCancelledError,
   requestPurchase,
   restorePurchases,
+  showManageSubscriptionsIOS,
   type ProductOrSubscription,
   type ProductSubscription,
   type ProductSubscriptionAndroid,
@@ -31,7 +32,7 @@ import {
 //        받는다. 끝내지 않은 거래는 '구매 복원'이 다시 집어 서버에 보낸다. Android 의 finish 는 acknowledge 인데
 //        서버가 verify 안에서 이미 acknowledge 한다(3일 안에 안 하면 Google 이 환불) — 앱의 finish 실패는 삼킨다.
 // 복원:  스토어 동기화 → 지금 유효한 플러스 구매를 전부 verify 에 다시 보낸다(409 문구는 그대로).
-// 해지:  앱 안에서 하지 않는다 — 구독한 스토어의 구독 관리 화면을 연다.
+// 해지:  앱이 직접 하지 않는다 — 구독한 스토어의 구독 관리 화면을 연다(iOS 앱은 StoreKit 구독 관리 시트).
 //
 // expo-iap 는 네이티브 모듈이라 Expo Go·웹·이 모듈이 없는 옛 빌드(expo-iap 이전 개발 빌드
 // 등)에는 없다. import 는 지연 해석이라 터지지 않지만 **호출은 터진다** — 화면은 isIapSupported() 가
@@ -250,6 +251,17 @@ export async function openSubscriptionManagement(
       `https://play.google.com/store/account/subscriptions?${sku}package=${ANDROID_PACKAGE}`
     );
     return;
+  }
+
+  // TestFlight(샌드박스) 구독은 이 시트로만 해지된다 — 아래 링크의 구독 페이지와 설정 › 구독에는 나오지 않는다
+  // (2026-11-10 실측, Apple DTS 답변). 시트를 못 띄우면 링크로 간다.
+  if (Platform.OS === 'ios' && isIapSupported()) {
+    try {
+      await showManageSubscriptionsIOS();
+      return;
+    } catch {
+      // 아래 링크로 넘어간다.
+    }
   }
 
   await Linking.openURL('https://apps.apple.com/account/subscriptions');
