@@ -11,7 +11,9 @@
 >
 > 2026-10-23 ASC 제품 페이지에 새로 생긴 **헤더 및 검색 결과**(크리에이티브 자산 — 선택 사항)용 이미지를 만들어 자산 보관함에 올렸다 — `marketing/appstore-creative/make.py`(header 21:9 3840×1646 · search 3:2 3840×2560, 구성은 Play 그래픽 이미지와 같다) — **같은 날 09:22 두 장 단독 심사 제출(최대 48시간)**. 출시된 버전에는 **승인된 자산만** 고를 수 있어 순서가 '자산 보관함 › 심사에 추가(단독 제출, 최신 버전 기준 심사) → 승인 → 버전 페이지 헤더·검색 결과에서 선택·저장'이다. 미리보기는 고른 뒤에만 된다. 같은 화면의 **iPhone Duo** 스크린샷(1398×2034 / 2007×2853, 다른 크기에서 자동 축소 안 됨)은 출시된 버전엔 올릴 수 없어 다음 버전에서 한다.
 >
-> 2026-10-22 웹 본 주소를 `https://caretable.kr` 로 옮겼다 — 아래 `api.kcalai.link/...` URL 은 경로 그대로 caretable.kr 로 302 되어 그대로 열린다. 다음 버전을 낼 때 지원·처리방침 URL 을 caretable.kr 로 바꾼다(지원 URL 은 버전 단위).
+> 2026-10-22 웹 본 주소를 `https://caretable.kr` 로 옮겼다 — 아래 `api.kcalai.link/...` URL 은 경로 그대로 caretable.kr 로 302 되어 그대로 열린다. 다음 버전을 낼 때 지원·처리방침 URL 을 caretable.kr 로 바꾼다(지원 URL 은 버전 단위). → 2026-11-10 1.0.1 에 반영.
+>
+> 2026-11-10 **1.0.1 제출 준비(ASC API) — 제출은 아직 안 했다.** 버전 1.0.1 생성(`PREPARE_FOR_SUBMISSION`, 승인 후 자동 출시) → 빌드 12(앱 `89567e2` — 처리방침 1.6·스토어 언어 한국어) 연결 → 지원 URL·설명 끝 링크 2개·처리방침 URL(편집 가능한 새 appInfo)을 caretable.kr 로 → '이 버전의 새로운 기능'(업데이트 이력 11-01·10-23 문장) → 심사 메모를 §2 로 교체. 스크린샷 6장과 심사 정보(연락처·데모 계정)는 1.0 에서 그대로 넘어왔다. **제출 전에 남은 것**: ① **데모 계정 데이터가 낡았다** — 끼니가 10-03~10-06 뿐이라 최근 14일이 0건(무료 리포트·오늘 화면이 빈다), 다음 진료 예정일 10-18 도 지났다 → 날짜를 당긴다(운영 DB 수정이라 사용자 승인) ② 빌드 12 샌드박스 구매 확인 — 서버 원장 조회(35장)는 11-10 운영에 남은 샌드박스 거래 이력 12건으로 리허설해 통과했고, 구매 코드는 심사를 통과한 빌드 11 과 같다(`git diff f00d81d 89567e2` 에 구매 파일 없음) ③ 헤더·검색 결과 이미지(10-23 단독 심사) 승인 여부 확인 후 선택. iPhone Duo 스크린샷은 넣지 않았다(선택 항목).
 
 ## 0. 거부 사유별 상태
 
@@ -31,39 +33,49 @@
 
 | ASC 칸 | 값 |
 |---|---|
-| 개인정보 처리방침 URL | `https://api.kcalai.link/legal/privacy` |
-| 지원 URL | `https://api.kcalai.link/support` (로그인 없이 열린다 — `app/support.tsx`) |
+| 개인정보 처리방침 URL | `https://caretable.kr/legal/privacy` (1.0.1 부터 — 출시된 1.0 은 `api.kcalai.link/legal/privacy`, 302 로 같은 페이지) |
+| 지원 URL | `https://caretable.kr/support` (로그인 없이 열린다 — `app/support.tsx`. 1.0.1 부터, 1.0 은 `api.kcalai.link/support`) |
 | 마케팅 URL | 비워 둔다 |
 
 ## 2. 심사 메모 (App Review Information)
 
 - **로그인 필요(Sign-in required)를 켜고** 데모 계정(이메일 가입 계정)의 아이디·비밀번호를 넣는다. ⚠️ **TestFlight › 테스트 정보 › 베타 앱 심사 정보**와 **버전 › 앱 심사 정보**는 서로 다른 칸이다 — 2026-10-06 반려는 베타 쪽 메모가 비어 있어서였다. 두 곳에 같은 값을 넣는다.
-- 데모 계정에는 심사관이 기능을 다 볼 수 있게 내용을 채워 둔다: 민감정보 동의 + 질환(만성신장병), 최근 며칠 끼니(사진 분석 1건 포함), 검사 수치 2개 이상, 다음 진료일·물어볼 것, 진료 리포트가 비지 않을 만큼. 심사관이 탈퇴를 시험하면 계정이 사라지므로 **제출 전에 로그인되는지 다시 확인**한다.
+- 데모 계정에는 심사관이 기능을 다 볼 수 있게 내용을 채워 둔다: 민감정보 동의 + 질환(만성신장병), 최근 며칠 끼니(사진 분석 1건 포함), 검사 수치 2개 이상, 다음 진료일·물어볼 것, 진료 리포트가 비지 않을 만큼. 심사관이 탈퇴를 시험하면 계정이 사라지므로 **제출 전에 로그인되는지 다시 확인**한다. **데이터 날짜도 본다** — 무료 리포트는 최근 14일만 담아, 끼니가 그보다 오래되면 리포트와 오늘 화면이 빈다(2026-11-10 확인: 끼니 10-03~10-06·다음 진료 10-18 → 1.0.1 제출 전에 갱신).
 - Notes 칸에 아래를 붙인다.
 
 ```
+Version 1.0.1 — what changed since 1.0
+- Privacy Policy 1.6 (in the app: 내 정보 > 동의 관리 > 개인정보 처리방침, and at https://caretable.kr/legal/privacy): we now keep a record of each Plus payment (date, amount, period, refund status). After account deletion this record is detached from the account, kept separately for 5 years as required by Korean e-commerce law, then destroyed.
+- The account deletion confirmation and the support page (내 정보 > 고객 지원) now state this retention period. The support page also explains how to request account deletion by email without the app.
+- The app's language metadata is now Korean (it was shown as English). No functional change.
+No changes to features, sign-in or the purchase flow.
+
+Sources
+Every screen that shows health or medical information cites its sources as links — tap "출처" (Sources) to open the original document. My Info (profile circle at the top) > 근거와 출처 (Sources) lists every guideline and data source the app uses.
+
 Sign-in
 Please use the demo account in the Sign-in fields: enter that email and password in the login form at the top of the first screen and tap "로그인" (Log in). The account already has a condition (chronic kidney disease), consent to health information processing, several days of meals, lab results and a next visit, so every feature can be reviewed.
 The app also offers Kakao Login, Sign in with Apple and email sign-up (a 6-digit code is emailed to confirm the address). New accounts confirm they are 14 or older, agree to the Terms and Privacy Policy, then complete a short onboarding.
 
 What the app does
 CareTable is a food diary for people who manage a chronic disease through diet (kidney disease, diabetes, hypertension, dyslipidemia). Users log meals by photo or by typing, see sodium/potassium/phosphorus totals calculated from the Korean MFDS food composition database, and prepare a summary report to show their doctor at their next visit.
-It does not diagnose, treat, or give medical advice, and it does not measure anything — lab values are typed in by the user from their own lab results. It does not connect to, share data with, or book appointments at any hospital. Screens that show health numbers remind users to consult their care team. Nutrition guidance cites published guidelines (Korean Society of Nephrology, KDOQI, KDIGO).
+It does not diagnose, treat, or give medical advice, and it does not measure anything — lab values are typed in by the user from their own lab results. It does not connect to, share data with, or book appointments at any hospital. Screens that show health numbers remind users to consult their care team. Nutrition guidance cites published guidelines with links to the original documents (see Sources above).
 
 Third-party AI
 Food photo recognition uses Google Gemini. Before the first photo is sent, the app asks for explicit permission and names the provider and the data sent (the food photo; our server strips EXIF metadata such as location before forwarding it). Users who decline can still log meals by typing. Permission can be withdrawn in My Info > Consents. No account identifiers or health data are sent to Google.
 
 Account deletion
-My Info > Delete account. All personal data is deleted immediately; Sign in with Apple tokens are revoked.
+My Info > Delete account. Personal data is deleted immediately and Sign in with Apple tokens are revoked. Plus payment records are handled as described above (Privacy Policy 1.6).
 
 Payments
-CareTable Plus is an auto-renewable subscription (monthly / yearly), sold only via In-App Purchase on iOS. Purchase screen: 내 정보 (My Info) > 이용권 > 플러스 알아보기 — the demo account is on the free plan so the purchase screen can be reviewed. Restore Purchases is on the same screen. Purchases are verified on our server with the App Store Server API. The web version does not sell Plus and does not link to any other payment method.
+CareTable Plus is an auto-renewable subscription (monthly / yearly). In this iOS app it is sold only via In-App Purchase. Purchase screen: 내 정보 (My Info) > 이용권 > 플러스 알아보기 — the demo account is on the free plan so the purchase screen can be reviewed. Restore Purchases is on the same screen. Purchases are verified on our server with the App Store Server API. The web version does not sell Plus and does not link to any other payment method.
 
 Operator
 Registered business in Korea: 미드나잇모찌 (Midnight Mochi), owner 이창규 (Business Registration No. 880-54-00995).
 ```
 
 > 2026-10-13: 'Payments'를 플러스 기준으로, 'Operator'를 미드나잇모찌로 바꿨다(약관·처리방침 1.4, 빌드 10). ASC 버전 심사 메모와 TestFlight 베타 심사 메모 **두 곳 모두** 같은 값으로 맞춘다.
+> 2026-11-10: 1.0.1 기준으로 고쳤다(ASC 1.0.1 심사 메모에 넣은 그대로, 3,505자 — 한도 4,000) — 맨 앞에 'what changed'와 'Sources'(10-20 1.4.1 대응의 요약)를 두고, 계정 삭제(결제 기록 5년 분리 보관 — 처리방침 1.6)와 Payments 문장을 사실에 맞췄다. 다음 버전을 낼 땐 맨 앞 'Version … what changed' 절만 갈아 쓴다. 1.0 심사 때의 'Resubmission — Guideline 1.4.1' 절은 뺐다.
 
 ## 3. 앱 개인정보 (App Privacy)
 
@@ -83,11 +95,12 @@ Registered business in Korea: 미드나잇모찌 (Midnight Mochi), owner 이창�
 | 전화·위치·연락처·검색·진단·기기 ID·오디오·지불 | 아니요 | — | — | 받지 않는다. 사진의 위치(EXIF)는 서버가 지우고 저장하지 않는다. 분석·크래시·푸시 SDK 없음(`package.json` — 넣으면 이 표를 고친다) |
 
 **2026-10-13 ASC 게시 완료(위 9개, 추적 전부 아니요).** 게시 전 ASC 에는 35개 중 32개가 체크돼 있었다 — 손으로 다시 넣지 말고 이 표를 기준으로 맞춘다. 성별·출생연도는 칼로리 목표 계산용이라 '건강'에 포함한 것으로 본다.
-⚠️ 앱 매니페스트(`app.json` `privacyManifests`)에는 아직 **피트니스·민감 정보·기타 사용자 콘텐츠**가 없다 — 다음 네이티브 빌드에서 `NSPrivacyCollectedDataTypeFitness`·`…SensitiveInfo`·`…OtherUserContent` 를 더한다.
+✅ 앱 매니페스트(`app.json` `privacyManifests`)에도 위 9종이 모두 있다 — `NSPrivacyCollectedDataTypeFitness`·`…SensitiveInfo`·`…OtherUserContent` 는 2026-10-13 빌드 10(`85f1f8f`)부터 들어갔다(2026-11-10 확인 — 그 전까지 이 줄은 '아직 없다'로 남아 있었다).
 
 ## 4. 연령 등급
 
 - '의료 또는 치료 정보'만 **드물게/경미**, 나머지는 모두 없음. 제한 없는 웹 접근: 아니요.
+- ⚠️ **ASC 실제 값은 17+ 다**(2026-11-10 API `appStoreAgeRating: SEVENTEEN_PLUS` — 10-05 사용자가 '의료 정보'를 잦음/강함으로 넣었다). 윗줄과 다르다. 1.0.1 에서는 바꾸지 않았다(대상이 성인이고 높은 쪽이 보수적이다) — 낮출지는 사용자 결정.
 - 앱 안에서 만 14세 미만은 가입을 막는다(`app/onboarding/body.tsx`, 개인정보 보호법 제22조의2).
 
 ## 5. 그 밖의 ASC 항목
